@@ -1,0 +1,2150 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Timeline de estados y cruce de turnos</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Roboto+Condensed:wght@400;700&family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+  /* ============================================
+     Google Cool & Professional Tech Palette
+     ============================================ */
+  :root {
+    --primary-deep: #174ea6;   /* Azul google profundo para cabeceras principales */
+    --primary-main: #1a73e8;   /* Azul google interactivo moderno */
+    --primary-light: #e8f0fe;  /* Fondo suave azulado para destacar */
+    --cool-slate:   #3c4043;   /* Gris texto oscuro elegante */
+    --cool-muted:   #5f6368;   /* Gris texto secundario */
+    --cool-border:  #dadce0;   /* Borde gris limpio */
+    --cool-bg:      #f8f9fa;   /* Fondo general ultra fresco */
+    --white:        #ffffff;
+
+    /* Semantic */
+    --bg:           var(--cool-bg);
+    --surface:      var(--white);
+    --ink:          var(--cool-slate);
+    --ink-muted:    var(--cool-muted);
+    --border:       var(--cool-border);
+    --accent:       var(--primary-main);
+    --accent-soft:  #8ab4f8;
+    --accent-bg:    var(--primary-light);
+
+    /* Timeline state colours */
+    --state-available: #137333;   /* Verde operativo limpio */
+    --state-busy:      #c5221f;   /* Rojo coral moderno */
+    --state-offline:   #bdc1c6;   /* Gris inactivo */
+    --state-break:     #1967d2;   /* Azul pausa */
+    --state-other:     #5f6368;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    font-family: 'Montserrat', -apple-system, "Segoe UI", Roboto, sans-serif;
+    color: var(--ink);
+    background: var(--bg);
+    margin: 0;
+  }
+  body { padding: 20px; }
+
+  h1, h2, h3, .headline {
+    font-family: 'Roboto Condensed', 'Montserrat', sans-serif;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+    font-weight: 700;
+    color: var(--primary-deep);
+    margin: 0;
+  }
+
+  /* ---- App header ---- */
+  .app-header {
+    display: flex; align-items: center; gap: 20px;
+    padding: 18px 24px;
+    background: var(--primary-deep);
+    color: var(--white);
+    border-radius: 10px;
+    margin-bottom: 18px;
+    box-shadow: 0 2px 10px rgba(23,78,166,.15);
+    flex-wrap: wrap; 
+  }
+  .app-header .app-title {
+    color: var(--white);
+    font-family: 'Roboto Condensed', sans-serif;
+    font-weight: 700;
+    font-size: 18px;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    margin: 0;
+  }
+  .app-header .sub {
+    font-size: 11px; color: #8ab4f8; margin-left: auto;
+    font-weight: 500; text-transform: uppercase; letter-spacing: 0.08em;
+  }
+
+  /* ---- Panels ---- */
+  .panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px;
+    margin-bottom: 14px;
+  }
+  .panel-title {
+    font-family: 'Roboto Condensed', sans-serif;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    font-weight: 700;
+    font-size: 13px;
+    color: var(--primary-deep);
+    margin-bottom: 0; 
+  }
+  .panel-heading {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 12px;
+    flex-wrap: wrap; 
+    gap: 10px;
+    border-bottom: 1px solid transparent;
+  }
+  .panel-heading.with-border {
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+  }
+  .panel-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  /* ---- File input ---- */
+  .file-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  input[type="file"] {
+    font-family: inherit; font-size: 13px;
+    padding: 6px; border: 1px dashed var(--border); border-radius: 6px;
+    background: var(--accent-bg); color: var(--ink);
+    width: 100%; max-width: 300px;
+  }
+  input[type="file"]::file-selector-button {
+    background: var(--primary-main); color: var(--white); border: 0;
+    padding: 6px 12px; border-radius: 4px; margin-right: 10px;
+    font-family: inherit; font-weight: 600; cursor: pointer;
+  }
+  input[type="file"]::file-selector-button:hover { background: var(--primary-deep); }
+  
+  .status-text { font-size: 12px; color: var(--ink-muted); }
+  .status-success { color: var(--state-available); font-weight: 500; }
+  .status-error { color: var(--state-busy); font-weight: 500; }
+  .debug-text { font-size: 11px; color: var(--cool-muted); margin-top: 6px; font-family: 'Montserrat', monospace; white-space: pre-wrap; word-break: break-all; }
+
+  /* ---- Controls ---- */
+  .controls {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 14px;
+    align-items: start;
+  }
+  .ctrl label {
+    display: block; font-size: 11px; font-weight: 600;
+    color: var(--primary-deep); margin-bottom: 4px;
+    text-transform: uppercase; letter-spacing: 0.04em;
+  }
+  .ctrl input, .ctrl select {
+    width: 100%; padding: 7px 9px;
+    border: 1px solid var(--border); border-radius: 5px;
+    font-family: inherit; font-size: 13px; color: var(--ink);
+    background: var(--white);
+  }
+  .ctrl input:focus, .ctrl select:focus {
+    outline: 2px solid var(--accent-soft); outline-offset: 0;
+    border-color: var(--primary-main);
+  }
+  select[multiple] { height: 150px; }
+  .small { font-size: 11px; color: var(--ink-muted); margin-top: 4px; }
+  .small a { color: var(--primary-main); text-decoration: none; cursor: pointer; font-weight: 600; }
+  .small a:hover { text-decoration: underline; }
+
+  /* ---- Buttons & Switches ---- */
+  button {
+    background: var(--primary-main); color: var(--white); border: 0;
+    padding: 8px 16px; border-radius: 5px; cursor: pointer;
+    font-family: inherit; font-size: 13px; font-weight: 600;
+    letter-spacing: 0.02em;
+    transition: background 0.15s;
+    width: 100%; 
+    margin-bottom: 8px; 
+  }
+  @media (min-width: 600px) {
+      button { width: auto; margin-bottom: 0; }
+  }
+  button:hover { background: var(--primary-deep); }
+  button.secondary { background: #e8eaed; color: var(--cool-slate); }
+  button.secondary:hover { background: #dadce0; }
+  button.accent-alt { background: var(--state-busy); }
+  button.accent-alt:hover { background: #a50e0e; }
+  button:disabled { opacity: 0.6; cursor: not-allowed; }
+
+  button.toggle-panel-btn {
+    background: transparent;
+    color: var(--ink-muted);
+    padding: 4px 8px;
+    font-size: 14px;
+    border: 1px solid transparent;
+  }
+  button.toggle-panel-btn:hover {
+    background: var(--border);
+    color: var(--primary-deep);
+  }
+
+  .view-switch {
+    display: inline-flex;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 3px;
+  }
+  .view-switch label {
+    margin: 0;
+    cursor: pointer;
+    position: relative;
+  }
+  .view-switch input[type="radio"] {
+    position: absolute;
+    opacity: 0;
+  }
+  .view-switch span {
+    display: inline-block;
+    padding: 5px 12px;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--ink-muted);
+    border-radius: 4px;
+    transition: all 0.2s ease;
+    user-select: none;
+  }
+  .view-switch input[type="radio"]:checked + span {
+    background: var(--white);
+    color: var(--primary-deep);
+    box-shadow: 0 1px 3px rgba(23,78,166,0.12);
+  }
+
+  /* ---- Legend ---- */
+  .legend {
+    display: flex; gap: 18px; flex-wrap: wrap;
+    font-size: 12px; margin-top: 12px;
+    padding-top: 10px; border-top: 1px solid var(--border);
+    color: var(--ink-muted);
+  }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .swatch { width: 14px; height: 14px; border-radius: 3px; display: inline-block; }
+
+  /* ---- Queues list ---- */
+  .queues-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); 
+    gap: 12px;
+    margin-top: 4px;
+  }
+  .queue-card {
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--primary-main);
+    border-radius: 6px;
+    padding: 10px 12px;
+    background: var(--white);
+  }
+  .queue-card .q-head {
+    display: flex; align-items: baseline; justify-content: space-between;
+    gap: 8px; margin-bottom: 6px;
+  }
+  .queue-card .q-name {
+    font-family: 'Roboto Condensed', sans-serif;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: var(--primary-deep);
+    font-size: 13px;
+  }
+  .queue-card .q-id { font-size: 10px; color: var(--ink-muted); font-weight: 500; }
+  .queue-card .q-count {
+    display: inline-block; padding: 1px 7px; border-radius: 10px;
+    background: var(--accent-bg); color: var(--primary-main);
+    font-size: 11px; font-weight: 600;
+  }
+  .queue-card .q-agents {
+    font-size: 12px; color: var(--ink); line-height: 1.5;
+    max-height: 140px; overflow-y: auto;
+  }
+  .queue-card .q-agents .ag { display: block; padding: 1px 0; }
+  .queue-card .q-agents .ag:hover { color: var(--primary-main); cursor: default; }
+
+  /* ---- Exclude panels ---- */
+  .exclude-blocks-wrap {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 14px;
+    margin-top: 10px;
+  }
+  .exclude-group {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 12px 14px;
+  }
+  .exclude-group h4 {
+    font-family: 'Roboto Condensed', sans-serif;
+    font-size: 13px;
+    color: var(--primary-deep);
+    margin: 0 0 10px 0;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--border);
+    text-transform: uppercase;
+  }
+  .exclude-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 6px 12px;
+  }
+  .exclude-lbl {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    color: var(--ink);
+    cursor: pointer;
+    user-select: none;
+    font-weight: 500;
+  }
+  .exclude-lbl:hover { color: var(--primary-main); }
+  .exclude-lbl input[type="checkbox"] {
+    margin: 0;
+    cursor: pointer;
+    accent-color: var(--primary-main);
+  }
+
+  /* ---- Charts & Tables ---- */
+  .chart-wrap { width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; } 
+  .axis text { font-size: 11px; fill: var(--ink-muted); font-family: 'Montserrat', sans-serif; }
+  .axis path, .axis line { stroke: #dadce0; }
+  .grid line { stroke: #f1f3f4; }
+  .agent-label { font-size: 11px; fill: var(--ink); font-family: 'Montserrat', sans-serif; }
+
+  .table-max-hour { 
+    width: 100%; border-collapse: collapse; text-align: center; 
+    font-size: 11px; font-family: 'Montserrat', sans-serif; 
+    min-width: 800px; 
+  }
+  .table-max-hour th, .table-max-hour td { 
+    border: 1px solid var(--border); padding: 6px 4px; 
+  }
+  .table-max-hour th { 
+    background: var(--primary-deep); color: var(--white); font-weight: 600; 
+  }
+  .table-max-hour td:first-child { 
+    text-align: left; font-weight: 600; color: var(--primary-deep); 
+    background: var(--bg); position: sticky; left: 0; z-index: 1;
+  }
+  .table-max-hour th:first-child { 
+    position: sticky; left: 0; z-index: 2; 
+  }
+  .table-max-hour .zero { 
+    color: var(--ink-muted); opacity: 0.4; 
+  }
+  
+  .strict-mode-lbl { font-size:10px; display:flex; align-items:center; gap:4px; cursor:pointer; font-weight:600; color:var(--primary-deep); justify-content:center;}
+  .strict-mode-lbl input { margin:0; accent-color:var(--state-busy); }
+
+  /* ---- Tooltip ---- */
+  .tooltip {
+    position: absolute; pointer-events: none;
+    background: var(--primary-deep); color: var(--white);
+    padding: 8px 11px; border-radius: 6px;
+    font-size: 12px; line-height: 1.45;
+    opacity: 0; transition: opacity .1s;
+    z-index: 1000;
+    box-shadow: 0 4px 14px rgba(23,78,166,.2);
+    font-family: 'Montserrat', sans-serif;
+    max-width: 250px; 
+    word-wrap: break-word;
+  }
+  .tooltip b { color: #8ab4f8; }
+</style>
+</head>
+<body>
+
+<div class="app-header">
+  <h1 class="app-title">Timeline de estados y cruce de turnos</h1>
+  <span class="sub">Professional Edition</span>
+</div>
+
+<div class="panel">
+  <!-- Carga 1: Estados de la Centralita -->
+  <div class="file-row" style="margin-bottom: 12px; padding-bottom: 12px; border-bottom: 1px dashed var(--border);">
+    <input type="file" id="fileInput" accept=".csv,text/csv">
+    <span id="status" class="status-text">Carga el CSV de estados primero.</span>
+  </div>
+  <div id="debug" class="debug-text"></div>
+  
+  <!-- Carga 2: Turnos -->
+  <div class="file-row">
+    <input type="file" id="shiftsInput" accept=".csv,text/csv">
+    <span id="shiftsStatus" class="status-text">Pendiente de cargar CSV de turnos...</span>
+  </div>
+  <div id="shiftsDebug" class="debug-text"></div>
+</div>
+
+<div class="panel" id="filtersPanel" style="display:none;">
+  <div class="panel-heading">
+    <div class="panel-title">Filtros y Leyenda Globales</div>
+    <div class="panel-actions">
+      <button class="toggle-panel-btn" title="Ocultar/Mostrar panel">▲</button>
+    </div>
+  </div>
+  <div class="panel-content">
+    <div class="controls">
+      <div class="ctrl">
+        <label>Hora desde</label>
+        <input type="time" id="timeFrom" step="1">
+      </div>
+      <div class="ctrl">
+        <label>Hora hasta</label>
+        <input type="time" id="timeTo" step="1">
+      </div>
+      <div class="ctrl">
+        <label>Agentes / Extensiones (Ctrl/Cmd)</label>
+        <select id="agentSelect" multiple></select>
+        <div class="small"><a id="selAllAgents">Todos</a> · <a id="selNoneAgents">Ninguno</a></div>
+      </div>
+      <div class="ctrl">
+        <label>Estados (Ctrl/Cmd)</label>
+        <select id="stateSelect" multiple></select>
+        <div class="small"><a id="selAllStates">Todos</a> · <a id="selNoneStates">Ninguno</a></div>
+      </div>
+      <div class="ctrl">
+        <label>Servicios / Colas (Ctrl/Cmd)</label>
+        <select id="queueSelect" multiple></select>
+        <div class="small"><a id="selAllQueues">Todas</a> · <a id="selNoneQueues">Ninguna</a></div>
+      </div>
+      <div class="ctrl" style="align-self:end;">
+        <button id="applyBtn">Aplicar filtros</button>
+        <button id="resetBtn" class="secondary" style="margin-left:6px;">Reset</button>
+      </div>
+    </div>
+    <div class="legend">
+      <span><span class="swatch" style="background:var(--state-available)"></span> Disponible</span>
+      <span><span class="swatch" style="background:var(--state-busy)"></span> Sonando / Ocupado</span>
+      <span><span class="swatch" style="background:var(--state-break)"></span> Descanso</span>
+      <span><span class="swatch" style="background:var(--state-offline)"></span> Desconectado</span>
+      <span><span class="swatch" style="background:var(--state-other)"></span> Resto de estados</span>
+    </div>
+  </div>
+</div>
+
+<!-- TABLA MAESTRA DE RESULTADOS -->
+<div class="panel" id="userStatsPanel" style="display:none;">
+  <div class="panel-heading with-border">
+    <div>
+      <div class="panel-title" style="color:var(--primary-main);">Tiempos de Conexión por Usuario (Mattermost)</div>
+      <div class="small" style="color:var(--ink-muted);">Calculado cruzando estados PBX con turnos. Las sesiones extra se asignan por máximo solape (Flexible). Marca "Estricto" para cortar matemáticamente.</div>
+    </div>
+    <div class="panel-actions">
+      <button id="exportCsvBtn" class="secondary" style="margin-bottom:0;" title="Exportar tabla completa a CSV">Exportar CSV</button>
+      <button class="toggle-panel-btn" title="Ocultar/Mostrar panel">▲</button>
+    </div>
+  </div>
+  <div class="panel-content">
+    <div class="chart-wrap" id="userStatsTableWrap">
+       <div class="small">Sube el archivo CSV de Turnos para calcular esta tabla.</div>
+    </div>
+  </div>
+</div>
+
+<div class="panel" id="availPanel" style="display:none;">
+  <div class="panel-heading with-border">
+    <div class="panel-title">Agentes disponibles a lo largo del tiempo</div>
+    <div class="panel-actions">
+      <button id="exportPdfBtn" class="accent-alt" style="margin-bottom:0;">Exportar a PDF</button>
+      <button class="toggle-panel-btn" title="Ocultar/Mostrar panel">▲</button>
+    </div>
+  </div>
+  <div class="panel-content">
+    <div class="chart-wrap"><svg id="availChart"></svg></div>
+  </div>
+</div>
+
+<div class="panel" id="gapPanel" style="display:none;">
+  <div class="panel-heading with-border">
+    <div class="panel-title">Franjas sin ningún agente disponible</div>
+    <div class="panel-actions">
+      <button class="toggle-panel-btn" title="Ocultar/Mostrar panel">▲</button>
+    </div>
+  </div>
+  <div class="panel-content">
+    <div class="chart-wrap"><svg id="gapChart"></svg></div>
+  </div>
+</div>
+
+<div class="panel" id="timelinePanel" style="display:none;">
+  <div class="panel-heading with-border">
+    <div class="panel-title">Timeline por extensión</div>
+    <div class="panel-actions">
+      <div class="view-switch">
+        <label><input type="radio" name="tlView" value="all" checked><span>Todos</span></label>
+        <label><input type="radio" name="tlView" value="connected"><span>Solo Conectados</span></label>
+        <label><input type="radio" name="tlView" value="connected_break"><span>Conectados + Descanso</span></label>
+      </div>
+      <button class="toggle-panel-btn" title="Ocultar/Mostrar panel">▲</button>
+    </div>
+  </div>
+  <div class="panel-content">
+    <div class="chart-wrap"><svg id="timelineChart"></svg></div>
+  </div>
+</div>
+
+<div class="panel" id="maxPerHourPanel" style="display:none;">
+  <div class="panel-heading with-border">
+    <div>
+      <div class="panel-title">Máximo de extensiones por servicio (por hora)</div>
+      <div class="small" style="color:var(--ink-muted);">Conteo de máxima concurrencia de extensiones logueadas por franja horaria (excluye estado Desconectado)</div>
+    </div>
+    <div class="panel-actions">
+      <button class="toggle-panel-btn" title="Ocultar/Mostrar panel">▲</button>
+    </div>
+  </div>
+  <div class="panel-content">
+    <div class="chart-wrap" id="maxPerHourTableWrap"></div>
+  </div>
+</div>
+
+<div class="panel" id="ophExcludePanel" style="display:none;">
+  <div class="panel-heading with-border">
+    <div>
+      <div class="panel-title">Excluir Extensiones / Usuarios</div>
+      <div class="small" style="color:var(--ink-muted);">Marca lo que no debe sumar. Las extensiones afectan a las gráficas, los Usuarios Mattermost limpian la tabla maestra en vivo.</div>
+    </div>
+    <div class="panel-actions">
+      <button class="toggle-panel-btn" title="Ocultar/Mostrar panel">▲</button>
+    </div>
+  </div>
+  <div class="panel-content">
+    <div class="small" style="margin-bottom: 8px;">
+      <a id="checkAllExclude" class="sel-link">Marcar todos</a> · 
+      <a id="uncheckAllExclude" class="sel-link">Desmarcar todos</a>
+    </div>
+    <div id="ophExcludeContainer" class="exclude-blocks-wrap"></div>
+  </div>
+</div>
+
+<div class="panel" id="queuesPanel" style="display:none;">
+  <div class="panel-heading with-border">
+    <div>
+      <div class="panel-title">Agentes por cola</div>
+      <div class="small" style="color:var(--ink-muted);">Vinculación deducida a partir de llamadas entregadas</div>
+    </div>
+    <div class="panel-actions">
+      <button class="toggle-panel-btn" title="Ocultar/Mostrar panel">▲</button>
+    </div>
+  </div>
+  <div class="panel-content">
+    <div id="queuesList" class="queues-list"></div>
+  </div>
+</div>
+
+<div class="tooltip" id="tooltip"></div>
+
+<script>
+// ============================================
+// Cool Google Palette mapping
+// ============================================
+const CSS = getComputedStyle(document.documentElement);
+const COL = {
+  available: CSS.getPropertyValue('--state-available').trim() || '#137333',
+  busy:      CSS.getPropertyValue('--state-busy').trim()      || '#c5221f',
+  break:     CSS.getPropertyValue('--state-break').trim()     || '#1967d2',
+  offline:   CSS.getPropertyValue('--state-offline').trim()   || '#bdc1c6',
+  other:     CSS.getPropertyValue('--state-other').trim()     || '#5f6368',
+  indigo:    CSS.getPropertyValue('--primary-deep').trim()    || '#174ea6',
+  violet:    CSS.getPropertyValue('--primary-main').trim()    || '#1a73e8',
+  lavender:  CSS.getPropertyValue('--accent-soft').trim()     || '#8ab4f8',
+  terracotta:CSS.getPropertyValue('--state-busy').trim()      || '#c5221f',
+  quartz:    CSS.getPropertyValue('--cool-bg').trim()         || '#f8f9fa',
+  ink:       CSS.getPropertyValue('--ink').trim()             || '#3c4043',
+};
+
+const RED_STATES   = new Set(['sonando','ringing','ocupado','busy']);
+const GREEN_STATES = new Set(['disponible','available']);
+const BLUE_STATES  = new Set(['en descanso','descanso','pausa','break','gestion administrativa', 'gestión administrativa']);
+const GREY_STATES  = new Set(['desconectado','disconnected','offline','logged off','logged out']);
+
+function categoryFor(state) {
+  const s = (state || '').toString().trim().toLowerCase();
+  if (GREEN_STATES.has(s)) return 'available';
+  if (RED_STATES.has(s))   return 'busy';
+  if (BLUE_STATES.has(s))  return 'break';
+  if (GREY_STATES.has(s))  return 'offline';
+  return 'other';
+}
+function colorForState(state) { return COL[categoryFor(state)]; }
+
+const LEFT_MARGIN = 220;
+const RIGHT_MARGIN = 20;
+
+let rawSegments = [];
+let allAgents = [];
+let allStates = [];
+let allQueues = [];
+let queueNames = new Map();
+let agentQueues = new Map();
+let queueAgents = new Map();
+let dayMin = null, dayMax = null;
+let shiftRules = []; 
+let strictModeConfig = new Set(); 
+
+document.querySelectorAll('.toggle-panel-btn').forEach(btn => {
+  btn.addEventListener('click', function() {
+    const panel = this.closest('.panel');
+    const content = panel.querySelector('.panel-content');
+    if (content.style.display === 'none') {
+      content.style.display = '';
+      this.textContent = '▲';
+    } else {
+      content.style.display = 'none';
+      this.textContent = '▼';
+    }
+  });
+});
+
+document.querySelectorAll('input[name="tlView"]').forEach(radio => {
+  radio.addEventListener('change', () => {
+    if (rawSegments.length) {
+      const { segments, range, agents } = filterSegments();
+      renderTimeline(segments, range, agents);
+    }
+  });
+});
+
+function normExt(str) {
+  if(!str) return '';
+  return String(str).toUpperCase().replace(/\[.*?\]/g, '').replace(/[^A-Z0-9]/g, ''); 
+}
+
+function parseCSV(text) {
+  if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1);
+  const firstNL = text.indexOf('\n');
+  const firstLine = firstNL >= 0 ? text.slice(0, firstNL) : text;
+  let semis = 0, commas = 0, tabs = 0, inQ = false;
+  for (const ch of firstLine) {
+    if (ch === '"') inQ = !inQ;
+    else if (!inQ) {
+      if (ch === ';') semis++;
+      else if (ch === ',') commas++;
+      else if (ch === '\t') tabs++;
+    }
+  }
+  let sep = ',';
+  if (semis >= commas && semis >= tabs) sep = ';';
+  else if (tabs > commas) sep = '\t';
+
+  const rows = [];
+  let cur = [], field = '', i = 0, q = false;
+  while (i < text.length) {
+    const c = text[i];
+    if (q) {
+      if (c === '"') {
+        if (text[i+1] === '"') { field += '"'; i += 2; continue; }
+        q = false; i++; continue;
+      }
+      field += c; i++; continue;
+    } else {
+      if (c === '"') { q = true; i++; continue; }
+      if (c === sep) { cur.push(field); field = ''; i++; continue; }
+      if (c === '\r') { i++; continue; }
+      if (c === '\n') { cur.push(field); rows.push(cur); cur = []; field = ''; i++; continue; }
+      field += c; i++; continue;
+    }
+  }
+  if (field.length || cur.length) { cur.push(field); rows.push(cur); }
+
+  if (!rows.length) return { headers: [], data: [], sep };
+  const headers = rows[0].map(h => h.trim().replace(/^["']|["']$/g, ''));
+  const data = [];
+  for (let r = 1; r < rows.length; r++) {
+    if (rows[r].length === 1 && rows[r][0] === '') continue;
+    const obj = {};
+    for (let c = 0; c < headers.length; c++) {
+      let val = rows[r][c] !== undefined ? rows[r][c] : null;
+      if (val !== null) val = String(val).trim().replace(/^["']|["']$/g, '');
+      obj[headers[c]] = val;
+    }
+    data.push(obj);
+  }
+  return { headers, data, sep };
+}
+
+function cleanAgentName(rawName) {
+  if (!rawName) return null;
+  return String(rawName).replace(/^\[.*?\]\s*/, '').trim();
+}
+
+function parseTimeStringToDate(timeStr, baseDate) {
+  if (!timeStr) return null;
+  let str = String(timeStr).trim();
+  if (str === '' || str === '-' || str.toLowerCase() === 'n/a') return null;
+  const d = new Date(baseDate);
+  str = str.replace(/["']/g, '');
+
+  if (!isNaN(str) && !str.includes(':')) {
+     const val = parseFloat(str.replace(',', '.'));
+     if (val >= 0 && val < 24) {
+         if (val < 1) {
+             const totalSecs = Math.round(val * 24 * 3600);
+             d.setHours(Math.floor(totalSecs/3600), Math.floor((totalSecs%3600)/60), totalSecs%60, 0);
+         } else {
+             d.setHours(Math.floor(val), 0, 0, 0);
+         }
+         return d;
+     }
+  }
+  const parts = str.replace('.',':').split(':');
+  if (parts.length >= 2) {
+    let h = parseInt(parts[0], 10);
+    const m = parseInt(parts[1], 10) || 0;
+    const s = parts.length >= 3 ? parseInt(parts[2], 10) || 0 : 0;
+    if (str.toUpperCase().includes('PM') && h < 12) h += 12;
+    if (str.toUpperCase().includes('AM') && h === 12) h = 0;
+    d.setHours(h, m, s, 0);
+    if (h === 0 && m === 0 && s === 0) {
+       d.setHours(23, 59, 59, 999);
+    }
+    return d;
+  }
+  return null;
+}
+
+function parseDate(s) {
+  if (!s) return null;
+  s = s.trim();
+  let m = s.match(/^(\d{4})[-\/](\d{1,2})[-\/](\d{1,2})$/);
+  if (m) return { y:+m[1], mo:+m[2]-1, d:+m[3] };
+  m = s.match(/^(\d{1,2})[-\/](\d{1,2})[-\/](\d{2,4})$/);
+  if (m) {
+    const yy = +m[3]; const yr = yy < 100 ? 2000 + yy : yy;
+    return { y: yr, mo: +m[2]-1, d: +m[1] };
+  }
+  return null;
+}
+function parseTime(s) {
+  if (!s) return { H:0, M:0, S:0 };
+  const m = s.trim().match(/^(\d{1,2}):(\d{1,2})(?::(\d{1,2}))?$/);
+  if (!m) return { H:0, M:0, S:0 };
+  return { H:+m[1], M:+m[2], S:+(m[3]||0) };
+}
+function buildTimestamp(fechaStr, horaStr) {
+  const dp = parseDate(fechaStr);
+  if (!dp) return null;
+  const tp = parseTime(horaStr);
+  return new Date(dp.y, dp.mo, dp.d, tp.H, tp.M, tp.S, 0);
+}
+
+document.getElementById('fileInput').addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  document.getElementById('status').textContent = 'Leyendo estados...';
+  document.getElementById('status').className = 'status-text';
+  try {
+    const text = await file.text();
+    const { headers, data, sep } = parseCSV(text);
+    processRows(data, headers, sep);
+  } catch (err) {
+    document.getElementById('status').textContent = 'Error al leer el archivo.';
+    document.getElementById('status').className = 'status-text status-error';
+    document.getElementById('debug').textContent = String(err && err.stack || err);
+  }
+});
+
+document.getElementById('shiftsInput').addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  document.getElementById('shiftsStatus').textContent = 'Leyendo turnos...';
+  document.getElementById('shiftsStatus').className = 'status-text';
+  try {
+    const text = await file.text();
+    processShiftsRawText(text);
+  } catch (err) {
+    document.getElementById('shiftsStatus').textContent = 'Error al leer el archivo de turnos.';
+    document.getElementById('shiftsStatus').className = 'status-text status-error';
+    document.getElementById('shiftsDebug').textContent = String(err && err.stack || err);
+  }
+});
+
+function pick(row, names) {
+  for (const n of names) {
+    if (row[n] !== undefined && row[n] !== null) return row[n];
+    const k = Object.keys(row).find(k => k.toLowerCase().trim() === n.toLowerCase().trim());
+    if (k && row[k] !== undefined && row[k] !== null) return row[k];
+  }
+  return null;
+}
+
+function processRows(rows, headers, sep) {
+  if (!rows.length) {
+    document.getElementById('status').textContent = 'El archivo está vacío.';
+    return;
+  }
+  const dbg = [`Separador: "${sep === '\t' ? '\\t' : sep}" | Cols: ${headers.join(' | ')}`];
+
+  const byAgent = new Map();
+  let parsedOk = 0, parseFail = 0;
+  queueNames = new Map();
+  agentQueues = new Map();
+  queueAgents = new Map();
+  const queueRe = /^\[\s*(C\d+)\s*\]\s*(.*)$/;
+
+  for (const r of rows) {
+    const rawAgent = pick(r, ['Agente','Agent','agente']);
+    const fecha = pick(r, ['Fecha','Date','fecha']);
+    const hora  = pick(r, ['Hora','Time','hora']);
+    const ini   = pick(r, ['Estado inicial','Initial state','estado inicial']);
+    const fin   = pick(r, ['Estado final','Final state','estado final']);
+    const ev    = pick(r, ['Evento','Event','evento']);
+    
+    if (!rawAgent) continue;
+    const agent = cleanAgentName(rawAgent);
+    const ts = buildTimestamp(fecha, hora);
+    if (!ts || isNaN(ts)) { parseFail++; continue; }
+    parsedOk++;
+    
+    if (!byAgent.has(agent)) byAgent.set(agent, []);
+    byAgent.get(agent).push({ ts, initial: ini, final: fin });
+
+    if (ev && typeof ev === 'string') {
+      const parts = ev.split(',');
+      if (parts.length === 3) {
+        const m = queueRe.exec(parts[1].trim());
+        if (m) {
+          const qid = m[1];
+          const qname = (m[2] || '').trim() || qid;
+          queueNames.set(qid, qname);
+          if (!agentQueues.has(agent)) agentQueues.set(agent, new Set());
+          agentQueues.get(agent).add(qid);
+          if (!queueAgents.has(qid)) queueAgents.set(qid, new Set());
+          queueAgents.get(qid).add(agent);
+        }
+      }
+    }
+  }
+
+  rawSegments = [];
+  for (const [agent, events] of byAgent.entries()) {
+    events.sort((a, b) => a.ts - b.ts);
+    const dayStart = new Date(events[0].ts); dayStart.setHours(0,0,0,0);
+    const dayEnd   = new Date(events[0].ts); dayEnd.setHours(23,59,59,0);
+    let curState = events[0].initial || 'Desconectado';
+    let curStart = dayStart;
+    for (const ev of events) {
+      if (ev.ts > curStart) {
+        rawSegments.push({ agent, state: curState, start: curStart, end: ev.ts });
+      }
+      curState = ev.final || curState;
+      curStart = ev.ts;
+    }
+    if (dayEnd > curStart) {
+      rawSegments.push({ agent, state: curState, start: curStart, end: dayEnd });
+    }
+  }
+
+  if (!rawSegments.length) {
+    document.getElementById('status').textContent = 'No se han podido construir tramos.';
+    document.getElementById('status').className = 'status-text status-error';
+    return;
+  }
+
+  let mn = Infinity, mx = -Infinity;
+  for (const s of rawSegments) { if (+s.start < mn) mn = +s.start; if (+s.end > mx) mx = +s.end; }
+  dayMin = new Date(mn);
+  dayMax = new Date(mx);
+
+  allAgents = Array.from(byAgent.keys()).sort();
+  allStates = Array.from(new Set(rawSegments.map(s => s.state))).sort();
+  allQueues = Array.from(queueNames.entries())
+    .map(([id, name]) => ({ id, name }))
+    .sort((a, b) => a.name.localeCompare(b.name, 'es'));
+
+  document.getElementById('agentSelect').innerHTML = allAgents.map(a => `<option value="${escapeAttr(a)}" selected>${escapeHtml(a)}</option>`).join('');
+  document.getElementById('stateSelect').innerHTML = allStates.map(s => `<option value="${escapeAttr(s)}" selected>${escapeHtml(s)}</option>`).join('');
+  document.getElementById('queueSelect').innerHTML = allQueues.map(q => `<option value="${escapeAttr(q.id)}" selected>${escapeHtml(q.name)} (${escapeHtml(q.id)})</option>`).join('');
+
+  buildExclusionsPanel();
+  document.getElementById('timeFrom').value = fmtTime(dayMin);
+  document.getElementById('timeTo').value   = fmtTime(dayMax);
+
+  document.getElementById('filtersPanel').style.display = '';
+  document.getElementById('availPanel').style.display = '';
+  document.getElementById('gapPanel').style.display = '';
+  document.getElementById('timelinePanel').style.display = '';
+  document.getElementById('ophExcludePanel').style.display = allAgents.length ? '' : 'none';
+  document.getElementById('queuesPanel').style.display = allQueues.length ? '' : 'none';
+  document.getElementById('maxPerHourPanel').style.display = allQueues.length ? '' : 'none';
+  
+  if (shiftRules.length > 0) {
+      document.getElementById('userStatsPanel').style.display = '';
+      renderUserStats();
+  }
+
+  document.getElementById('status').textContent = `CSV de Estados cargado OK. Carga opcionalmente el CSV de Turnos.`;
+  document.getElementById('status').className = 'status-text status-success';
+  document.getElementById('debug').textContent = dbg.join('\n');
+
+  renderQueueList();
+  render();
+}
+
+function processShiftsRawText(rawText) {
+    if (!dayMin) {
+        document.getElementById('shiftsStatus').textContent = 'Error: Carga primero el CSV de la PBX (Enreach).';
+        document.getElementById('shiftsStatus').className = 'status-text status-error';
+        return;
+    }
+    
+    if (rawText.charCodeAt(0) === 0xFEFF) rawText = rawText.slice(1);
+    const lines = rawText.split(/\r?\n/);
+    const dbg = [`--- CSV Turnos (Lector por Posición) ---`, `Líneas totales: ${lines.length}`];
+    
+    shiftRules = [];
+    const baseDate = new Date(dayMin);
+    baseDate.setHours(0,0,0,0);
+    const seenFingerprints = new Set();
+    
+    let sep = ',';
+    if (lines[0].includes(';')) sep = ';';
+    else if (lines[0].includes('\t')) sep = '\t';
+    
+    for (let i = 0; i < lines.length; i++) {
+        const line = lines[i].trim();
+        if (!line) continue;
+        
+        let parts = [];
+        let inQuotes = false;
+        let field = '';
+        for (let c = 0; c < line.length; c++) {
+            const char = line[c];
+            if (char === '"') inQuotes = !inQuotes;
+            else if (char === sep && !inQuotes) {
+                parts.push(field.trim());
+                field = '';
+            } else {
+                field += char;
+            }
+        }
+        parts.push(field.trim());
+        parts = parts.map(p => p.replace(/^["']|["']$/g, '').trim());
+        
+        if (i === 0 || parts[0].toUpperCase().includes('MATTERMOST') || parts[0].toUpperCase().includes('USUARIO')) {
+            continue;
+        }
+        if (parts.length < 2) continue;
+        
+        const user = parts[0];
+        const ext = parts[1];
+        const shiftName = parts[2] || 'N/A';
+        
+        const timeStrs = [];
+        for (let c = 3; c < parts.length; c++) {
+            const val = parts[c];
+            if (val && val !== '' && val !== '-' && (val.includes(':') || val.includes('.'))) {
+                timeStrs.push(val);
+            }
+        }
+        
+        const ranges = [];
+        for (let t = 0; t < timeStrs.length; t += 2) {
+            if (t + 1 < timeStrs.length) {
+                const startStr = timeStrs[t];
+                const endStr = timeStrs[t+1];
+                const start = parseTimeStringToDate(startStr, baseDate);
+                const end = parseTimeStringToDate(endStr, baseDate);
+                if (start && end) {
+                    if (start > end) end.setDate(end.getDate() + 1);
+                    ranges.push({ start, end, rstr: `${startStr} - ${endStr}` });
+                }
+            }
+        }
+        
+        if (user && ext && ranges.length > 0) {
+            const fingerprint = `${user}|${normExt(ext)}|${shiftName}`;
+            if (!seenFingerprints.has(fingerprint)) {
+                seenFingerprints.add(fingerprint);
+                shiftRules.push({
+                    user: user,
+                    ext: ext,
+                    shiftName: shiftName,
+                    ranges: ranges,
+                    fingerprint: fingerprint
+                });
+            }
+        }
+    }
+    
+    if (shiftRules.length > 0) {
+        dbg.push(`Asignaciones de turnos válidas extraídas: ${shiftRules.length}`);
+        document.getElementById('shiftsStatus').textContent = `Turnos cargados OK (${shiftRules.length} usuarios).`;
+        document.getElementById('shiftsStatus').className = 'status-text status-success';
+        document.getElementById('shiftsDebug').textContent = dbg.join('\n');
+        
+        buildExclusionsPanel();
+        
+        document.getElementById('userStatsPanel').style.display = '';
+        renderUserStats();
+    } else {
+        document.getElementById('shiftsStatus').textContent = 'No se han podido extraer turnos válidos. Revisa el formato.';
+        document.getElementById('shiftsStatus').className = 'status-text status-error';
+        document.getElementById('shiftsDebug').textContent = dbg.join('\n');
+    }
+}
+
+function buildExclusionsPanel() {
+  let excludeHtml = '';
+  const agentsWithQueue = new Set();
+  
+  for (const q of allQueues) {
+    const agentsInQ = Array.from(queueAgents.get(q.id) || []).sort();
+    if (agentsInQ.length === 0) continue;
+    agentsInQ.forEach(a => agentsWithQueue.add(a));
+    excludeHtml += `
+      <div class="exclude-group">
+        <h4>${escapeHtml(q.name)} <span style="font-size:10px;font-weight:normal;color:var(--ink-muted);">(${escapeHtml(q.id)})</span></h4>
+        <div class="exclude-list">
+          ${agentsInQ.map(a => `
+            <label class="exclude-lbl" title="${escapeHtml(a)}">
+              <input type="checkbox" class="oph-exclude-cb" value="${escapeAttr(a)}"> 
+              <span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(a)}</span>
+            </label>
+          `).join('')}
+        </div>
+      </div>`;
+  }
+  const unassigned = allAgents.filter(a => !agentsWithQueue.has(a));
+  if (unassigned.length > 0) {
+    excludeHtml += `
+      <div class="exclude-group">
+        <h4>Otros <span style="font-size:10px;font-weight:normal;color:var(--ink-muted);">(Sin servicio vinculado)</span></h4>
+        <div class="exclude-list">
+          ${unassigned.map(a => `
+            <label class="exclude-lbl" title="${escapeHtml(a)}">
+              <input type="checkbox" class="oph-exclude-cb" value="${escapeAttr(a)}"> 
+              <span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(a)}</span>
+            </label>
+          `).join('')}
+        </div>
+      </div>`;
+  }
+  
+  if (shiftRules && shiftRules.length > 0) {
+      const mmUsers = Array.from(new Set(shiftRules.map(r => r.user))).sort();
+      excludeHtml += `
+        <div class="exclude-group" style="grid-column: 1 / -1; border-color: var(--primary-main); background: var(--accent-bg);">
+          <h4 style="color: var(--primary-deep);">USUARIOS MATTERMOST (Oculta sus datos en la Tabla Maestra)</h4>
+          <div class="exclude-list">
+            ${mmUsers.map(u => `
+              <label class="exclude-lbl" title="${escapeHtml(u)}">
+                <input type="checkbox" class="mm-exclude-cb" value="${escapeAttr(u)}">
+                <span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis; font-weight:600; color:var(--primary-deep);">${escapeHtml(u)}</span>
+              </label>
+            `).join('')}
+          </div>
+        </div>
+      `;
+  }
+
+  document.getElementById('ophExcludeContainer').innerHTML = excludeHtml;
+
+  document.querySelectorAll('.oph-exclude-cb').forEach(cb => {
+    cb.addEventListener('change', (e) => {
+      const isChecked = e.target.checked;
+      document.querySelectorAll(`.oph-exclude-cb[value="${escapeAttr(e.target.value)}"]`).forEach(otherCb => {
+        otherCb.checked = isChecked;
+      });
+      renderMaxPerHour();
+      if(shiftRules.length) renderUserStats();
+    });
+  });
+  
+  document.querySelectorAll('.mm-exclude-cb').forEach(cb => {
+    cb.addEventListener('change', () => {
+      if(shiftRules.length) renderUserStats();
+    });
+  });
+}
+
+document.getElementById('checkAllExclude').onclick = e => { 
+  e.preventDefault(); 
+  document.querySelectorAll('.oph-exclude-cb, .mm-exclude-cb').forEach(cb => cb.checked = true); 
+  renderMaxPerHour(); 
+  if(shiftRules.length) renderUserStats(); 
+};
+document.getElementById('uncheckAllExclude').onclick = e => { 
+  e.preventDefault(); 
+  document.querySelectorAll('.oph-exclude-cb, .mm-exclude-cb').forEach(cb => cb.checked = false); 
+  renderMaxPerHour(); 
+  if(shiftRules.length) renderUserStats(); 
+};
+
+function renderQueueList() {
+  const container = document.getElementById('queuesList');
+  if (!container) return;
+  if (!allQueues.length) { container.innerHTML = '<div class="small">No se han detectado colas en los datos.</div>'; return; }
+  const selected = new Set(getSelected('queueSelect'));
+  const allSel = selected.size === allQueues.length;
+
+  const html = allQueues.map(q => {
+    const agents = Array.from(queueAgents.get(q.id) || []).sort();
+    const dimmed = !allSel && !selected.has(q.id) ? ' style="opacity:0.4;"' : '';
+    return `
+      <div class="queue-card"${dimmed}>
+        <div class="q-head">
+          <div><div class="q-name">${escapeHtml(q.name)}</div><div class="q-id">${escapeHtml(q.id)}</div></div>
+          <span class="q-count">${agents.length} agente${agents.length === 1 ? '' : 's'}</span>
+        </div>
+        <div class="q-agents">
+          ${agents.length ? agents.map(a => `<span class="ag">${escapeHtml(a)}</span>`).join('') : '<span class="small" style="color:var(--ink-muted);">Sin agentes vinculados</span>'}
+        </div>
+      </div>`;
+  }).join('');
+  container.innerHTML = html;
+}
+
+function renderUserStats() {
+  const container = document.getElementById('userStatsTableWrap');
+  if(!shiftRules.length || !rawSegments.length) {
+      container.innerHTML = '<div class="small">Faltan datos de turnos o de estados.</div>';
+      return;
+  }
+  
+  document.getElementById('userStatsPanel').style.display = '';
+  const f = getFilters(); 
+  const stats = [];
+  
+  const excludedMmUsers = new Set();
+  document.querySelectorAll('.mm-exclude-cb:checked').forEach(cb => excludedMmUsers.add(cb.value));
+
+  const sessionsByExt = new Map();
+  for (const seg of rawSegments) {
+      const extClean = normExt(seg.agent);
+      if (!sessionsByExt.has(extClean)) sessionsByExt.set(extClean, []);
+      sessionsByExt.get(extClean).push(seg);
+  }
+
+  const groupedSessionsByExt = new Map();
+  for (const [ext, segs] of sessionsByExt.entries()) {
+      let currentSession = null;
+      const sessions = [];
+      for (const seg of segs) {
+          if (categoryFor(seg.state) === 'offline') {
+              if (currentSession) { sessions.push(currentSession); currentSession = null; }
+          } else {
+              if (!currentSession) currentSession = { start: seg.start, end: seg.end, segments: [] };
+              currentSession.segments.push(seg);
+              currentSession.end = seg.end; 
+          }
+      }
+      if (currentSession) sessions.push(currentSession);
+      groupedSessionsByExt.set(ext, sessions);
+  }
+
+  const sessionWinners = new Map(); 
+  for (const [extKey, sessions] of groupedSessionsByExt.entries()) {
+      for (const session of sessions) {
+          let maxOverlap = 0;
+          let winnerFp = null;
+
+          for (const rule of shiftRules) {
+              const ruleExtClean = normExt(rule.ext);
+              if (extKey === ruleExtClean || extKey.includes(ruleExtClean) || ruleExtClean.includes(extKey)) {
+                  let currentOverlap = 0;
+                  for (const tr of rule.ranges) { 
+                      const overlapStart = Math.max(+session.start, +tr.start);
+                      const overlapEnd = Math.min(+session.end, +tr.end);
+                      if (overlapEnd > overlapStart) {
+                          currentOverlap += (overlapEnd - overlapStart);
+                      }
+                  }
+                  if (currentOverlap > maxOverlap) {
+                      maxOverlap = currentOverlap;
+                      winnerFp = rule.fingerprint;
+                  }
+              }
+          }
+          if (winnerFp) sessionWinners.set(session, winnerFp);
+      }
+  }
+
+  for(const rule of shiftRules) {
+    const ruleExtClean = normExt(rule.ext);
+    const fingerprint = rule.fingerprint;
+    const isStrict = strictModeConfig.has(fingerprint); 
+    
+    let isExcluded = false;
+    for (const excludedAgent of f.excludeOph) {
+       const exclClean = normExt(excludedAgent);
+       if (exclClean === ruleExtClean || exclClean.includes(ruleExtClean) || ruleExtClean.includes(exclClean)) { isExcluded = true; break; }
+    }
+    if(isExcluded || excludedMmUsers.has(rule.user)) continue;
+
+    let durAvail = 0, durBusy = 0, durBreak = 0, durOther = 0;
+    
+    const absRanges = rule.ranges.map(r => ({
+       start: new Date(Math.max(r.start.getTime(), f.from.getTime())),
+       end: new Date(Math.min(r.end.getTime(), f.to.getTime()))
+    })).filter(r => r.start < r.end);
+    
+    if(absRanges.length === 0) continue; 
+    
+    if (isStrict) {
+        for (const seg of rawSegments) {
+            const segExtClean = normExt(seg.agent);
+            if (segExtClean !== ruleExtClean && !segExtClean.includes(ruleExtClean) && !ruleExtClean.includes(segExtClean)) continue;
+            const cat = categoryFor(seg.state);
+            if (cat === 'offline') continue; 
+            for (const tr of absRanges) {
+                if (seg.end <= tr.start || seg.start >= tr.end) continue;
+                const overlapStart = Math.max(+seg.start, +tr.start);
+                const overlapEnd = Math.min(+seg.end, +tr.end);
+                const durMs = overlapEnd - overlapStart;
+                if (durMs > 0) {
+                    if (cat === 'available') durAvail += durMs;
+                    else if (cat === 'busy') durBusy += durMs;
+                    else if (cat === 'break') durBreak += durMs;
+                    else durOther += durMs;
+                }
+            }
+        }
+    } else {
+        for (const [extKey, sessions] of groupedSessionsByExt.entries()) {
+            if (extKey === ruleExtClean || extKey.includes(ruleExtClean) || ruleExtClean.includes(extKey)) {
+                for (const session of sessions) {
+                    if (sessionWinners.get(session) === fingerprint) {
+                        for (const seg of session.segments) {
+                            if (seg.end <= f.from || seg.start >= f.to) continue; 
+                            const overlapStart = Math.max(+seg.start, +f.from);
+                            const overlapEnd = Math.min(+seg.end, +f.to);
+                            const durMs = overlapEnd - overlapStart;
+                            if (durMs > 0) {
+                                 const cat = categoryFor(seg.state);
+                                 if (cat === 'available') durAvail += durMs;
+                                 else if (cat === 'busy') durBusy += durMs;
+                                 else if (cat === 'break') durBreak += durMs;
+                                 else durOther += durMs;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
+    const totalMs = durAvail + durBusy + durBreak + durOther;
+    stats.push({
+        user: rule.user, ext: rule.ext, shiftName: rule.shiftName,
+        readShift: rule.ranges.map(r => r.rstr).join(' y '),
+        fp: fingerprint, isStrict: isStrict,
+        avail: durAvail, busy: durBusy, brk: durBreak, oth: durOther, total: totalMs
+    });
+  }
+  
+  stats.sort((a, b) => a.ext.localeCompare(b.ext, 'es', { numeric: true }));
+
+  function msToStr(ms) {
+      const s = Math.floor(ms / 1000);
+      const h = Math.floor(s / 3600);
+      const m = Math.floor((s % 3600) / 60);
+      const sec = s % 60;
+      return `${pad2(h)}:${pad2(m)}:${pad2(sec)}`;
+  }
+  
+  const visibleStats = stats.filter(st => st.total > 0);
+
+  let html = `<table class="table-max-hour" style="text-align:left;" id="userStatsTable">
+    <thead>
+      <tr>
+        <th>Usuario (Mattermost)</th>
+        <th>Extensión PBX</th>
+        <th>Turno asignado</th>
+        <th style="background:#135ba1; font-size:10px;">Horario Leído (Máquina)</th>
+        <th style="background:var(--state-busy); font-size:10px;">Modo (Opc. A / B)</th>
+        <th style="background:var(--primary-deep);">T. Conectado (Total)</th>
+        <th style="background:var(--state-available);">T. Disponible</th>
+        <th style="background:var(--state-busy);">T. Ocupado/Sonando</th>
+        <th style="background:var(--state-break);">T. Pausa/Descanso</th>
+        <th style="background:var(--primary-main);">T. Otros Estados</th>
+      </tr>
+    </thead><tbody>`;
+  
+  if (visibleStats.length === 0) {
+      html += `<tr><td colspan="10" style="padding: 16px; color: var(--ink-muted); font-weight:600;">Ningún usuario con actividad cruzada en este rango horario (o están ocultos por los filtros inferiores).</td></tr>`;
+  } else {
+      for (const st of visibleStats) {
+          html += `<tr>
+              <td style="font-weight:600;">${escapeHtml(st.user)}</td>
+              <td style="color:var(--primary-main); font-weight:500;">${escapeHtml(st.ext)}</td>
+              <td>${escapeHtml(st.shiftName)}</td>
+              <td style="font-family:monospace; color:#135ba1;">${escapeHtml(st.readShift)}</td>
+              <td style="background:${st.isStrict ? '#fce8e6' : '#e6f4ea'}; border: 1px solid ${st.isStrict ? 'var(--state-busy)' : 'var(--state-available)'};">
+                 <label class="strict-mode-lbl" title="Flexible: Asigna sesiones reales completas. Estricto: Corta matemáticamente en la hora teórica.">
+                    <input type="checkbox" class="strict-mode-cb" value="${escapeAttr(st.fp)}" ${st.isStrict ? 'checked' : ''}> Estricto
+                 </label>
+              </td>
+              <td style="color:var(--primary-deep); font-weight:700;">${msToStr(st.total)}</td>
+              <td style="color:var(--state-available);">${msToStr(st.avail)}</td>
+              <td style="color:var(--state-busy);">${msToStr(st.busy)}</td>
+              <td style="color:var(--state-break);">${msToStr(st.brk)}</td>
+              <td style="color:var(--ink-muted);">${msToStr(st.oth)}</td>
+          </tr>`;
+      }
+  }
+  html += `</tbody></table>`;
+  container.innerHTML = html;
+
+  document.querySelectorAll('.strict-mode-cb').forEach(cb => {
+    cb.addEventListener('change', (e) => {
+      if (e.target.checked) strictModeConfig.add(e.target.value);
+      else strictModeConfig.delete(e.target.value);
+      renderUserStats();
+    });
+  });
+
+  window._lastCalculatedStats = stats;
+}
+
+document.getElementById('exportCsvBtn').addEventListener('click', () => {
+    const statsToExport = window._lastCalculatedStats;
+    if (!statsToExport || statsToExport.length === 0) {
+        alert("No hay datos para exportar.");
+        return;
+    }
+
+    let csvContent = "data:text/csv;charset=utf-8,\uFEFF";
+    const headers = ["Usuario (Mattermost)", "Extensión PBX", "Turno asignado", "Horario Leído", "T. Conectado (Total)", "T. Disponible", "T. Ocupado/Sonando", "T. Pausa/Descanso", "T. Otros Estados"];
+    csvContent += headers.map(h => `"${h}"`).join(";") + "\r\n";
+
+    function msToStr(ms) {
+        const s = Math.floor(ms / 1000);
+        const h = Math.floor(s / 3600);
+        const m = Math.floor((s % 3600) / 60);
+        const sec = s % 60;
+        return `${pad2(h)}:${pad2(m)}:${pad2(sec)}`;
+    }
+
+    for (const st of statsToExport) {
+        const rowData = [
+            st.user,
+            st.ext,
+            st.shiftName,
+            st.readShift,
+            `="${msToStr(st.total)}"`,
+            `="${msToStr(st.avail)}"`,
+            `="${msToStr(st.busy)}"`,
+            `="${msToStr(st.brk)}"`,
+            `="${msToStr(st.oth)}"`
+        ];
+        csvContent += rowData.map(val => `"${val.replace(/"/g, '""')}"`).join(";") + "\r\n";
+    }
+
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    const dateStr = dayMin ? `${pad2(dayMin.getDate())}-${pad2(dayMin.getMonth()+1)}-${dayMin.getFullYear()}` : 'export';
+    link.setAttribute("download", `Tiempos_Conexion_Completos_${dateStr}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+});
+
+function escapeHtml(s){return String(s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+function escapeAttr(s){return escapeHtml(s);}
+function pad2(n){return String(n).padStart(2,'0');}
+function fmtTime(d){return pad2(d.getHours())+':'+pad2(d.getMinutes())+':'+pad2(d.getSeconds());}
+function fmtDateTime(d){return d.toLocaleString();}
+
+function getSelected(id) {
+  return Array.from(document.getElementById(id).selectedOptions).map(o => o.value);
+}
+
+function getFilters() {
+  const tf = document.getElementById('timeFrom').value || '00:00:00';
+  const tt = document.getElementById('timeTo').value || '23:59:59';
+  const baseDay = new Date(dayMin); baseDay.setHours(0,0,0,0);
+  const [h1,m1,s1] = tf.split(':').map(x=>+x||0);
+  const [h2,m2,s2] = tt.split(':').map(x=>+x||0);
+  const from = new Date(baseDay); from.setHours(h1, m1, s1||0, 0);
+  const to   = new Date(baseDay); to.setHours(h2, m2, s2||0, 0);
+
+  const selQueues = new Set(getSelected('queueSelect'));
+  const allQueuesSelected = selQueues.size === allQueues.length;
+  let queueAllowedAgents = null; 
+  if (!allQueuesSelected) {
+    queueAllowedAgents = new Set();
+    for (const qid of selQueues) {
+      const as = queueAgents.get(qid);
+      if (as) for (const a of as) queueAllowedAgents.add(a);
+    }
+  }
+
+  const selAgents = new Set(getSelected('agentSelect'));
+  const effectiveAgents = queueAllowedAgents
+    ? new Set([...selAgents].filter(a => queueAllowedAgents.has(a)))
+    : selAgents;
+
+  const selExcludeOph = new Set();
+  document.querySelectorAll('.oph-exclude-cb:checked').forEach(cb => selExcludeOph.add(cb.value));
+
+  return {
+    from, to,
+    agents: effectiveAgents,
+    states: new Set(getSelected('stateSelect')),
+    queues: selQueues,
+    excludeOph: selExcludeOph
+  };
+}
+
+function filterSegments() {
+  const f = getFilters();
+  const out = [];
+  for (const s of rawSegments) {
+    if (!f.agents.has(s.agent)) continue;
+    if (!f.states.has(s.state)) continue;
+    if (s.end <= f.from || s.start >= f.to) continue;
+    const start = s.start < f.from ? f.from : s.start;
+    const end   = s.end   > f.to   ? f.to   : s.end;
+    out.push({ agent: s.agent, state: s.state, start, end, _origStart: s.start, _origEnd: s.end });
+  }
+  return { segments: out, range: [f.from, f.to], agents: Array.from(f.agents).sort() };
+}
+
+const tooltip = document.getElementById('tooltip');
+function showTip(html, x, y){tooltip.innerHTML=html;tooltip.style.opacity=1;tooltip.style.left=(x+12)+'px';tooltip.style.top=(y+12)+'px';}
+function hideTip(){tooltip.style.opacity=0;}
+
+function render() {
+  const { segments, range, agents } = filterSegments();
+  renderTimeline(segments, range, agents);
+  renderAvailability(range);
+  renderGaps(range);
+  if(allQueues.length) renderMaxPerHour();
+  if(shiftRules.length) renderUserStats();
+}
+
+function renderMaxPerHour() {
+  const container = document.getElementById('maxPerHourTableWrap');
+  if (!allQueues.length) return;
+
+  const f = getFilters();
+  const selQueues = f.queues;
+  const excludeOph = f.excludeOph;
+  const allQueuesSelected = selQueues.size === allQueues.length;
+
+  const baseDate = new Date(dayMin);
+  baseDate.setHours(0,0,0,0);
+
+  let html = '<table class="table-max-hour"><thead><tr><th>Servicio / Cola</th>';
+  for(let h=0; h<24; h++) html += `<th>${pad2(h)}:00</th>`;
+  html += '</tr></thead><tbody>';
+
+  let hasRows = false;
+
+  for (const q of allQueues) {
+    if (!allQueuesSelected && !selQueues.has(q.id)) continue;
+    hasRows = true;
+
+    const agents = queueAgents.get(q.id) || new Set();
+    const hourlyMax = new Array(24).fill(0);
+
+    for (let h=0; h<24; h++) {
+      const hStart = new Date(baseDate); hStart.setHours(h, 0, 0, 0);
+      const hEnd = new Date(baseDate); hEnd.setHours(h, 59, 59, 999);
+
+      const events = [];
+      for (const s of rawSegments) {
+        if (!agents.has(s.agent)) continue;
+        if (excludeOph.has(s.agent)) continue; 
+        if (categoryFor(s.state) === 'offline') continue; 
+        if (s.end <= hStart || s.start >= hEnd) continue;
+
+        const t0 = Math.max(+s.start, +hStart);
+        const t1 = Math.min(+s.end, +hEnd);
+        events.push({ t: t0, delta: 1 });
+        events.push({ t: t1, delta: -1 });
+      }
+      events.sort((a,b) => a.t - b.t || a.delta - b.delta);
+
+      let cur = 0, maxC = 0;
+      for (const ev of events) {
+        cur += ev.delta;
+        if (cur > maxC) maxC = cur;
+      }
+      hourlyMax[h] = maxC;
+    }
+
+    html += `<tr><td>${escapeHtml(q.name)} <span style="font-size:9px;color:var(--ink-muted);">(${escapeHtml(q.id)})</span></td>`;
+    for (let h=0; h<24; h++) {
+      const val = hourlyMax[h];
+      html += val > 0 ? `<td>${val}</td>` : `<td class="zero">-</td>`;
+    }
+    html += '</tr>';
+  }
+  
+  if (!hasRows) {
+    html += `<tr><td colspan="25" class="zero" style="padding:16px;">Ningún servicio coincide con los filtros</td></tr>`;
+  }
+
+  html += '</tbody></table>';
+  container.innerHTML = html;
+}
+
+function renderTimeline(segments, range, agents) {
+  const svg = d3.select('#timelineChart');
+  svg.selectAll('*').remove();
+  const margin = { top: 20, right: RIGHT_MARGIN, bottom: 40, left: LEFT_MARGIN };
+  
+  const container = document.getElementById('timelinePanel');
+  const containerWidth = container.clientWidth || 900; 
+  const minWidth = 800; 
+  const width = Math.max(minWidth, containerWidth - 40);
+  
+  const rowH = 22;
+  const height = margin.top + margin.bottom + Math.max(1, agents.length) * rowH;
+  svg.attr('width', width).attr('height', height);
+
+  if (!agents.length) {
+    svg.append('text').attr('x', width/2).attr('y', height/2).attr('text-anchor','middle').attr('fill', COL.offline).text('Sin extensiones seleccionadas');
+    return;
+  }
+
+  const tlView = document.querySelector('input[name="tlView"]:checked').value;
+  const x = d3.scaleTime().domain(range).range([margin.left, width - margin.right]);
+  const y = d3.scaleBand().domain(agents).range([margin.top, margin.top + agents.length * rowH]).padding(0.2);
+
+  svg.append('g').attr('class','grid').attr('transform', `translate(0,${margin.top + agents.length * rowH})`)
+      .call(d3.axisBottom(x).ticks(10).tickSize(-(agents.length * rowH)).tickFormat(''))
+      .selectAll('text').remove();
+  svg.append('g').attr('class','axis').attr('transform', `translate(0,${margin.top + agents.length * rowH})`)
+      .call(d3.axisBottom(x).ticks(10).tickFormat(d3.timeFormat('%H:%M')));
+
+  svg.append('g').selectAll('rect.row-bg')
+      .data(agents).enter().append('rect')
+      .attr('class','row-bg')
+      .attr('x', margin.left).attr('y', d => y(d) - y.step()*y.padding()/2)
+      .attr('width', width - margin.left - margin.right)
+      .attr('height', y.step())
+      .attr('fill', (d,i) => i % 2 === 0 ? '#f1f3f4' : '#ffffff');
+
+  svg.append('g').selectAll('text.agent-label')
+      .data(agents).enter().append('text')
+      .attr('class','agent-label')
+      .attr('x', margin.left - 8).attr('y', d => y(d) + y.bandwidth()/2 + 4)
+      .attr('text-anchor', 'end')
+      .text(d => d.length > 32 ? d.slice(0,30) + '…' : d)
+      .append('title').text(d => d);
+
+  svg.append('g').selectAll('rect.seg')
+      .data(segments).enter().append('rect')
+      .attr('class','seg')
+      .attr('x', d => x(d.start))
+      .attr('y', d => y(d.agent))
+      .attr('width', d => Math.max(1, x(d.end) - x(d.start)))
+      .attr('height', y.bandwidth())
+      .attr('fill', d => {
+        const cat = categoryFor(d.state);
+        if (tlView === 'connected') return cat === 'offline' ? COL.offline : COL.available;
+        if (tlView === 'connected_break') {
+          if (cat === 'offline') return COL.offline;
+          if (cat === 'break') return COL.break;
+          return COL.available;
+        }
+        return colorForState(d.state);
+      })
+      .on('mouseover', (e, d) => {
+        const dur = (d._origEnd - d._origStart) / 1000;
+        const h = Math.floor(dur/3600), m = Math.floor((dur%3600)/60), s = Math.floor(dur%60);
+        const durStr = (h?h+'h ':'') + (m?m+'m ':'') + s + 's';
+        showTip(`<b>${escapeHtml(d.agent)}</b><br>Estado original: ${escapeHtml(d.state)}<br>Inicio: ${fmtDateTime(d._origStart)}<br>Fin: ${fmtDateTime(d._origEnd)}<br>Duración: ${durStr}`, e.pageX, e.pageY);
+      })
+      .on('mousemove', e => { tooltip.style.left=(e.pageX+12)+'px'; tooltip.style.top=(e.pageY+12)+'px'; })
+      .on('mouseout', hideTip)
+      .on('touchstart', (e, d) => {
+         e.preventDefault(); 
+         const touch = e.touches[0];
+         const dur = (d._origEnd - d._origStart) / 1000;
+         const h = Math.floor(dur/3600), m = Math.floor((dur%3600)/60), s = Math.floor(dur%60);
+         const durStr = (h?h+'h ':'') + (m?m+'m ':'') + s + 's';
+         showTip(`<b>${escapeHtml(d.agent)}</b><br>Estado original: ${escapeHtml(d.state)}<br>Inicio: ${fmtDateTime(d._origStart)}<br>Fin: ${fmtDateTime(d._origEnd)}<br>Duración: ${durStr}`, touch.pageX, touch.pageY);
+      })
+      .on('touchend', hideTip);
+}
+
+function renderAvailability(range) {
+  const f = getFilters();
+  const segs = rawSegments.filter(s => f.agents.has(s.agent)
+                                    && categoryFor(s.state) === 'available'
+                                    && s.end > f.from && s.start < f.to);
+
+  const events = [];
+  for (const s of segs) {
+    events.push({ t: s.start < f.from ? +f.from : +s.start, delta: +1 });
+    events.push({ t: s.end   > f.to   ? +f.to   : +s.end,   delta: -1 });
+  }
+  events.sort((a,b) => a.t - b.t || a.delta - b.delta);
+
+  const points = [{ t: +f.from, count: 0 }];
+  let cur = 0;
+  for (const e of events) {
+    cur += e.delta;
+    points.push({ t: e.t, count: cur });
+  }
+  points.push({ t: +f.to, count: cur });
+
+  const svg = d3.select('#availChart');
+  svg.selectAll('*').remove();
+  const margin = { top: 14, right: RIGHT_MARGIN, bottom: 30, left: LEFT_MARGIN };
+  
+  const container = document.getElementById('availPanel');
+  const containerWidth = container.clientWidth || 900;
+  const minWidth = 800;
+  const width = Math.max(minWidth, containerWidth - 40);
+  
+  const height = 200;
+  svg.attr('width', width).attr('height', height);
+
+  const x = d3.scaleTime().domain(range).range([margin.left, width - margin.right]);
+  const maxC = d3.max(points, p => p.count) || 0;
+  const yDomainMax = maxC > 0 ? maxC : 1;
+  const y = d3.scaleLinear().domain([0, yDomainMax]).range([height - margin.bottom, margin.top]);
+
+  let tickValues;
+  if (maxC === 0) tickValues = [0, 1];
+  else if (maxC <= 10) tickValues = d3.range(0, maxC + 1);
+  else {
+    const step = Math.max(1, Math.ceil(maxC / 6));
+    tickValues = d3.range(0, maxC + 1, step);
+    if (tickValues[tickValues.length - 1] !== maxC) tickValues.push(maxC);
+  }
+
+  svg.append('g').attr('class','grid').attr('transform', `translate(${margin.left},0)`)
+      .call(d3.axisLeft(y).tickValues(tickValues).tickSize(-(width - margin.left - margin.right)).tickFormat(''))
+      .selectAll('text').remove();
+  svg.append('g').attr('class','axis').attr('transform', `translate(0,${height - margin.bottom})`)
+      .call(d3.axisBottom(x).ticks(10).tickFormat(d3.timeFormat('%H:%M')));
+  svg.append('g').attr('class','axis').attr('transform', `translate(${margin.left},0)`)
+      .call(d3.axisLeft(y).tickValues(tickValues).tickFormat(d3.format('d')));
+
+  if (maxC > 0) {
+    const subs = [];
+    let cur = null;
+    for (let i = 0; i < points.length; i++) {
+      const p = points[i];
+      if (p.count > 0) {
+        if (!cur) {
+          cur = [];
+          const prev = points[i-1];
+          cur.push({ t: prev ? prev.t : p.t, count: 0 });
+        }
+        cur.push(p);
+      } else {
+        if (cur) {
+          cur.push({ t: p.t, count: 0 });
+          subs.push(cur);
+          cur = null;
+        }
+      }
+    }
+    if (cur) subs.push(cur);
+
+    const line = d3.line().curve(d3.curveStepAfter).x(p => x(p.t)).y(p => y(p.count));
+    const area = d3.area().curve(d3.curveStepAfter).x(p => x(p.t)).y0(y(0)).y1(p => y(p.count));
+
+    for (const sub of subs) {
+      svg.append('path').datum(sub).attr('fill', COL.available).attr('fill-opacity', 0.15).attr('d', area);
+      svg.append('path').datum(sub).attr('fill', 'none').attr('stroke', COL.available).attr('stroke-width', 1.8).attr('d', line);
+    }
+  }
+
+  const focus = svg.append('g').style('display','none');
+  focus.append('line').attr('y1', margin.top).attr('y2', height - margin.bottom).attr('stroke', COL.indigo).attr('stroke-dasharray','3,3');
+  focus.append('circle').attr('r', 3.5).attr('fill', COL.available);
+
+  svg.append('rect').attr('x', margin.left).attr('y', margin.top)
+      .attr('width', width - margin.left - margin.right).attr('height', height - margin.top - margin.bottom)
+      .attr('fill', 'transparent')
+      .on('mouseover', () => focus.style('display', null))
+      .on('mouseout', () => { focus.style('display','none'); hideTip(); })
+      .on('mousemove', function(e) {
+        const mx = d3.pointer(e, this)[0];
+        const t = x.invert(mx).getTime();
+        let lo = 0, hi = points.length - 1, idx = 0;
+        while (lo <= hi) { const m = (lo+hi)>>1; if (points[m].t <= t) { idx = m; lo = m+1; } else { hi = m-1; } }
+        const c = points[idx].count;
+        focus.select('line').attr('x1', x(t)).attr('x2', x(t));
+        focus.select('circle').attr('cx', x(t)).attr('cy', y(c));
+        const dt = new Date(t);
+        showTip(`<b>${pad2(dt.getHours())}:${pad2(dt.getMinutes())}:${pad2(dt.getSeconds())}</b><br>Agentes disponibles: ${c}`, e.pageX, e.pageY);
+      })
+      .on('touchstart', function(e) {
+        e.preventDefault();
+        focus.style('display', null);
+        const touch = e.touches[0];
+        const mx = d3.pointer(touch, this)[0];
+        const t = x.invert(mx).getTime();
+        let lo = 0, hi = points.length - 1, idx = 0;
+        while (lo <= hi) { const m = (lo+hi)>>1; if (points[m].t <= t) { idx = m; lo = m+1; } else { hi = m-1; } }
+        const c = points[idx].count;
+        focus.select('line').attr('x1', x(t)).attr('x2', x(t));
+        focus.select('circle').attr('cx', x(t)).attr('cy', y(c));
+        const dt = new Date(t);
+        showTip(`<b>${pad2(dt.getHours())}:${pad2(dt.getMinutes())}:${pad2(dt.getSeconds())}</b><br>Agentes disponibles: ${c}`, touch.pageX, touch.pageY);
+      })
+      .on('touchmove', function(e) {
+        e.preventDefault();
+        const touch = e.touches[0];
+        const mx = d3.pointer(touch, this)[0];
+        const t = x.invert(mx).getTime();
+        let lo = 0, hi = points.length - 1, idx = 0;
+        while (lo <= hi) { const m = (lo+hi)>>1; if (points[m].t <= t) { idx = m; lo = m+1; } else { hi = m-1; } }
+        const c = points[idx].count;
+        focus.select('line').attr('x1', x(t)).attr('x2', x(t));
+        focus.select('circle').attr('cx', x(t)).attr('cy', y(c));
+        const dt = new Date(t);
+        showTip(`<b>${pad2(dt.getHours())}:${pad2(dt.getMinutes())}:${pad2(dt.getSeconds())}</b><br>Agentes disponibles: ${c}`, touch.pageX, touch.pageY);
+      })
+      .on('touchend', () => { focus.style('display','none'); hideTip(); });
+}
+
+function renderGaps(range) {
+  const f = getFilters();
+  const segs = rawSegments.filter(s => f.agents.has(s.agent)
+                                    && categoryFor(s.state) === 'available'
+                                    && s.end > f.from && s.start < f.to);
+
+  const events = [];
+  for (const s of segs) {
+    events.push({ t: s.start < f.from ? +f.from : +s.start, delta: +1 });
+    events.push({ t: s.end   > f.to   ? +f.to   : +s.end,   delta: -1 });
+  }
+  events.sort((a,b) => a.t - b.t || a.delta - b.delta);
+
+  const gaps = [];
+  let cur = 0;
+  let zeroStart = +f.from;
+  for (const e of events) {
+    const prev = cur;
+    cur += e.delta;
+    if (prev === 0 && cur > 0) {
+      if (e.t > zeroStart) gaps.push({ start: zeroStart, end: e.t });
+    } else if (prev > 0 && cur === 0) {
+      zeroStart = e.t;
+    }
+  }
+  if (cur === 0 && +f.to > zeroStart) gaps.push({ start: zeroStart, end: +f.to });
+
+  const svg = d3.select('#gapChart');
+  svg.selectAll('*').remove();
+  const margin = { top: 6, right: RIGHT_MARGIN, bottom: 22, left: LEFT_MARGIN };
+  
+  const container = document.getElementById('gapPanel');
+  const containerWidth = container.clientWidth || 900;
+  const minWidth = 800;
+  const width = Math.max(minWidth, containerWidth - 40);
+  
+  const height = 44;
+  svg.attr('width', width).attr('height', height);
+
+  const x = d3.scaleTime().domain(range).range([margin.left, width - margin.right]);
+
+  svg.append('rect')
+    .attr('x', margin.left).attr('y', margin.top)
+    .attr('width', width - margin.left - margin.right)
+    .attr('height', height - margin.top - margin.bottom)
+    .attr('fill', '#f1f3f4').attr('stroke', '#dadce0');
+
+  svg.append('g').selectAll('rect.gap')
+    .data(gaps).enter().append('rect')
+    .attr('class','gap')
+    .attr('x', d => x(d.start))
+    .attr('y', margin.top)
+    .attr('width', d => Math.max(1, x(d.end) - x(d.start)))
+    .attr('height', height - margin.top - margin.bottom)
+    .attr('fill', COL.terracotta).attr('fill-opacity', 0.8)
+    .on('mouseover', (e, d) => {
+      const dur = (d.end - d.start) / 1000;
+      const h = Math.floor(dur/3600), m = Math.floor((dur%3600)/60), s = Math.floor(dur%60);
+      const durStr = (h?h+'h ':'') + (m?m+'m ':'') + s + 's';
+      const sd = new Date(d.start), ed = new Date(d.end);
+      showTip(`<b>Sin agentes disponibles</b><br>De ${pad2(sd.getHours())}:${pad2(sd.getMinutes())}:${pad2(sd.getSeconds())} a ${pad2(ed.getHours())}:${pad2(ed.getMinutes())}:${pad2(ed.getSeconds())}<br>Duración: ${durStr}`, e.pageX, e.pageY);
+    })
+    .on('mousemove', e => { tooltip.style.left=(e.pageX+12)+'px'; tooltip.style.top=(e.pageY+12)+'px'; })
+    .on('mouseout', hideTip)
+    .on('touchstart', (e, d) => {
+      e.preventDefault();
+      const touch = e.touches[0];
+      const dur = (d.end - d.start) / 1000;
+      const h = Math.floor(dur/3600), m = Math.floor((dur%3600)/60), s = Math.floor(dur%60);
+      const durStr = (h?h+'h ':'') + (m?m+'m ':'') + s + 's';
+      const sd = new Date(d.start), ed = new Date(d.end);
+      showTip(`<b>Sin agentes disponibles</b><br>De ${pad2(sd.getHours())}:${pad2(sd.getMinutes())}:${pad2(sd.getSeconds())} a ${pad2(ed.getHours())}:${pad2(ed.getMinutes())}:${pad2(ed.getSeconds())}<br>Duración: ${durStr}`, touch.pageX, touch.pageY);
+    })
+    .on('touchend', hideTip);
+
+  svg.append('g').attr('class','axis').attr('transform', `translate(0,${height - margin.bottom})`)
+    .call(d3.axisBottom(x).ticks(10).tickFormat(d3.timeFormat('%H:%M')));
+
+  svg.append('text')
+    .attr('x', margin.left - 8).attr('y', margin.top + (height - margin.top - margin.bottom)/2 + 4)
+    .attr('text-anchor', 'end')
+    .attr('font-size', 11).attr('fill', COL.ink).attr('font-family', 'Montserrat, sans-serif')
+    .text('Sin cobertura');
+}
+
+document.getElementById('applyBtn').addEventListener('click', () => { renderQueueList(); render(); });
+document.getElementById('resetBtn').addEventListener('click', () => {
+  document.getElementById('timeFrom').value = fmtTime(dayMin);
+  document.getElementById('timeTo').value   = fmtTime(dayMax);
+  Array.from(document.getElementById('agentSelect').options).forEach(o => o.selected = true);
+  Array.from(document.getElementById('stateSelect').options).forEach(o => o.selected = true);
+  Array.from(document.getElementById('queueSelect').options).forEach(o => o.selected = true);
+  
+  document.querySelectorAll('.oph-exclude-cb').forEach(cb => cb.checked = false);
+  
+  renderQueueList();
+  render();
+});
+
+function bindToggle(linkId, selectId, sel) {
+  document.getElementById(linkId).addEventListener('click', e => {
+    e.preventDefault();
+    Array.from(document.getElementById(selectId).options).forEach(o => o.selected = sel);
+  });
+}
+bindToggle('selAllAgents','agentSelect',true);
+bindToggle('selNoneAgents','agentSelect',false);
+bindToggle('selAllStates','stateSelect',true);
+bindToggle('selNoneStates','stateSelect',false);
+bindToggle('selAllQueues','queueSelect',true);
+bindToggle('selNoneQueues','queueSelect',false);
+
+window.addEventListener('resize', () => { 
+    if (rawSegments.length) {
+        clearTimeout(window.resizeTimer);
+        window.resizeTimer = setTimeout(render, 100);
+    }
+});
+
+// ============================================
+// Exportar a PDF (Paleta fría profesional)
+// ============================================
+function svgToDataURL(svgEl) {
+  const clone = svgEl.cloneNode(true);
+  const bg = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+  bg.setAttribute('x', 0); bg.setAttribute('y', 0);
+  bg.setAttribute('width', svgEl.getAttribute('width'));
+  bg.setAttribute('height', svgEl.getAttribute('height'));
+  bg.setAttribute('fill', '#ffffff');
+  clone.insertBefore(bg, clone.firstChild);
+  const style = document.createElementNS('http://www.w3.org/2000/svg', 'style');
+  style.textContent = `
+    text { font-family: 'Montserrat', -apple-system, sans-serif; }
+    .axis text { font-size: 11px; fill: #5f6368; }
+    .axis path, .axis line { stroke: #dadce0; fill: none; }
+    .grid line { stroke: #f1f3f4; }
+    .agent-label { font-size: 11px; fill: #3c4043; }
+  `;
+  clone.insertBefore(style, clone.firstChild);
+  clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+  const xml = new XMLSerializer().serializeToString(clone);
+  return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(xml);
+}
+
+function svgToCanvas(svgEl, scale = 2) {
+  return new Promise((resolve, reject) => {
+    let w = +svgEl.getAttribute('width');
+    let h = +svgEl.getAttribute('height');
+    if (!w || !h) {
+      resolve(document.createElement('canvas')); 
+      return;
+    }
+    const url = svgToDataURL(svgEl);
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = w * scale; canvas.height = h * scale;
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      resolve(canvas);
+    };
+    img.onerror = (e) => reject(new Error('No se pudo rasterizar el SVG'));
+    img.src = url;
+  });
+}
+
+function hex2rgb(hex) {
+  const h = hex.replace('#','').trim();
+  return [parseInt(h.slice(0,2),16), parseInt(h.slice(2,4),16), parseInt(h.slice(4,6),16)];
+}
+
+document.getElementById('exportPdfBtn').addEventListener('click', async () => {
+  const btn = document.getElementById('exportPdfBtn');
+  const originalText = btn.textContent;
+  btn.textContent = 'Generando...';
+  btn.disabled = true;
+  
+  const contents = document.querySelectorAll('.panel-content');
+  const originalDisplays = [];
+  contents.forEach(el => {
+    originalDisplays.push(el.style.display);
+    el.style.display = '';
+  });
+  await new Promise(r => setTimeout(r, 50));
+
+  try {
+    if (!window.jspdf || !window.jspdf.jsPDF) {
+      throw new Error('jsPDF no se ha cargado. Comprueba la conexión a internet.');
+    }
+    const { jsPDF } = window.jspdf;
+    const svgs = [
+      document.getElementById('availChart'),
+      document.getElementById('gapChart'),
+      document.getElementById('timelineChart')
+    ];
+    const titles = [
+      'Agentes disponibles a lo largo del tiempo',
+      'Franjas sin ningún agente disponible',
+      'Timeline por extensión'
+    ];
+    const canvases = [];
+    for (const s of svgs) canvases.push(await svgToCanvas(s, 2));
+
+    const f = getFilters();
+    const dateStr = dayMin ? `${pad2(dayMin.getDate())}-${pad2(dayMin.getMonth()+1)}-${dayMin.getFullYear()}` : '';
+    const headerInfo = `Rango ${fmtTime(f.from)} – ${fmtTime(f.to)} · ${f.agents.size} ext · ${f.states.size} est · ${f.queues.size}/${allQueues.length} colas`;
+
+    const pdf = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+    const pageW = pdf.internal.pageSize.getWidth();
+    const pageH = pdf.internal.pageSize.getHeight();
+    const margin = 10;
+    const usableW = pageW - margin * 2;
+
+    const primaryDeepRGB = hex2rgb('#174ea6');
+    const primaryMainRGB = hex2rgb('#1a73e8');
+    const accentSoftRGB  = hex2rgb('#8ab4f8');
+    const inkRGB         = hex2rgb('#3c4043');
+    const mutedRGB       = hex2rgb('#5f6368');
+
+    function drawHeader(isFirst) {
+      pdf.setFillColor(...primaryDeepRGB);
+      pdf.rect(0, 0, pageW, 16, 'F');
+      pdf.setFillColor(...primaryMainRGB);
+      pdf.rect(0, 16, pageW, 1.2, 'F');
+
+      pdf.setTextColor(255,255,255);
+      pdf.setFont('helvetica', 'bold');
+      pdf.setFontSize(11);
+      pdf.text('TIMELINE DE ESTADOS Y CRUCE DE TURNOS', margin, 10.5);
+
+      if (isFirst) {
+        pdf.setFont('helvetica', 'normal');
+        pdf.setFontSize(8.5);
+        pdf.setTextColor(...accentSoftRGB);
+        const rightText = `${dateStr}   ${headerInfo}`;
+        const tw = pdf.getTextWidth(rightText);
+        pdf.text(rightText, pageW - margin - tw, 10.5);
+      } else {
+        pdf.setFont('helvetica', 'normal');
+        pdf.setFontSize(8.5);
+        pdf.setTextColor(...accentSoftRGB);
+        const rightText = `${dateStr}`;
+        const tw = pdf.getTextWidth(rightText);
+        pdf.text(rightText, pageW - margin - tw, 10.5);
+      }
+    }
+    
+    function drawFooter(pageNum, totalPages) {
+      pdf.setFontSize(8);
+      pdf.setTextColor(...mutedRGB);
+      pdf.setFont('helvetica', 'normal');
+      const txt = `Timeline de estados   ·   página ${pageNum}${totalPages?' de '+totalPages:''}`;
+      pdf.text(txt, margin, pageH - 5);
+    }
+
+    drawHeader(true);
+    let y = 22;
+
+    for (let i = 0; i < canvases.length; i++) {
+      const c = canvases[i];
+      if (!c.width) continue; 
+      const imgW = usableW;
+      const imgH = (c.height * imgW) / c.width;
+      const titleH = 7;
+      const blockH = titleH + imgH + 4;
+
+      if (y + blockH > pageH - 10) {
+        drawFooter(pdf.internal.getNumberOfPages());
+        pdf.addPage();
+        drawHeader(false);
+        y = 22;
+      }
+
+      pdf.setFont('helvetica', 'bold');
+      pdf.setFontSize(11);
+      pdf.setTextColor(...primaryDeepRGB);
+      pdf.text(titles[i].toUpperCase(), margin, y);
+      const tw = pdf.getTextWidth(titles[i].toUpperCase());
+      pdf.setDrawColor(...primaryMainRGB);
+      pdf.setLineWidth(0.6);
+      pdf.line(margin, y + 1.2, margin + tw, y + 1.2);
+      y += titleH;
+
+      if (imgH > pageH - 34) {
+        const maxSliceMm = pageH - 34;
+        const pxPerMm = c.width / imgW;
+        const sliceHpx = Math.floor(maxSliceMm * pxPerMm);
+        let offsetPx = 0, first = true;
+        while (offsetPx < c.height) {
+          const remaining = c.height - offsetPx;
+          const thisSlice = Math.min(sliceHpx, remaining);
+          const tmp = document.createElement('canvas');
+          tmp.width = c.width; tmp.height = thisSlice;
+          tmp.getContext('2d').drawImage(c, 0, offsetPx, c.width, thisSlice, 0, 0, c.width, thisSlice);
+          const sliceMm = thisSlice / pxPerMm;
+          if (!first) {
+            drawFooter(pdf.internal.getNumberOfPages());
+            pdf.addPage();
+            drawHeader(false);
+            y = 22;
+          }
+          pdf.addImage(tmp.toDataURL('image/png'), 'PNG', margin, y, imgW, sliceMm);
+          y += sliceMm + 4;
+          offsetPx += thisSlice;
+          first = false;
+        }
+      } else {
+        pdf.addImage(c.toDataURL('image/png'), 'PNG', margin, y, imgW, imgH);
+        y += imgH + 8;
+      }
+    }
+
+    if (allQueues.length) {
+      pdf.addPage();
+      drawHeader(false);
+      y = 22;
+
+      pdf.setFont('helvetica', 'bold');
+      pdf.setFontSize(13);
+      pdf.setTextColor(...primaryDeepRGB);
+      pdf.text('AGENTES POR COLA', margin, y);
+      const titleW = pdf.getTextWidth('AGENTES POR COLA');
+      pdf.setDrawColor(...primaryMainRGB);
+      pdf.setLineWidth(0.6);
+      pdf.line(margin, y + 1.4, margin + titleW, y + 1.4);
+      y += 7;
+
+      pdf.setFont('helvetica', 'italic');
+      pdf.setFontSize(8);
+      pdf.setTextColor(...mutedRGB);
+      pdf.text('Vinculación deducida a partir de llamadas entregadas.', margin, y);
+      y += 5;
+
+      const colGap = 6;
+      const colW = (usableW - colGap) / 2;
+      const col2X = margin + colW + colGap;
+      const bottomLimit = pageH - 10;
+
+      const queueCards = allQueues.map(q => {
+        const agents = Array.from(queueAgents.get(q.id) || []).sort();
+        const h = 8 + Math.max(1, agents.length) * 3.8 + 3;
+        return { q, agents, h };
+      });
+
+      let curCol = 0;
+      let colYs = [y, y];
+
+      for (const card of queueCards) {
+        if (colYs[curCol] + card.h > bottomLimit) {
+          curCol = curCol === 0 ? 1 : 0;
+          if (colYs[curCol] + card.h > bottomLimit) {
+            pdf.addPage();
+            drawHeader(false);
+            y = 22;
+            colYs = [y, y];
+            curCol = 0;
+          }
+        }
+
+        const x = curCol === 0 ? margin : col2X;
+        let cy = colYs[curCol];
+
+        pdf.setFillColor(...hex2rgb('#f8f9fa'));
+        pdf.rect(x, cy, colW, card.h - 3, 'F');
+        pdf.setFillColor(...primaryMainRGB);
+        pdf.rect(x, cy, 1.2, card.h - 3, 'F');
+
+        pdf.setFont('helvetica', 'bold');
+        pdf.setFontSize(10);
+        pdf.setTextColor(...primaryDeepRGB);
+        pdf.text(card.q.name.toUpperCase(), x + 4, cy + 4.5);
+
+        pdf.setFont('helvetica', 'normal');
+        pdf.setFontSize(8);
+        pdf.setTextColor(...primaryMainRGB);
+        const countTxt = `${card.agents.length} agente${card.agents.length === 1 ? '' : 's'}`;
+        const cW = pdf.getTextWidth(countTxt);
+        pdf.text(countTxt, x + colW - cW - 3, cy + 4.5);
+
+        pdf.setTextColor(...mutedRGB);
+        pdf.setFontSize(7);
+        pdf.text(card.q.id, x + 4, cy + 7.8);
+
+        pdf.setFont('helvetica', 'normal');
+        pdf.setFontSize(8);
+        pdf.setTextColor(...inkRGB);
+        let ay = cy + 12;
+        if (!card.agents.length) {
+          pdf.setTextColor(...mutedRGB);
+          pdf.setFont('helvetica', 'italic');
+          pdf.text('Sin agentes vinculados', x + 4, ay);
+        } else {
+          for (const a of card.agents) {
+            let label = a;
+            const maxW = colW - 7;
+            while (pdf.getTextWidth(label) > maxW && label.length > 3) {
+              label = label.slice(0, -1);
+            }
+            if (label !== a) label = label.slice(0, -1) + '…';
+            pdf.text(label, x + 4, ay);
+            ay += 3.8;
+          }
+        }
+        colYs[curCol] = cy + card.h;
+      }
+    }
+
+    const total = pdf.internal.getNumberOfPages();
+    for (let p = 1; p <= total; p++) {
+      pdf.setPage(p);
+      drawFooter(p, total);
+    }
+
+    pdf.save(`informe_cruce_turnos_${dateStr || 'export'}.pdf`);
+  } catch (err) {
+    console.error(err);
+    alert('Error al exportar a PDF: ' + (err && err.message ? err.message : err));
+  } finally {
+    contents.forEach((el, index) => {
+      el.style.display = originalDisplays[index];
+    });
+    btn.textContent = originalText;
+    btn.disabled = false;
+  }
+});
+</script>
+</body>
+</html>
