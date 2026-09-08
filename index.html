@@ -6,570 +6,589 @@
 <title>Timeline de estados y cruce de turnos</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Roboto+Condensed:wght@400;700&family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <style>
-  /* ============================================
-     Google Cool & Professional Tech Palette
-     ============================================ */
   :root {
-    --primary-deep: #174ea6;   /* Azul google profundo para cabeceras principales */
-    --primary-main: #1a73e8;   /* Azul google interactivo moderno */
-    --primary-light: #e8f0fe;  /* Fondo suave azulado para destacar */
-    --cool-slate:   #3c4043;   /* Gris texto oscuro elegante */
-    --cool-muted:   #5f6368;   /* Gris texto secundario */
-    --cool-border:  #dadce0;   /* Borde gris limpio */
-    --cool-bg:      #f8f9fa;   /* Fondo general ultra fresco */
-    --white:        #ffffff;
-
-    /* Semantic */
-    --bg:           var(--cool-bg);
-    --surface:      var(--white);
-    --ink:          var(--cool-slate);
-    --ink-muted:    var(--cool-muted);
-    --border:       var(--cool-border);
-    --accent:       var(--primary-main);
-    --accent-soft:  #8ab4f8;
-    --accent-bg:    var(--primary-light);
+    --background: #f8fafc;
+    --foreground: #0f172a;
+    --card: rgba(255, 255, 255, 0.85);
+    --border: rgba(226, 232, 240, 0.8);
+    --muted: #f1f5f9;
+    --muted-foreground: #64748b;
+    --sidebar-bg: #ffffff;
+    
+    /* Z8 Brand Colors */
+    --primary: #4f46e5;
+    --primary-light: #e0e7ff;
+    --primary-foreground: #ffffff;
+    --violet: #8b5cf6;
+    --emerald: #34d399;
+    --ring: rgba(79, 70, 229, 0.3);
 
     /* Timeline state colours */
-    --state-available: #137333;   /* Verde operativo limpio */
-    --state-busy:      #c5221f;   /* Rojo coral moderno */
-    --state-offline:   #bdc1c6;   /* Gris inactivo */
-    --state-break:     #1967d2;   /* Azul pausa */
-    --state-other:     #5f6368;
+    --state-available: #10b981;
+    --state-busy:      #f43f5e;
+    --state-offline:   #cbd5e1;
+    --state-break:     #8b5cf6;
+    --state-other:     #94a3b8;
   }
 
   * { box-sizing: border-box; }
 
   html, body {
-    font-family: 'Montserrat', -apple-system, "Segoe UI", Roboto, sans-serif;
-    color: var(--ink);
-    background: var(--bg);
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    color: var(--foreground);
+    background-color: var(--background);
     margin: 0;
+    padding: 0;
+    height: 100vh;
+    overflow: hidden; /* Prevent body scroll, handled by layout */
   }
-  body { padding: 20px; }
+  
+  /* Z8 Decorative Background Blurs */
+  .bg-fx {
+    position: fixed; inset: 0; pointer-events: none; z-index: -1;
+    background: radial-gradient(ellipse at top, rgba(79, 70, 229, 0.04), transparent 60%);
+  }
+  .bg-fx::before {
+    content: ''; position: absolute; top: -10rem; right: -10rem;
+    height: 32rem; width: 32rem; border-radius: 9999px;
+    background: rgba(79, 70, 229, 0.08); filter: blur(140px);
+  }
+  .bg-fx::after {
+    content: ''; position: absolute; top: 33%; left: -8rem;
+    height: 22rem; width: 22rem; border-radius: 9999px;
+    background: rgba(139, 92, 246, 0.06); filter: blur(120px);
+  }
 
-  h1, h2, h3, .headline {
-    font-family: 'Roboto Condensed', 'Montserrat', sans-serif;
-    text-transform: uppercase;
-    letter-spacing: 0.02em;
-    font-weight: 700;
-    color: var(--primary-deep);
-    margin: 0;
+  /* ---- Layout ---- */
+  .app-layout {
+    display: flex;
+    height: 100vh;
+    width: 100vw;
   }
 
-  /* ---- App header ---- */
-  .app-header {
-    display: flex; align-items: center; gap: 20px;
-    padding: 18px 24px;
-    background: var(--primary-deep);
-    color: var(--white);
-    border-radius: 10px;
-    margin-bottom: 18px;
-    box-shadow: 0 2px 10px rgba(23,78,166,.15);
-    flex-wrap: wrap; 
+  /* ---- Sidebar ---- */
+  .sidebar {
+    width: 260px;
+    background: var(--sidebar-bg);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    flex-shrink: 0;
+    z-index: 10;
   }
-  .app-header .app-title {
-    color: var(--white);
-    font-family: 'Roboto Condensed', sans-serif;
-    font-weight: 700;
-    font-size: 18px;
-    letter-spacing: 0.03em;
-    text-transform: uppercase;
-    margin: 0;
+  
+  .sidebar-header {
+    padding: 20px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 12px;
   }
-  .app-header .sub {
-    font-size: 11px; color: #8ab4f8; margin-left: auto;
-    font-weight: 500; text-transform: uppercase; letter-spacing: 0.08em;
+  .sidebar-header .icon-box {
+    height: 2.5rem; width: 2.5rem; border-radius: 0.5rem;
+    background: linear-gradient(to bottom right, var(--primary), var(--violet));
+    color: var(--primary-foreground);
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 4px 6px -1px rgba(79,70,229,0.3);
   }
+  .sidebar-header .icon-box svg { height: 1.25rem; width: 1.25rem; }
+  .sidebar-header .titles { display: flex; flex-direction: column; }
+  .sidebar-header .sub { font-size: 0.65rem; font-weight: 700; color: var(--primary); text-transform: uppercase; letter-spacing: 0.1em; }
+  .sidebar-header .app-title { font-size: 0.875rem; font-weight: 700; color: var(--foreground); margin: 0; line-height: 1.2; }
+
+  .sidebar-nav {
+    flex: 1;
+    overflow-y: auto;
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .nav-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 12px; border-radius: 0.375rem;
+    font-size: 0.8125rem; font-weight: 600; color: var(--muted-foreground);
+    cursor: pointer; transition: all 0.2s;
+    text-decoration: none; border: none; background: transparent; text-align: left; width: 100%;
+  }
+  .nav-item svg { width: 18px; height: 18px; opacity: 0.7; }
+  .nav-item:hover { background: var(--muted); color: var(--foreground); }
+  .nav-item.active {
+    background: var(--primary-light);
+    color: var(--primary);
+  }
+  .nav-item.active svg { opacity: 1; stroke: var(--primary); }
+  .nav-item.disabled { opacity: 0.5; pointer-events: none; }
+
+  /* ---- Main Content ---- */
+  .main-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 32px;
+    position: relative;
+  }
+  .module-view { display: none; max-width: 1200px; margin: 0 auto; animation: fadeIn 0.3s ease-out; }
+  .module-view.active { display: block; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
 
   /* ---- Panels ---- */
   .panel {
-    background: var(--surface);
+    background: var(--card);
     border: 1px solid var(--border);
-    border-radius: 10px;
-    padding: 16px;
-    margin-bottom: 14px;
+    border-radius: 1rem;
+    box-shadow: 0 10px 15px -3px rgba(0,0,0,0.02), 0 4px 6px -2px rgba(0,0,0,0.01);
+    backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+    margin-bottom: 24px;
+    position: relative;
+    overflow: hidden;
   }
-  .panel-title {
-    font-family: 'Roboto Condensed', sans-serif;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    font-weight: 700;
-    font-size: 13px;
-    color: var(--primary-deep);
-    margin-bottom: 0; 
-  }
-  .panel-heading {
-    display: flex; align-items: center; justify-content: space-between;
-    margin-bottom: 12px;
-    flex-wrap: wrap; 
-    gap: 10px;
-    border-bottom: 1px solid transparent;
-  }
-  .panel-heading.with-border {
-    padding-bottom: 8px;
-    border-bottom: 1px solid var(--border);
-  }
-  .panel-actions {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-  }
-
-  /* ---- File input ---- */
-  .file-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
-  input[type="file"] {
-    font-family: inherit; font-size: 13px;
-    padding: 6px; border: 1px dashed var(--border); border-radius: 6px;
-    background: var(--accent-bg); color: var(--ink);
-    width: 100%; max-width: 300px;
-  }
-  input[type="file"]::file-selector-button {
-    background: var(--primary-main); color: var(--white); border: 0;
-    padding: 6px 12px; border-radius: 4px; margin-right: 10px;
-    font-family: inherit; font-weight: 600; cursor: pointer;
-  }
-  input[type="file"]::file-selector-button:hover { background: var(--primary-deep); }
+  .panel-gradient-line { height: 3px; width: 100%; background: linear-gradient(to right, var(--primary), var(--violet)); }
+  .panel-padding { padding: 24px; }
   
-  .status-text { font-size: 12px; color: var(--ink-muted); }
-  .status-success { color: var(--state-available); font-weight: 500; }
-  .status-error { color: var(--state-busy); font-weight: 500; }
-  .debug-text { font-size: 11px; color: var(--cool-muted); margin-top: 6px; font-family: 'Montserrat', monospace; white-space: pre-wrap; word-break: break-all; }
+  .panel-heading { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; flex-wrap: wrap; gap: 12px; }
+  .panel-heading.with-border { padding-bottom: 16px; border-bottom: 1px solid var(--border); }
+  .panel-title { font-size: 1rem; font-weight: 700; color: var(--foreground); margin: 0; }
+  .panel-subtitle { font-size: 0.75rem; color: var(--muted-foreground); margin-top: 4px; font-weight: 500; }
+  .panel-actions { display: flex; align-items: center; gap: 10px; }
 
-  /* ---- Controls ---- */
-  .controls {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-    gap: 14px;
-    align-items: start;
+  /* ---- Drag & Drop Zones ---- */
+  .dropzone-container {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px;
   }
-  .ctrl label {
-    display: block; font-size: 11px; font-weight: 600;
-    color: var(--primary-deep); margin-bottom: 4px;
-    text-transform: uppercase; letter-spacing: 0.04em;
-  }
-  .ctrl input, .ctrl select {
-    width: 100%; padding: 7px 9px;
-    border: 1px solid var(--border); border-radius: 5px;
-    font-family: inherit; font-size: 13px; color: var(--ink);
-    background: var(--white);
-  }
-  .ctrl input:focus, .ctrl select:focus {
-    outline: 2px solid var(--accent-soft); outline-offset: 0;
-    border-color: var(--primary-main);
-  }
-  select[multiple] { height: 150px; }
-  .small { font-size: 11px; color: var(--ink-muted); margin-top: 4px; }
-  .small a { color: var(--primary-main); text-decoration: none; cursor: pointer; font-weight: 600; }
-  .small a:hover { text-decoration: underline; }
-
-  /* ---- Buttons & Switches ---- */
-  button {
-    background: var(--primary-main); color: var(--white); border: 0;
-    padding: 8px 16px; border-radius: 5px; cursor: pointer;
-    font-family: inherit; font-size: 13px; font-weight: 600;
-    letter-spacing: 0.02em;
-    transition: background 0.15s;
-    width: 100%; 
-    margin-bottom: 8px; 
-  }
-  @media (min-width: 600px) {
-      button { width: auto; margin-bottom: 0; }
-  }
-  button:hover { background: var(--primary-deep); }
-  button.secondary { background: #e8eaed; color: var(--cool-slate); }
-  button.secondary:hover { background: #dadce0; }
-  button.accent-alt { background: var(--state-busy); }
-  button.accent-alt:hover { background: #a50e0e; }
-  button:disabled { opacity: 0.6; cursor: not-allowed; }
-
-  button.toggle-panel-btn {
-    background: transparent;
-    color: var(--ink-muted);
-    padding: 4px 8px;
-    font-size: 14px;
-    border: 1px solid transparent;
-  }
-  button.toggle-panel-btn:hover {
-    background: var(--border);
-    color: var(--primary-deep);
-  }
-
-  .view-switch {
-    display: inline-flex;
-    background: var(--bg);
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    padding: 3px;
-  }
-  .view-switch label {
-    margin: 0;
+  .dropzone {
+    border: 2px dashed var(--border);
+    border-radius: 0.75rem;
+    padding: 32px 20px;
+    text-align: center;
+    background: var(--background);
+    transition: all 0.2s ease;
     cursor: pointer;
     position: relative;
+    display: flex; flex-direction: column; align-items: center; gap: 12px;
   }
-  .view-switch input[type="radio"] {
-    position: absolute;
-    opacity: 0;
+  .dropzone:hover, .dropzone.dragover {
+    border-color: var(--primary);
+    background: var(--primary-light);
   }
-  .view-switch span {
-    display: inline-block;
-    padding: 5px 12px;
-    font-size: 11px;
-    font-weight: 600;
-    color: var(--ink-muted);
-    border-radius: 4px;
-    transition: all 0.2s ease;
-    user-select: none;
+  .dropzone-icon {
+    width: 48px; height: 48px; border-radius: 50%;
+    background: var(--muted); color: var(--muted-foreground);
+    display: flex; align-items: center; justify-content: center;
+    transition: all 0.2s;
   }
-  .view-switch input[type="radio"]:checked + span {
-    background: var(--white);
-    color: var(--primary-deep);
-    box-shadow: 0 1px 3px rgba(23,78,166,0.12);
+  .dropzone:hover .dropzone-icon, .dropzone.dragover .dropzone-icon {
+    background: var(--primary); color: var(--primary-foreground);
   }
+  .dropzone-title { font-size: 0.875rem; font-weight: 600; color: var(--foreground); margin: 0;}
+  .dropzone-desc { font-size: 0.75rem; color: var(--muted-foreground); margin: 0;}
+  
+  .status-badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 4px 10px; border-radius: 9999px;
+    font-size: 0.6875rem; font-weight: 700; margin-top: 8px;
+  }
+  .status-badge.pending { background: var(--muted); color: var(--muted-foreground); }
+  .status-badge.success { background: rgba(16, 185, 129, 0.15); color: var(--state-available); }
+  .status-badge.error { background: rgba(244, 63, 94, 0.15); color: var(--state-busy); }
 
-  /* ---- Legend ---- */
-  .legend {
-    display: flex; gap: 18px; flex-wrap: wrap;
-    font-size: 12px; margin-top: 12px;
-    padding-top: 10px; border-top: 1px solid var(--border);
-    color: var(--ink-muted);
-  }
-  .legend span { display: inline-flex; align-items: center; gap: 6px; }
-  .swatch { width: 14px; height: 14px; border-radius: 3px; display: inline-block; }
+  .debug-text { font-size: 0.6875rem; color: var(--muted-foreground); margin-top: 12px; font-family: monospace; white-space: pre-wrap; word-break: break-all; text-align: left; width: 100%; max-height: 100px; overflow-y: auto;}
 
-  /* ---- Queues list ---- */
-  .queues-list {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); 
-    gap: 12px;
-    margin-top: 4px;
+  /* ---- Controls ---- */
+  .controls { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; align-items: start; }
+  .ctrl label { display: block; font-size: 0.6875rem; font-weight: 700; color: var(--muted-foreground); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.05em; }
+  .ctrl input, .ctrl select {
+    width: 100%; padding: 8px 12px; border: 1px solid var(--border); border-radius: 0.375rem;
+    font-family: inherit; font-size: 0.8125rem; color: var(--foreground); background: var(--background); transition: all 0.2s;
   }
-  .queue-card {
-    border: 1px solid var(--border);
-    border-left: 3px solid var(--primary-main);
-    border-radius: 6px;
-    padding: 10px 12px;
-    background: var(--white);
-  }
-  .queue-card .q-head {
-    display: flex; align-items: baseline; justify-content: space-between;
-    gap: 8px; margin-bottom: 6px;
-  }
-  .queue-card .q-name {
-    font-family: 'Roboto Condensed', sans-serif;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.03em;
-    color: var(--primary-deep);
-    font-size: 13px;
-  }
-  .queue-card .q-id { font-size: 10px; color: var(--ink-muted); font-weight: 500; }
-  .queue-card .q-count {
-    display: inline-block; padding: 1px 7px; border-radius: 10px;
-    background: var(--accent-bg); color: var(--primary-main);
-    font-size: 11px; font-weight: 600;
-  }
-  .queue-card .q-agents {
-    font-size: 12px; color: var(--ink); line-height: 1.5;
-    max-height: 140px; overflow-y: auto;
-  }
-  .queue-card .q-agents .ag { display: block; padding: 1px 0; }
-  .queue-card .q-agents .ag:hover { color: var(--primary-main); cursor: default; }
+  .ctrl input:focus, .ctrl select:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px var(--ring); }
+  select[multiple] { height: 120px; }
+  .small { font-size: 0.6875rem; color: var(--muted-foreground); margin-top: 6px; font-weight: 500; }
+  .small a { color: var(--primary); text-decoration: none; cursor: pointer; font-weight: 600; transition: opacity 0.2s; }
+  .small a:hover { opacity: 0.8; }
 
-  /* ---- Exclude panels ---- */
-  .exclude-blocks-wrap {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-    gap: 14px;
-    margin-top: 10px;
+  /* ---- Buttons & Switches ---- */
+  button.btn {
+    background: var(--primary); color: var(--primary-foreground); border: 0;
+    padding: 8px 16px; border-radius: 0.375rem; cursor: pointer;
+    font-family: inherit; font-size: 0.8125rem; font-weight: 600;
+    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05); transition: all 0.15s ease-in-out;
+    display: inline-flex; justify-content: center; align-items: center; gap: 6px;
   }
-  .exclude-group {
-    background: var(--bg);
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    padding: 12px 14px;
-  }
-  .exclude-group h4 {
-    font-family: 'Roboto Condensed', sans-serif;
-    font-size: 13px;
-    color: var(--primary-deep);
-    margin: 0 0 10px 0;
-    padding-bottom: 6px;
-    border-bottom: 1px solid var(--border);
-    text-transform: uppercase;
-  }
-  .exclude-list {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-    gap: 6px 12px;
-  }
-  .exclude-lbl {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    font-size: 11px;
-    color: var(--ink);
-    cursor: pointer;
-    user-select: none;
-    font-weight: 500;
-  }
-  .exclude-lbl:hover { color: var(--primary-main); }
-  .exclude-lbl input[type="checkbox"] {
-    margin: 0;
-    cursor: pointer;
-    accent-color: var(--primary-main);
-  }
+  button.btn:hover { opacity: 0.9; }
+  button.btn.secondary { background: var(--muted); color: var(--foreground); border: 1px solid var(--border); box-shadow: none; }
+  button.btn.secondary:hover { background: #e2e8f0; }
+  button.btn.accent-alt { background: var(--state-busy); }
+  button.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  .view-switch { display: inline-flex; background: var(--muted); border: 1px solid var(--border); border-radius: 0.5rem; padding: 4px; }
+  .view-switch label { margin: 0; cursor: pointer; position: relative; }
+  .view-switch input[type="radio"] { position: absolute; opacity: 0; }
+  .view-switch span { display: inline-block; padding: 6px 12px; font-size: 0.75rem; font-weight: 600; color: var(--muted-foreground); border-radius: 0.375rem; transition: all 0.2s ease; user-select: none; }
+  .view-switch input[type="radio"]:checked + span { background: var(--background); color: var(--foreground); box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
 
   /* ---- Charts & Tables ---- */
   .chart-wrap { width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; } 
-  .axis text { font-size: 11px; fill: var(--ink-muted); font-family: 'Montserrat', sans-serif; }
-  .axis path, .axis line { stroke: #dadce0; }
-  .grid line { stroke: #f1f3f4; }
-  .agent-label { font-size: 11px; fill: var(--ink); font-family: 'Montserrat', sans-serif; }
+  .axis text { font-size: 0.6875rem; fill: var(--muted-foreground); font-family: inherit; font-weight: 500; }
+  .axis path, .axis line { stroke: var(--border); }
+  .grid line { stroke: rgba(226, 232, 240, 0.4); }
+  .agent-label { font-size: 0.6875rem; fill: var(--foreground); font-family: inherit; font-weight: 600; }
 
-  .table-max-hour { 
-    width: 100%; border-collapse: collapse; text-align: center; 
-    font-size: 11px; font-family: 'Montserrat', sans-serif; 
-    min-width: 800px; 
-  }
-  .table-max-hour th, .table-max-hour td { 
-    border: 1px solid var(--border); padding: 6px 4px; 
-  }
-  .table-max-hour th { 
-    background: var(--primary-deep); color: var(--white); font-weight: 600; 
-  }
-  .table-max-hour td:first-child { 
-    text-align: left; font-weight: 600; color: var(--primary-deep); 
-    background: var(--bg); position: sticky; left: 0; z-index: 1;
-  }
-  .table-max-hour th:first-child { 
-    position: sticky; left: 0; z-index: 2; 
-  }
-  .table-max-hour .zero { 
-    color: var(--ink-muted); opacity: 0.4; 
-  }
+  .table-max-hour { width: 100%; border-collapse: collapse; text-align: center; font-size: 0.75rem; min-width: 800px; }
+  .table-max-hour th, .table-max-hour td { border-bottom: 1px solid var(--border); padding: 10px 6px; }
+  .table-max-hour th { color: var(--muted-foreground); font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; font-size: 0.6875rem; }
+  .table-max-hour td:first-child { text-align: left; font-weight: 600; color: var(--foreground); background: var(--card); position: sticky; left: 0; z-index: 1; }
+  .table-max-hour th:first-child { position: sticky; left: 0; z-index: 2; background: var(--card); }
+  .table-max-hour .zero { color: var(--muted-foreground); opacity: 0.3; }
   
-  .strict-mode-lbl { font-size:10px; display:flex; align-items:center; gap:4px; cursor:pointer; font-weight:600; color:var(--primary-deep); justify-content:center;}
-  .strict-mode-lbl input { margin:0; accent-color:var(--state-busy); }
+  .legend { display: flex; gap: 16px; flex-wrap: wrap; font-size: 0.75rem; font-weight: 500; color: var(--muted-foreground); }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .swatch { width: 12px; height: 12px; border-radius: 50%; display: inline-block; }
 
-  /* ---- Tooltip ---- */
-  .tooltip {
-    position: absolute; pointer-events: none;
-    background: var(--primary-deep); color: var(--white);
-    padding: 8px 11px; border-radius: 6px;
-    font-size: 12px; line-height: 1.45;
-    opacity: 0; transition: opacity .1s;
-    z-index: 1000;
-    box-shadow: 0 4px 14px rgba(23,78,166,.2);
-    font-family: 'Montserrat', sans-serif;
-    max-width: 250px; 
-    word-wrap: break-word;
-  }
-  .tooltip b { color: #8ab4f8; }
+  .queues-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; }
+  .queue-card { border: 1px solid var(--border); border-radius: 0.75rem; padding: 16px; background: var(--background); transition: border-color 0.2s; }
+  .queue-card:hover { border-color: var(--primary); }
+  .queue-card .q-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; margin-bottom: 12px; }
+  .queue-card .q-name { font-weight: 700; color: var(--foreground); font-size: 0.875rem; }
+  .queue-card .q-id { font-size: 0.6875rem; color: var(--muted-foreground); font-weight: 600; font-family: monospace; margin-top: 2px;}
+  .queue-card .q-count { display: inline-flex; align-items: center; justify-content: center; padding: 2px 10px; border-radius: 9999px; background: var(--primary-light); color: var(--primary); font-size: 0.6875rem; font-weight: 700; }
+  .queue-card .q-agents { font-size: 0.75rem; color: var(--muted-foreground); line-height: 1.6; max-height: 140px; overflow-y: auto; font-weight: 500; }
+  .queue-card .q-agents .ag { display: block; padding: 2px 0; }
+
+  .exclude-blocks-wrap { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 16px; }
+  .exclude-group { background: var(--background); border: 1px solid var(--border); border-radius: 0.5rem; padding: 16px; }
+  .exclude-group h4 { font-size: 0.75rem; font-weight: 700; color: var(--foreground); margin: 0 0 12px 0; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
+  .exclude-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px 12px; }
+  .exclude-lbl { display: flex; align-items: center; gap: 8px; font-size: 0.75rem; color: var(--muted-foreground); cursor: pointer; user-select: none; font-weight: 500; }
+  .exclude-lbl:hover { color: var(--foreground); }
+  .exclude-lbl input[type="checkbox"] { margin: 0; cursor: pointer; accent-color: var(--primary); width: 14px; height: 14px;}
+
+  .tooltip { position: absolute; pointer-events: none; background: rgba(15, 23, 42, 0.95); color: #fff; padding: 10px 14px; border-radius: 0.5rem; font-size: 0.75rem; line-height: 1.5; opacity: 0; transition: opacity .1s; z-index: 1000; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); font-family: inherit; max-width: 250px; word-wrap: break-word; backdrop-filter: blur(4px); border: 1px solid rgba(255,255,255,0.1); }
+  .tooltip b { color: var(--primary-light); font-weight: 700; }
+  
+  .custom-alert { position: fixed; bottom: 24px; right: 24px; background: var(--foreground); color: var(--background); padding: 12px 20px; border-radius: 0.5rem; z-index: 9999; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.2); font-weight: 600; font-size: 0.875rem; opacity: 0; transition: opacity 0.3s ease, transform 0.3s ease; transform: translateY(10px); }
 </style>
 </head>
 <body>
 
-<div class="app-header">
-  <h1 class="app-title">Timeline de estados y cruce de turnos</h1>
-  <span class="sub">Professional Edition</span>
-</div>
+<div class="bg-fx"></div>
 
-<div class="panel">
-  <!-- Carga 1: Estados de la Centralita -->
-  <div class="file-row" style="margin-bottom: 12px; padding-bottom: 12px; border-bottom: 1px dashed var(--border);">
-    <input type="file" id="fileInput" accept=".csv,text/csv">
-    <span id="status" class="status-text">Carga el CSV de estados primero.</span>
-  </div>
-  <div id="debug" class="debug-text"></div>
-  
-  <!-- Carga 2: Turnos -->
-  <div class="file-row">
-    <input type="file" id="shiftsInput" accept=".csv,text/csv">
-    <span id="shiftsStatus" class="status-text">Pendiente de cargar CSV de turnos...</span>
-  </div>
-  <div id="shiftsDebug" class="debug-text"></div>
-</div>
-
-<div class="panel" id="filtersPanel" style="display:none;">
-  <div class="panel-heading">
-    <div class="panel-title">Filtros y Leyenda Globales</div>
-    <div class="panel-actions">
-      <button class="toggle-panel-btn" title="Ocultar/Mostrar panel">▲</button>
-    </div>
-  </div>
-  <div class="panel-content">
-    <div class="controls">
-      <div class="ctrl">
-        <label>Hora desde</label>
-        <input type="time" id="timeFrom" step="1">
+<div class="app-layout">
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="sidebar-header">
+      <div class="icon-box">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"></path><path d="M20 3v4"></path><path d="M22 5h-4"></path><path d="M4 17v2"></path><path d="M5 18H3"></path></svg>
       </div>
-      <div class="ctrl">
-        <label>Hora hasta</label>
-        <input type="time" id="timeTo" step="1">
-      </div>
-      <div class="ctrl">
-        <label>Agentes / Extensiones (Ctrl/Cmd)</label>
-        <select id="agentSelect" multiple></select>
-        <div class="small"><a id="selAllAgents">Todos</a> · <a id="selNoneAgents">Ninguno</a></div>
-      </div>
-      <div class="ctrl">
-        <label>Estados (Ctrl/Cmd)</label>
-        <select id="stateSelect" multiple></select>
-        <div class="small"><a id="selAllStates">Todos</a> · <a id="selNoneStates">Ninguno</a></div>
-      </div>
-      <div class="ctrl">
-        <label>Servicios / Colas (Ctrl/Cmd)</label>
-        <select id="queueSelect" multiple></select>
-        <div class="small"><a id="selAllQueues">Todas</a> · <a id="selNoneQueues">Ninguna</a></div>
-      </div>
-      <div class="ctrl" style="align-self:end;">
-        <button id="applyBtn">Aplicar filtros</button>
-        <button id="resetBtn" class="secondary" style="margin-left:6px;">Reset</button>
+      <div class="titles">
+        <span class="sub">Gestión Z8</span>
+        <h1 class="app-title">Timeline & Turnos</h1>
       </div>
     </div>
-    <div class="legend">
-      <span><span class="swatch" style="background:var(--state-available)"></span> Disponible</span>
-      <span><span class="swatch" style="background:var(--state-busy)"></span> Sonando / Ocupado</span>
-      <span><span class="swatch" style="background:var(--state-break)"></span> Descanso</span>
-      <span><span class="swatch" style="background:var(--state-offline)"></span> Desconectado</span>
-      <span><span class="swatch" style="background:var(--state-other)"></span> Resto de estados</span>
-    </div>
-  </div>
-</div>
+    <nav class="sidebar-nav" id="sidebarNav">
+      <button class="nav-item active" data-target="mod-upload">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></svg>
+        Carga de Datos
+      </button>
+      <button class="nav-item disabled" data-target="mod-filters">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+        Filtros Generales
+      </button>
+      <button class="nav-item disabled" data-target="mod-stats">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg>
+        Tiempos por Usuario
+      </button>
+      <button class="nav-item disabled" data-target="mod-timeline">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+        Timeline de Estados
+      </button>
+      <button class="nav-item disabled" data-target="mod-availability">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg>
+        Disponibilidad Global
+      </button>
+      <button class="nav-item disabled" data-target="mod-gaps">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+        Franjas sin Cobertura
+      </button>
+      <button class="nav-item disabled" data-target="mod-max">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/><path d="M9 14h6"/><path d="M9 10h6"/><path d="M9 18h6"/></svg>
+        Máximo por Servicio
+      </button>
+      <button class="nav-item disabled" data-target="mod-queues">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        Agentes por Cola
+      </button>
+      <button class="nav-item disabled" data-target="mod-exclude">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="17" x2="22" y1="8" y2="13"/><line x1="22" x2="17" y1="8" y2="13"/></svg>
+        Exclusiones
+      </button>
+    </nav>
+  </aside>
 
-<!-- TABLA MAESTRA DE RESULTADOS -->
-<div class="panel" id="userStatsPanel" style="display:none;">
-  <div class="panel-heading with-border">
-    <div>
-      <div class="panel-title" style="color:var(--primary-main);">Tiempos de Conexión por Usuario (Mattermost)</div>
-      <div class="small" style="color:var(--ink-muted);">Calculado cruzando estados PBX con turnos. Las sesiones extra se asignan por máximo solape (Flexible). Marca "Estricto" para cortar matemáticamente.</div>
-    </div>
-    <div class="panel-actions">
-      <button id="exportCsvBtn" class="secondary" style="margin-bottom:0;" title="Exportar tabla completa a CSV">Exportar CSV</button>
-      <button class="toggle-panel-btn" title="Ocultar/Mostrar panel">▲</button>
-    </div>
-  </div>
-  <div class="panel-content">
-    <div class="chart-wrap" id="userStatsTableWrap">
-       <div class="small">Sube el archivo CSV de Turnos para calcular esta tabla.</div>
-    </div>
-  </div>
-</div>
+  <!-- Main Content -->
+  <main class="main-content">
+    
+    <!-- MÓDULO 1: CARGA DE DATOS -->
+    <div id="mod-upload" class="module-view active">
+      <div class="panel">
+        <div class="panel-gradient-line"></div>
+        <div class="panel-padding">
+          <div class="panel-heading with-border">
+            <h2 class="panel-title">Importación de Datos</h2>
+            <div class="panel-subtitle">Sube los archivos CSV necesarios para generar los informes.</div>
+          </div>
+          
+          <div class="dropzone-container">
+            <!-- Dropzone 1: Estados -->
+            <div class="dropzone" id="dz-states">
+              <input type="file" id="fileInput" accept=".csv,text/csv" hidden>
+              <div class="dropzone-icon">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><path d="M12 18v-6"/><path d="M9 15h6"/></svg>
+              </div>
+              <div>
+                <h3 class="dropzone-title">1. CSV de Estados (PBX)</h3>
+                <p class="dropzone-desc">Arrastra el archivo aquí o haz clic para buscar</p>
+              </div>
+              <div id="status" class="status-badge pending">Esperando archivo...</div>
+              <div id="debug" class="debug-text"></div>
+            </div>
 
-<div class="panel" id="availPanel" style="display:none;">
-  <div class="panel-heading with-border">
-    <div class="panel-title">Agentes disponibles a lo largo del tiempo</div>
-    <div class="panel-actions">
-      <button id="exportPdfBtn" class="accent-alt" style="margin-bottom:0;">Exportar a PDF</button>
-      <button class="toggle-panel-btn" title="Ocultar/Mostrar panel">▲</button>
-    </div>
-  </div>
-  <div class="panel-content">
-    <div class="chart-wrap"><svg id="availChart"></svg></div>
-  </div>
-</div>
-
-<div class="panel" id="gapPanel" style="display:none;">
-  <div class="panel-heading with-border">
-    <div class="panel-title">Franjas sin ningún agente disponible</div>
-    <div class="panel-actions">
-      <button class="toggle-panel-btn" title="Ocultar/Mostrar panel">▲</button>
-    </div>
-  </div>
-  <div class="panel-content">
-    <div class="chart-wrap"><svg id="gapChart"></svg></div>
-  </div>
-</div>
-
-<div class="panel" id="timelinePanel" style="display:none;">
-  <div class="panel-heading with-border">
-    <div class="panel-title">Timeline por extensión</div>
-    <div class="panel-actions">
-      <div class="view-switch">
-        <label><input type="radio" name="tlView" value="all" checked><span>Todos</span></label>
-        <label><input type="radio" name="tlView" value="connected"><span>Solo Conectados</span></label>
-        <label><input type="radio" name="tlView" value="connected_break"><span>Conectados + Descanso</span></label>
+            <!-- Dropzone 2: Turnos -->
+            <div class="dropzone" id="dz-shifts">
+              <input type="file" id="shiftsInput" accept=".csv,text/csv" hidden>
+              <div class="dropzone-icon">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><circle cx="12" cy="14" r="3"/><path d="M12 11v1"/></svg>
+              </div>
+              <div>
+                <h3 class="dropzone-title">2. CSV de Turnos (Opcional)</h3>
+                <p class="dropzone-desc">Arrastra el archivo aquí o haz clic para buscar</p>
+              </div>
+              <div id="shiftsStatus" class="status-badge pending">Opcional para cruce de datos</div>
+              <div id="shiftsDebug" class="debug-text"></div>
+            </div>
+          </div>
+          
+        </div>
       </div>
-      <button class="toggle-panel-btn" title="Ocultar/Mostrar panel">▲</button>
     </div>
-  </div>
-  <div class="panel-content">
-    <div class="chart-wrap"><svg id="timelineChart"></svg></div>
-  </div>
-</div>
 
-<div class="panel" id="maxPerHourPanel" style="display:none;">
-  <div class="panel-heading with-border">
-    <div>
-      <div class="panel-title">Máximo de extensiones por servicio (por hora)</div>
-      <div class="small" style="color:var(--ink-muted);">Conteo de máxima concurrencia de extensiones logueadas por franja horaria (excluye estado Desconectado)</div>
+    <!-- MÓDULO 2: FILTROS -->
+    <div id="mod-filters" class="module-view">
+      <div class="panel">
+        <div class="panel-gradient-line"></div>
+        <div class="panel-padding">
+          <div class="panel-heading with-border">
+            <div class="panel-title">Filtros y Leyenda Globales</div>
+            <div class="panel-actions">
+              <button class="btn" id="applyBtn">Aplicar filtros</button>
+              <button class="btn secondary" id="resetBtn">Reset</button>
+            </div>
+          </div>
+          <div class="controls">
+            <div class="ctrl">
+              <label>Hora desde</label>
+              <input type="time" id="timeFrom" step="1">
+            </div>
+            <div class="ctrl">
+              <label>Hora hasta</label>
+              <input type="time" id="timeTo" step="1">
+            </div>
+            <div class="ctrl">
+              <label>Agentes / Extensiones (Ctrl/Cmd)</label>
+              <select id="agentSelect" multiple></select>
+              <div class="small"><a id="selAllAgents">Todos</a> · <a id="selNoneAgents">Ninguno</a></div>
+            </div>
+            <div class="ctrl">
+              <label>Estados (Ctrl/Cmd)</label>
+              <select id="stateSelect" multiple></select>
+              <div class="small"><a id="selAllStates">Todos</a> · <a id="selNoneStates">Ninguno</a></div>
+            </div>
+            <div class="ctrl">
+              <label>Servicios / Colas (Ctrl/Cmd)</label>
+              <select id="queueSelect" multiple></select>
+              <div class="small"><a id="selAllQueues">Todas</a> · <a id="selNoneQueues">Ninguna</a></div>
+            </div>
+          </div>
+          
+          <div style="margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--border);">
+            <div class="legend">
+              <span><span class="swatch" style="background:var(--state-available)"></span> Disponible</span>
+              <span><span class="swatch" style="background:var(--state-busy)"></span> Sonando / Ocupado</span>
+              <span><span class="swatch" style="background:var(--state-break)"></span> Descanso</span>
+              <span><span class="swatch" style="background:var(--state-offline)"></span> Desconectado</span>
+              <span><span class="swatch" style="background:var(--state-other)"></span> Resto de estados</span>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
-    <div class="panel-actions">
-      <button class="toggle-panel-btn" title="Ocultar/Mostrar panel">▲</button>
-    </div>
-  </div>
-  <div class="panel-content">
-    <div class="chart-wrap" id="maxPerHourTableWrap"></div>
-  </div>
-</div>
 
-<div class="panel" id="ophExcludePanel" style="display:none;">
-  <div class="panel-heading with-border">
-    <div>
-      <div class="panel-title">Excluir Extensiones / Usuarios</div>
-      <div class="small" style="color:var(--ink-muted);">Marca lo que no debe sumar. Las extensiones afectan a las gráficas, los Usuarios Mattermost limpian la tabla maestra en vivo.</div>
+    <!-- MÓDULO 3: TABLA MAESTRA (TIEMPOS) -->
+    <div id="mod-stats" class="module-view">
+      <div class="panel">
+        <div class="panel-gradient-line"></div>
+        <div class="panel-padding">
+          <div class="panel-heading with-border">
+            <div>
+              <div class="panel-title" style="color:var(--primary);">Tiempos de Conexión por Usuario</div>
+              <div class="panel-subtitle">Calculado cruzando estados PBX con turnos. Las sesiones extra se asignan por máximo solape (Flexible).</div>
+            </div>
+            <div class="panel-actions">
+              <button class="btn secondary" id="exportCsvBtn">Exportar CSV</button>
+            </div>
+          </div>
+          <div class="chart-wrap" id="userStatsTableWrap">
+             <div class="small" style="padding: 20px 0; text-align: center;">Requiere cargar el CSV de Turnos.</div>
+          </div>
+        </div>
+      </div>
     </div>
-    <div class="panel-actions">
-      <button class="toggle-panel-btn" title="Ocultar/Mostrar panel">▲</button>
-    </div>
-  </div>
-  <div class="panel-content">
-    <div class="small" style="margin-bottom: 8px;">
-      <a id="checkAllExclude" class="sel-link">Marcar todos</a> · 
-      <a id="uncheckAllExclude" class="sel-link">Desmarcar todos</a>
-    </div>
-    <div id="ophExcludeContainer" class="exclude-blocks-wrap"></div>
-  </div>
-</div>
 
-<div class="panel" id="queuesPanel" style="display:none;">
-  <div class="panel-heading with-border">
-    <div>
-      <div class="panel-title">Agentes por cola</div>
-      <div class="small" style="color:var(--ink-muted);">Vinculación deducida a partir de llamadas entregadas</div>
+    <!-- MÓDULO 4: TIMELINE -->
+    <div id="mod-timeline" class="module-view">
+      <div class="panel">
+        <div class="panel-gradient-line"></div>
+        <div class="panel-padding">
+          <div class="panel-heading with-border">
+            <div class="panel-title">Timeline por extensión</div>
+            <div class="panel-actions">
+              <div class="view-switch">
+                <label><input type="radio" name="tlView" value="all" checked><span>Todos</span></label>
+                <label><input type="radio" name="tlView" value="connected"><span>Solo Conectados</span></label>
+                <label><input type="radio" name="tlView" value="connected_break"><span>+ Descanso</span></label>
+              </div>
+              <button class="btn accent-alt pdf-export-btn" data-target="timelineChart" data-title="Timeline por Extensión">Exportar PDF</button>
+            </div>
+          </div>
+          <div class="chart-wrap" style="padding-top: 10px;"><svg id="timelineChart"></svg></div>
+        </div>
+      </div>
     </div>
-    <div class="panel-actions">
-      <button class="toggle-panel-btn" title="Ocultar/Mostrar panel">▲</button>
+
+    <!-- MÓDULO 5: DISPONIBILIDAD -->
+    <div id="mod-availability" class="module-view">
+      <div class="panel">
+        <div class="panel-gradient-line"></div>
+        <div class="panel-padding">
+          <div class="panel-heading with-border">
+            <div class="panel-title">Agentes disponibles a lo largo del tiempo</div>
+            <div class="panel-actions">
+              <button class="btn accent-alt pdf-export-btn" data-target="availChart" data-title="Agentes Disponibles">Exportar PDF</button>
+            </div>
+          </div>
+          <div class="chart-wrap" style="padding-top: 10px;"><svg id="availChart"></svg></div>
+        </div>
+      </div>
     </div>
-  </div>
-  <div class="panel-content">
-    <div id="queuesList" class="queues-list"></div>
-  </div>
+
+    <!-- MÓDULO 6: GAPS -->
+    <div id="mod-gaps" class="module-view">
+      <div class="panel">
+        <div class="panel-gradient-line"></div>
+        <div class="panel-padding">
+          <div class="panel-heading with-border">
+            <div class="panel-title">Franjas sin ningún agente disponible</div>
+            <div class="panel-actions">
+                <button class="btn accent-alt pdf-export-btn" data-target="gapChart" data-title="Franjas sin Cobertura">Exportar PDF</button>
+            </div>
+          </div>
+          <div class="chart-wrap" style="padding-top: 10px;"><svg id="gapChart"></svg></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- MÓDULO 7: MAX POR SERVICIO -->
+    <div id="mod-max" class="module-view">
+      <div class="panel">
+        <div class="panel-gradient-line"></div>
+        <div class="panel-padding">
+          <div class="panel-heading with-border">
+            <div>
+              <div class="panel-title">Máximo de extensiones por servicio</div>
+              <div class="panel-subtitle">Conteo de máxima concurrencia de extensiones logueadas por franja horaria (excluye estado Desconectado)</div>
+            </div>
+          </div>
+          <div class="chart-wrap" id="maxPerHourTableWrap" style="padding-top: 10px;"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- MÓDULO 8: AGENTES POR COLA -->
+    <div id="mod-queues" class="module-view">
+      <div class="panel">
+        <div class="panel-gradient-line"></div>
+        <div class="panel-padding">
+          <div class="panel-heading with-border">
+            <div>
+              <div class="panel-title">Agentes por cola</div>
+              <div class="panel-subtitle">Vinculación deducida a partir de llamadas entregadas</div>
+            </div>
+          </div>
+          <div id="queuesList" class="queues-list" style="padding-top: 10px;"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- MÓDULO 9: EXCLUSIONES -->
+    <div id="mod-exclude" class="module-view">
+      <div class="panel">
+        <div class="panel-gradient-line"></div>
+        <div class="panel-padding">
+          <div class="panel-heading with-border">
+            <div>
+              <div class="panel-title">Excluir Extensiones / Usuarios</div>
+              <div class="panel-subtitle">Marca lo que no debe sumar. Las extensiones afectan a las gráficas, los Usuarios Mattermost limpian la tabla maestra.</div>
+            </div>
+          </div>
+          <div class="small" style="margin-bottom: 16px;">
+            <a id="checkAllExclude">Marcar todos</a> · 
+            <a id="uncheckAllExclude">Desmarcar todos</a>
+          </div>
+          <div id="ophExcludeContainer" class="exclude-blocks-wrap"></div>
+        </div>
+      </div>
+    </div>
+
+  </main>
 </div>
 
 <div class="tooltip" id="tooltip"></div>
 
 <script>
 // ============================================
-// Cool Google Palette mapping
+// Custom Notification (replaces alert)
 // ============================================
+function customAlert(msg) {
+  const div = document.createElement('div');
+  div.className = 'custom-alert';
+  div.innerText = msg;
+  document.body.appendChild(div);
+  requestAnimationFrame(() => {
+    div.style.transform = 'translateY(0)';
+    div.style.opacity = '1';
+  });
+  setTimeout(() => {
+    div.style.opacity = '0';
+    div.style.transform = 'translateY(10px)';
+    setTimeout(() => div.remove(), 300);
+  }, 4000);
+}
+
 const CSS = getComputedStyle(document.documentElement);
 const COL = {
-  available: CSS.getPropertyValue('--state-available').trim() || '#137333',
-  busy:      CSS.getPropertyValue('--state-busy').trim()      || '#c5221f',
-  break:     CSS.getPropertyValue('--state-break').trim()     || '#1967d2',
-  offline:   CSS.getPropertyValue('--state-offline').trim()   || '#bdc1c6',
-  other:     CSS.getPropertyValue('--state-other').trim()     || '#5f6368',
-  indigo:    CSS.getPropertyValue('--primary-deep').trim()    || '#174ea6',
-  violet:    CSS.getPropertyValue('--primary-main').trim()    || '#1a73e8',
-  lavender:  CSS.getPropertyValue('--accent-soft').trim()     || '#8ab4f8',
-  terracotta:CSS.getPropertyValue('--state-busy').trim()      || '#c5221f',
-  quartz:    CSS.getPropertyValue('--cool-bg').trim()         || '#f8f9fa',
-  ink:       CSS.getPropertyValue('--ink').trim()             || '#3c4043',
+  available: CSS.getPropertyValue('--state-available').trim() || '#10b981',
+  busy:      CSS.getPropertyValue('--state-busy').trim()      || '#f43f5e',
+  break:     CSS.getPropertyValue('--state-break').trim()     || '#8b5cf6',
+  offline:   CSS.getPropertyValue('--state-offline').trim()   || '#cbd5e1',
+  other:     CSS.getPropertyValue('--state-other').trim()     || '#94a3b8',
+  indigo:    CSS.getPropertyValue('--primary').trim()         || '#4f46e5',
+  violet:    CSS.getPropertyValue('--violet').trim()          || '#8b5cf6',
+  ink:       CSS.getPropertyValue('--foreground').trim()      || '#0f172a',
+  terracotta:CSS.getPropertyValue('--state-busy').trim()      || '#f43f5e',
 };
 
 const RED_STATES   = new Set(['sonando','ringing','ocupado','busy']);
@@ -601,28 +620,103 @@ let dayMin = null, dayMax = null;
 let shiftRules = []; 
 let strictModeConfig = new Set(); 
 
-document.querySelectorAll('.toggle-panel-btn').forEach(btn => {
-  btn.addEventListener('click', function() {
-    const panel = this.closest('.panel');
-    const content = panel.querySelector('.panel-content');
-    if (content.style.display === 'none') {
-      content.style.display = '';
-      this.textContent = '▲';
-    } else {
-      content.style.display = 'none';
-      this.textContent = '▼';
-    }
+// ============================================
+// Navigation Logic
+// ============================================
+function showPanel(targetId) {
+  document.querySelectorAll('.module-view').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+  
+  const targetView = document.getElementById(targetId);
+  const targetNav = document.querySelector(`.nav-item[data-target="${targetId}"]`);
+  
+  if (targetView) targetView.classList.add('active');
+  if (targetNav) targetNav.classList.add('active');
+
+  // Trigger resize to fix D3 chart widths if they were hidden
+  window.dispatchEvent(new Event('resize'));
+}
+
+document.querySelectorAll('.nav-item').forEach(btn => {
+  btn.addEventListener('click', function(e) {
+    e.preventDefault();
+    if(this.classList.contains('disabled')) return;
+    showPanel(this.dataset.target);
   });
 });
 
-document.querySelectorAll('input[name="tlView"]').forEach(radio => {
-  radio.addEventListener('change', () => {
-    if (rawSegments.length) {
-      const { segments, range, agents } = filterSegments();
-      renderTimeline(segments, range, agents);
+function enableNavItems() {
+  document.querySelectorAll('.nav-item.disabled').forEach(el => el.classList.remove('disabled'));
+}
+
+// ============================================
+// Drag & Drop Logic
+// ============================================
+function setupDropzone(zoneId, inputId, statusId, debugId, processFn, isSecondary = false) {
+  const zone = document.getElementById(zoneId);
+  const input = document.getElementById(inputId);
+  const status = document.getElementById(statusId);
+  const debug = document.getElementById(debugId);
+
+  zone.addEventListener('click', () => input.click());
+  
+  zone.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    zone.classList.add('dragover');
+  });
+  
+  zone.addEventListener('dragleave', (e) => {
+    e.preventDefault();
+    zone.classList.remove('dragover');
+  });
+  
+  zone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    zone.classList.remove('dragover');
+    if (e.dataTransfer.files.length) {
+      input.files = e.dataTransfer.files;
+      handleFile(input.files[0]);
     }
   });
-});
+
+  input.addEventListener('change', () => {
+    if (input.files.length) handleFile(input.files[0]);
+  });
+
+  async function handleFile(file) {
+    if (!file) return;
+    
+    // Safety check for shifts without states
+    if (isSecondary && !dayMin) {
+      status.textContent = 'Error: Carga primero el CSV de la PBX.';
+      status.className = 'status-badge error';
+      return;
+    }
+
+    status.textContent = 'Leyendo archivo...';
+    status.className = 'status-badge pending';
+    debug.textContent = '';
+    
+    try {
+      const text = await file.text();
+      processFn(text);
+    } catch (err) {
+      status.textContent = 'Error al leer el archivo.';
+      status.className = 'status-badge error';
+      debug.textContent = String(err && err.stack || err);
+    }
+  }
+}
+
+// Attach Drag & Drop to zones
+setupDropzone('dz-states', 'fileInput', 'status', 'debug', (text) => {
+  const { headers, data, sep } = parseCSV(text);
+  processRows(data, headers, sep);
+}, false);
+
+setupDropzone('dz-shifts', 'shiftsInput', 'shiftsStatus', 'shiftsDebug', (text) => {
+  processShiftsRawText(text);
+}, true);
 
 function normExt(str) {
   if(!str) return '';
@@ -747,37 +841,6 @@ function buildTimestamp(fechaStr, horaStr) {
   return new Date(dp.y, dp.mo, dp.d, tp.H, tp.M, tp.S, 0);
 }
 
-document.getElementById('fileInput').addEventListener('change', async (e) => {
-  const file = e.target.files[0];
-  if (!file) return;
-  document.getElementById('status').textContent = 'Leyendo estados...';
-  document.getElementById('status').className = 'status-text';
-  try {
-    const text = await file.text();
-    const { headers, data, sep } = parseCSV(text);
-    processRows(data, headers, sep);
-  } catch (err) {
-    document.getElementById('status').textContent = 'Error al leer el archivo.';
-    document.getElementById('status').className = 'status-text status-error';
-    document.getElementById('debug').textContent = String(err && err.stack || err);
-  }
-});
-
-document.getElementById('shiftsInput').addEventListener('change', async (e) => {
-  const file = e.target.files[0];
-  if (!file) return;
-  document.getElementById('shiftsStatus').textContent = 'Leyendo turnos...';
-  document.getElementById('shiftsStatus').className = 'status-text';
-  try {
-    const text = await file.text();
-    processShiftsRawText(text);
-  } catch (err) {
-    document.getElementById('shiftsStatus').textContent = 'Error al leer el archivo de turnos.';
-    document.getElementById('shiftsStatus').className = 'status-text status-error';
-    document.getElementById('shiftsDebug').textContent = String(err && err.stack || err);
-  }
-});
-
 function pick(row, names) {
   for (const n of names) {
     if (row[n] !== undefined && row[n] !== null) return row[n];
@@ -790,6 +853,7 @@ function pick(row, names) {
 function processRows(rows, headers, sep) {
   if (!rows.length) {
     document.getElementById('status').textContent = 'El archivo está vacío.';
+    document.getElementById('status').className = 'status-badge error';
     return;
   }
   const dbg = [`Separador: "${sep === '\t' ? '\\t' : sep}" | Cols: ${headers.join(' | ')}`];
@@ -856,7 +920,7 @@ function processRows(rows, headers, sep) {
 
   if (!rawSegments.length) {
     document.getElementById('status').textContent = 'No se han podido construir tramos.';
-    document.getElementById('status').className = 'status-text status-error';
+    document.getElementById('status').className = 'status-badge error';
     return;
   }
 
@@ -879,35 +943,23 @@ function processRows(rows, headers, sep) {
   document.getElementById('timeFrom').value = fmtTime(dayMin);
   document.getElementById('timeTo').value   = fmtTime(dayMax);
 
-  document.getElementById('filtersPanel').style.display = '';
-  document.getElementById('availPanel').style.display = '';
-  document.getElementById('gapPanel').style.display = '';
-  document.getElementById('timelinePanel').style.display = '';
-  document.getElementById('ophExcludePanel').style.display = allAgents.length ? '' : 'none';
-  document.getElementById('queuesPanel').style.display = allQueues.length ? '' : 'none';
-  document.getElementById('maxPerHourPanel').style.display = allQueues.length ? '' : 'none';
+  // Enable navigation and auto-navigate to filters or timeline
+  enableNavItems();
   
-  if (shiftRules.length > 0) {
-      document.getElementById('userStatsPanel').style.display = '';
-      renderUserStats();
-  }
+  if (shiftRules.length > 0) renderUserStats();
 
-  document.getElementById('status').textContent = `CSV de Estados cargado OK. Carga opcionalmente el CSV de Turnos.`;
-  document.getElementById('status').className = 'status-text status-success';
+  document.getElementById('status').textContent = `Cargado OK (${parsedOk} eventos).`;
+  document.getElementById('status').className = 'status-badge success';
   document.getElementById('debug').textContent = dbg.join('\n');
 
   renderQueueList();
   render();
+  
+  // Suggest moving to timeline
+  customAlert("Estados cargados correctamente. Ya puedes navegar por los menús laterales.");
 }
 
 function processShiftsRawText(rawText) {
-    if (!dayMin) {
-        document.getElementById('shiftsStatus').textContent = 'Error: Carga primero el CSV de la PBX (Enreach).';
-        document.getElementById('shiftsStatus').className = 'status-text status-error';
-        return;
-    }
-    
-    if (rawText.charCodeAt(0) === 0xFEFF) rawText = rawText.slice(1);
     const lines = rawText.split(/\r?\n/);
     const dbg = [`--- CSV Turnos (Lector por Posición) ---`, `Líneas totales: ${lines.length}`];
     
@@ -975,30 +1027,23 @@ function processShiftsRawText(rawText) {
             const fingerprint = `${user}|${normExt(ext)}|${shiftName}`;
             if (!seenFingerprints.has(fingerprint)) {
                 seenFingerprints.add(fingerprint);
-                shiftRules.push({
-                    user: user,
-                    ext: ext,
-                    shiftName: shiftName,
-                    ranges: ranges,
-                    fingerprint: fingerprint
-                });
+                shiftRules.push({ user, ext, shiftName, ranges, fingerprint });
             }
         }
     }
     
     if (shiftRules.length > 0) {
-        dbg.push(`Asignaciones de turnos válidas extraídas: ${shiftRules.length}`);
-        document.getElementById('shiftsStatus').textContent = `Turnos cargados OK (${shiftRules.length} usuarios).`;
-        document.getElementById('shiftsStatus').className = 'status-text status-success';
+        dbg.push(`Asignaciones extraídas: ${shiftRules.length}`);
+        document.getElementById('shiftsStatus').textContent = `Cargado OK (${shiftRules.length} usuarios).`;
+        document.getElementById('shiftsStatus').className = 'status-badge success';
         document.getElementById('shiftsDebug').textContent = dbg.join('\n');
         
         buildExclusionsPanel();
-        
-        document.getElementById('userStatsPanel').style.display = '';
         renderUserStats();
+        customAlert("Turnos cargados. Ve a 'Tiempos por Usuario' para ver los cruces.");
     } else {
-        document.getElementById('shiftsStatus').textContent = 'No se han podido extraer turnos válidos. Revisa el formato.';
-        document.getElementById('shiftsStatus').className = 'status-text status-error';
+        document.getElementById('shiftsStatus').textContent = 'Error: Formato no válido.';
+        document.getElementById('shiftsStatus').className = 'status-badge error';
         document.getElementById('shiftsDebug').textContent = dbg.join('\n');
     }
 }
@@ -1013,7 +1058,7 @@ function buildExclusionsPanel() {
     agentsInQ.forEach(a => agentsWithQueue.add(a));
     excludeHtml += `
       <div class="exclude-group">
-        <h4>${escapeHtml(q.name)} <span style="font-size:10px;font-weight:normal;color:var(--ink-muted);">(${escapeHtml(q.id)})</span></h4>
+        <h4>${escapeHtml(q.name)} <span style="font-size:10px;font-weight:normal;color:var(--muted-foreground);">(${escapeHtml(q.id)})</span></h4>
         <div class="exclude-list">
           ${agentsInQ.map(a => `
             <label class="exclude-lbl" title="${escapeHtml(a)}">
@@ -1028,7 +1073,7 @@ function buildExclusionsPanel() {
   if (unassigned.length > 0) {
     excludeHtml += `
       <div class="exclude-group">
-        <h4>Otros <span style="font-size:10px;font-weight:normal;color:var(--ink-muted);">(Sin servicio vinculado)</span></h4>
+        <h4>Otros <span style="font-size:10px;font-weight:normal;color:var(--muted-foreground);">(Sin servicio vinculado)</span></h4>
         <div class="exclude-list">
           ${unassigned.map(a => `
             <label class="exclude-lbl" title="${escapeHtml(a)}">
@@ -1043,13 +1088,13 @@ function buildExclusionsPanel() {
   if (shiftRules && shiftRules.length > 0) {
       const mmUsers = Array.from(new Set(shiftRules.map(r => r.user))).sort();
       excludeHtml += `
-        <div class="exclude-group" style="grid-column: 1 / -1; border-color: var(--primary-main); background: var(--accent-bg);">
-          <h4 style="color: var(--primary-deep);">USUARIOS MATTERMOST (Oculta sus datos en la Tabla Maestra)</h4>
+        <div class="exclude-group" style="grid-column: 1 / -1; border-color: var(--primary); background: var(--primary-light);">
+          <h4 style="color: var(--primary);">USUARIOS MATTERMOST (Oculta sus datos en la Tabla Maestra)</h4>
           <div class="exclude-list">
             ${mmUsers.map(u => `
               <label class="exclude-lbl" title="${escapeHtml(u)}">
                 <input type="checkbox" class="mm-exclude-cb" value="${escapeAttr(u)}">
-                <span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis; font-weight:600; color:var(--primary-deep);">${escapeHtml(u)}</span>
+                <span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis; font-weight:700; color:var(--primary);">${escapeHtml(u)}</span>
               </label>
             `).join('')}
           </div>
@@ -1104,10 +1149,10 @@ function renderQueueList() {
       <div class="queue-card"${dimmed}>
         <div class="q-head">
           <div><div class="q-name">${escapeHtml(q.name)}</div><div class="q-id">${escapeHtml(q.id)}</div></div>
-          <span class="q-count">${agents.length} agente${agents.length === 1 ? '' : 's'}</span>
+          <span class="q-count">${agents.length} ag.</span>
         </div>
         <div class="q-agents">
-          ${agents.length ? agents.map(a => `<span class="ag">${escapeHtml(a)}</span>`).join('') : '<span class="small" style="color:var(--ink-muted);">Sin agentes vinculados</span>'}
+          ${agents.length ? agents.map(a => `<span class="ag">${escapeHtml(a)}</span>`).join('') : '<span class="small">Sin agentes vinculados</span>'}
         </div>
       </div>`;
   }).join('');
@@ -1121,7 +1166,6 @@ function renderUserStats() {
       return;
   }
   
-  document.getElementById('userStatsPanel').style.display = '';
   const f = getFilters(); 
   const stats = [];
   
@@ -1157,7 +1201,6 @@ function renderUserStats() {
       for (const session of sessions) {
           let maxOverlap = 0;
           let winnerFp = null;
-
           for (const rule of shiftRules) {
               const ruleExtClean = normExt(rule.ext);
               if (extKey === ruleExtClean || extKey.includes(ruleExtClean) || ruleExtClean.includes(extKey)) {
@@ -1165,14 +1208,9 @@ function renderUserStats() {
                   for (const tr of rule.ranges) { 
                       const overlapStart = Math.max(+session.start, +tr.start);
                       const overlapEnd = Math.min(+session.end, +tr.end);
-                      if (overlapEnd > overlapStart) {
-                          currentOverlap += (overlapEnd - overlapStart);
-                      }
+                      if (overlapEnd > overlapStart) { currentOverlap += (overlapEnd - overlapStart); }
                   }
-                  if (currentOverlap > maxOverlap) {
-                      maxOverlap = currentOverlap;
-                      winnerFp = rule.fingerprint;
-                  }
+                  if (currentOverlap > maxOverlap) { maxOverlap = currentOverlap; winnerFp = rule.fingerprint; }
               }
           }
           if (winnerFp) sessionWinners.set(session, winnerFp);
@@ -1244,12 +1282,7 @@ function renderUserStats() {
     }
     
     const totalMs = durAvail + durBusy + durBreak + durOther;
-    stats.push({
-        user: rule.user, ext: rule.ext, shiftName: rule.shiftName,
-        readShift: rule.ranges.map(r => r.rstr).join(' y '),
-        fp: fingerprint, isStrict: isStrict,
-        avail: durAvail, busy: durBusy, brk: durBreak, oth: durOther, total: totalMs
-    });
+    stats.push({ user: rule.user, ext: rule.ext, shiftName: rule.shiftName, readShift: rule.ranges.map(r => r.rstr).join(' y '), fp: fingerprint, isStrict: isStrict, avail: durAvail, busy: durBusy, brk: durBreak, oth: durOther, total: totalMs });
   }
   
   stats.sort((a, b) => a.ext.localeCompare(b.ext, 'es', { numeric: true }));
@@ -1270,35 +1303,35 @@ function renderUserStats() {
         <th>Usuario (Mattermost)</th>
         <th>Extensión PBX</th>
         <th>Turno asignado</th>
-        <th style="background:#135ba1; font-size:10px;">Horario Leído (Máquina)</th>
-        <th style="background:var(--state-busy); font-size:10px;">Modo (Opc. A / B)</th>
-        <th style="background:var(--primary-deep);">T. Conectado (Total)</th>
-        <th style="background:var(--state-available);">T. Disponible</th>
-        <th style="background:var(--state-busy);">T. Ocupado/Sonando</th>
-        <th style="background:var(--state-break);">T. Pausa/Descanso</th>
-        <th style="background:var(--primary-main);">T. Otros Estados</th>
+        <th style="color:var(--violet);">Horario Leído</th>
+        <th style="color:var(--state-busy);">Modo (Opc. A / B)</th>
+        <th style="color:var(--primary);">T. Conectado (Total)</th>
+        <th style="color:var(--state-available);">T. Disponible</th>
+        <th style="color:var(--state-busy);">T. Ocupado/Sonando</th>
+        <th style="color:var(--state-break);">T. Pausa/Descanso</th>
+        <th style="color:var(--muted-foreground);">T. Otros Estados</th>
       </tr>
     </thead><tbody>`;
   
   if (visibleStats.length === 0) {
-      html += `<tr><td colspan="10" style="padding: 16px; color: var(--ink-muted); font-weight:600;">Ningún usuario con actividad cruzada en este rango horario (o están ocultos por los filtros inferiores).</td></tr>`;
+      html += `<tr><td colspan="10" style="padding: 16px; color: var(--muted-foreground); font-weight:500;">Ningún usuario con actividad cruzada en este rango horario (o están ocultos por los filtros inferiores).</td></tr>`;
   } else {
       for (const st of visibleStats) {
           html += `<tr>
-              <td style="font-weight:600;">${escapeHtml(st.user)}</td>
-              <td style="color:var(--primary-main); font-weight:500;">${escapeHtml(st.ext)}</td>
+              <td style="font-weight:700;">${escapeHtml(st.user)}</td>
+              <td style="color:var(--violet); font-weight:600;">${escapeHtml(st.ext)}</td>
               <td>${escapeHtml(st.shiftName)}</td>
-              <td style="font-family:monospace; color:#135ba1;">${escapeHtml(st.readShift)}</td>
-              <td style="background:${st.isStrict ? '#fce8e6' : '#e6f4ea'}; border: 1px solid ${st.isStrict ? 'var(--state-busy)' : 'var(--state-available)'};">
+              <td style="font-family:monospace; color:var(--violet); font-size: 0.6875rem;">${escapeHtml(st.readShift)}</td>
+              <td style="background:${st.isStrict ? 'rgba(244, 63, 94, 0.1)' : 'rgba(16, 185, 129, 0.1)'}; border-left: 2px solid ${st.isStrict ? 'var(--state-busy)' : 'var(--state-available)'};">
                  <label class="strict-mode-lbl" title="Flexible: Asigna sesiones reales completas. Estricto: Corta matemáticamente en la hora teórica.">
                     <input type="checkbox" class="strict-mode-cb" value="${escapeAttr(st.fp)}" ${st.isStrict ? 'checked' : ''}> Estricto
                  </label>
               </td>
-              <td style="color:var(--primary-deep); font-weight:700;">${msToStr(st.total)}</td>
-              <td style="color:var(--state-available);">${msToStr(st.avail)}</td>
-              <td style="color:var(--state-busy);">${msToStr(st.busy)}</td>
-              <td style="color:var(--state-break);">${msToStr(st.brk)}</td>
-              <td style="color:var(--ink-muted);">${msToStr(st.oth)}</td>
+              <td style="color:var(--primary); font-weight:800;">${msToStr(st.total)}</td>
+              <td style="color:var(--state-available); font-weight:600;">${msToStr(st.avail)}</td>
+              <td style="color:var(--state-busy); font-weight:600;">${msToStr(st.busy)}</td>
+              <td style="color:var(--state-break); font-weight:600;">${msToStr(st.brk)}</td>
+              <td style="color:var(--muted-foreground);">${msToStr(st.oth)}</td>
           </tr>`;
       }
   }
@@ -1319,7 +1352,7 @@ function renderUserStats() {
 document.getElementById('exportCsvBtn').addEventListener('click', () => {
     const statsToExport = window._lastCalculatedStats;
     if (!statsToExport || statsToExport.length === 0) {
-        alert("No hay datos para exportar.");
+        customAlert("No hay datos para exportar.");
         return;
     }
 
@@ -1337,15 +1370,9 @@ document.getElementById('exportCsvBtn').addEventListener('click', () => {
 
     for (const st of statsToExport) {
         const rowData = [
-            st.user,
-            st.ext,
-            st.shiftName,
-            st.readShift,
-            `="${msToStr(st.total)}"`,
-            `="${msToStr(st.avail)}"`,
-            `="${msToStr(st.busy)}"`,
-            `="${msToStr(st.brk)}"`,
-            `="${msToStr(st.oth)}"`
+            st.user, st.ext, st.shiftName, st.readShift,
+            `="${msToStr(st.total)}"`, `="${msToStr(st.avail)}"`, `="${msToStr(st.busy)}"`,
+            `="${msToStr(st.brk)}"`, `="${msToStr(st.oth)}"`
         ];
         csvContent += rowData.map(val => `"${val.replace(/"/g, '""')}"`).join(";") + "\r\n";
     }
@@ -1354,7 +1381,7 @@ document.getElementById('exportCsvBtn').addEventListener('click', () => {
     const link = document.createElement("a");
     link.setAttribute("href", encodedUri);
     const dateStr = dayMin ? `${pad2(dayMin.getDate())}-${pad2(dayMin.getMonth()+1)}-${dayMin.getFullYear()}` : 'export';
-    link.setAttribute("download", `Tiempos_Conexion_Completos_${dateStr}.csv`);
+    link.setAttribute("download", `Tiempos_Conexion_${dateStr}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -1366,9 +1393,7 @@ function pad2(n){return String(n).padStart(2,'0');}
 function fmtTime(d){return pad2(d.getHours())+':'+pad2(d.getMinutes())+':'+pad2(d.getSeconds());}
 function fmtDateTime(d){return d.toLocaleString();}
 
-function getSelected(id) {
-  return Array.from(document.getElementById(id).selectedOptions).map(o => o.value);
-}
+function getSelected(id) { return Array.from(document.getElementById(id).selectedOptions).map(o => o.value); }
 
 function getFilters() {
   const tf = document.getElementById('timeFrom').value || '00:00:00';
@@ -1443,15 +1468,12 @@ function renderMaxPerHour() {
   const excludeOph = f.excludeOph;
   const allQueuesSelected = selQueues.size === allQueues.length;
 
-  const baseDate = new Date(dayMin);
-  baseDate.setHours(0,0,0,0);
-
+  const baseDate = new Date(dayMin); baseDate.setHours(0,0,0,0);
   let html = '<table class="table-max-hour"><thead><tr><th>Servicio / Cola</th>';
   for(let h=0; h<24; h++) html += `<th>${pad2(h)}:00</th>`;
   html += '</tr></thead><tbody>';
 
   let hasRows = false;
-
   for (const q of allQueues) {
     if (!allQueuesSelected && !selQueues.has(q.id)) continue;
     hasRows = true;
@@ -1462,41 +1484,24 @@ function renderMaxPerHour() {
     for (let h=0; h<24; h++) {
       const hStart = new Date(baseDate); hStart.setHours(h, 0, 0, 0);
       const hEnd = new Date(baseDate); hEnd.setHours(h, 59, 59, 999);
-
       const events = [];
       for (const s of rawSegments) {
-        if (!agents.has(s.agent)) continue;
-        if (excludeOph.has(s.agent)) continue; 
-        if (categoryFor(s.state) === 'offline') continue; 
+        if (!agents.has(s.agent) || excludeOph.has(s.agent) || categoryFor(s.state) === 'offline') continue; 
         if (s.end <= hStart || s.start >= hEnd) continue;
-
-        const t0 = Math.max(+s.start, +hStart);
-        const t1 = Math.min(+s.end, +hEnd);
-        events.push({ t: t0, delta: 1 });
-        events.push({ t: t1, delta: -1 });
+        events.push({ t: Math.max(+s.start, +hStart), delta: 1 });
+        events.push({ t: Math.min(+s.end, +hEnd), delta: -1 });
       }
       events.sort((a,b) => a.t - b.t || a.delta - b.delta);
-
       let cur = 0, maxC = 0;
-      for (const ev of events) {
-        cur += ev.delta;
-        if (cur > maxC) maxC = cur;
-      }
+      for (const ev of events) { cur += ev.delta; if (cur > maxC) maxC = cur; }
       hourlyMax[h] = maxC;
     }
 
-    html += `<tr><td>${escapeHtml(q.name)} <span style="font-size:9px;color:var(--ink-muted);">(${escapeHtml(q.id)})</span></td>`;
-    for (let h=0; h<24; h++) {
-      const val = hourlyMax[h];
-      html += val > 0 ? `<td>${val}</td>` : `<td class="zero">-</td>`;
-    }
+    html += `<tr><td>${escapeHtml(q.name)} <span style="font-size:10px;color:var(--muted-foreground);">(${escapeHtml(q.id)})</span></td>`;
+    for (let h=0; h<24; h++) { const val = hourlyMax[h]; html += val > 0 ? `<td>${val}</td>` : `<td class="zero">-</td>`; }
     html += '</tr>';
   }
-  
-  if (!hasRows) {
-    html += `<tr><td colspan="25" class="zero" style="padding:16px;">Ningún servicio coincide con los filtros</td></tr>`;
-  }
-
+  if (!hasRows) html += `<tr><td colspan="25" class="zero" style="padding:16px;">Ningún servicio coincide</td></tr>`;
   html += '</tbody></table>';
   container.innerHTML = html;
 }
@@ -1506,12 +1511,11 @@ function renderTimeline(segments, range, agents) {
   svg.selectAll('*').remove();
   const margin = { top: 20, right: RIGHT_MARGIN, bottom: 40, left: LEFT_MARGIN };
   
-  const container = document.getElementById('timelinePanel');
+  const container = document.getElementById('mod-timeline').querySelector('.panel-padding');
   const containerWidth = container.clientWidth || 900; 
-  const minWidth = 800; 
-  const width = Math.max(minWidth, containerWidth - 40);
+  const width = Math.max(800, containerWidth - 48); // 48 is roughly panel padding
   
-  const rowH = 22;
+  const rowH = 28;
   const height = margin.top + margin.bottom + Math.max(1, agents.length) * rowH;
   svg.attr('width', width).attr('height', height);
 
@@ -1536,14 +1540,15 @@ function renderTimeline(segments, range, agents) {
       .attr('x', margin.left).attr('y', d => y(d) - y.step()*y.padding()/2)
       .attr('width', width - margin.left - margin.right)
       .attr('height', y.step())
-      .attr('fill', (d,i) => i % 2 === 0 ? '#f1f3f4' : '#ffffff');
+      .attr('fill', (d,i) => i % 2 === 0 ? 'rgba(226, 232, 240, 0.2)' : 'transparent')
+      .attr('rx', 4);
 
   svg.append('g').selectAll('text.agent-label')
       .data(agents).enter().append('text')
       .attr('class','agent-label')
-      .attr('x', margin.left - 8).attr('y', d => y(d) + y.bandwidth()/2 + 4)
+      .attr('x', margin.left - 12).attr('y', d => y(d) + y.bandwidth()/2 + 4)
       .attr('text-anchor', 'end')
-      .text(d => d.length > 32 ? d.slice(0,30) + '…' : d)
+      .text(d => d.length > 30 ? d.slice(0,28) + '…' : d)
       .append('title').text(d => d);
 
   svg.append('g').selectAll('rect.seg')
@@ -1553,6 +1558,7 @@ function renderTimeline(segments, range, agents) {
       .attr('y', d => y(d.agent))
       .attr('width', d => Math.max(1, x(d.end) - x(d.start)))
       .attr('height', y.bandwidth())
+      .attr('rx', 3)
       .attr('fill', d => {
         const cat = categoryFor(d.state);
         if (tlView === 'connected') return cat === 'offline' ? COL.offline : COL.available;
@@ -1570,24 +1576,12 @@ function renderTimeline(segments, range, agents) {
         showTip(`<b>${escapeHtml(d.agent)}</b><br>Estado original: ${escapeHtml(d.state)}<br>Inicio: ${fmtDateTime(d._origStart)}<br>Fin: ${fmtDateTime(d._origEnd)}<br>Duración: ${durStr}`, e.pageX, e.pageY);
       })
       .on('mousemove', e => { tooltip.style.left=(e.pageX+12)+'px'; tooltip.style.top=(e.pageY+12)+'px'; })
-      .on('mouseout', hideTip)
-      .on('touchstart', (e, d) => {
-         e.preventDefault(); 
-         const touch = e.touches[0];
-         const dur = (d._origEnd - d._origStart) / 1000;
-         const h = Math.floor(dur/3600), m = Math.floor((dur%3600)/60), s = Math.floor(dur%60);
-         const durStr = (h?h+'h ':'') + (m?m+'m ':'') + s + 's';
-         showTip(`<b>${escapeHtml(d.agent)}</b><br>Estado original: ${escapeHtml(d.state)}<br>Inicio: ${fmtDateTime(d._origStart)}<br>Fin: ${fmtDateTime(d._origEnd)}<br>Duración: ${durStr}`, touch.pageX, touch.pageY);
-      })
-      .on('touchend', hideTip);
+      .on('mouseout', hideTip);
 }
 
 function renderAvailability(range) {
   const f = getFilters();
-  const segs = rawSegments.filter(s => f.agents.has(s.agent)
-                                    && categoryFor(s.state) === 'available'
-                                    && s.end > f.from && s.start < f.to);
-
+  const segs = rawSegments.filter(s => f.agents.has(s.agent) && categoryFor(s.state) === 'available' && s.end > f.from && s.start < f.to);
   const events = [];
   for (const s of segs) {
     events.push({ t: s.start < f.from ? +f.from : +s.start, delta: +1 });
@@ -1597,22 +1591,17 @@ function renderAvailability(range) {
 
   const points = [{ t: +f.from, count: 0 }];
   let cur = 0;
-  for (const e of events) {
-    cur += e.delta;
-    points.push({ t: e.t, count: cur });
-  }
+  for (const e of events) { cur += e.delta; points.push({ t: e.t, count: cur }); }
   points.push({ t: +f.to, count: cur });
 
   const svg = d3.select('#availChart');
   svg.selectAll('*').remove();
   const margin = { top: 14, right: RIGHT_MARGIN, bottom: 30, left: LEFT_MARGIN };
   
-  const container = document.getElementById('availPanel');
+  const container = document.getElementById('mod-availability').querySelector('.panel-padding');
   const containerWidth = container.clientWidth || 900;
-  const minWidth = 800;
-  const width = Math.max(minWidth, containerWidth - 40);
-  
-  const height = 200;
+  const width = Math.max(800, containerWidth - 48);
+  const height = 300;
   svg.attr('width', width).attr('height', height);
 
   const x = d3.scaleTime().domain(range).range([margin.left, width - margin.right]);
@@ -1638,48 +1627,35 @@ function renderAvailability(range) {
       .call(d3.axisLeft(y).tickValues(tickValues).tickFormat(d3.format('d')));
 
   if (maxC > 0) {
-    const subs = [];
-    let cur = null;
+    const subs = []; let curArr = null;
     for (let i = 0; i < points.length; i++) {
       const p = points[i];
       if (p.count > 0) {
-        if (!cur) {
-          cur = [];
-          const prev = points[i-1];
-          cur.push({ t: prev ? prev.t : p.t, count: 0 });
-        }
-        cur.push(p);
+        if (!curArr) { curArr = []; const prev = points[i-1]; curArr.push({ t: prev ? prev.t : p.t, count: 0 }); }
+        curArr.push(p);
       } else {
-        if (cur) {
-          cur.push({ t: p.t, count: 0 });
-          subs.push(cur);
-          cur = null;
-        }
+        if (curArr) { curArr.push({ t: p.t, count: 0 }); subs.push(curArr); curArr = null; }
       }
     }
-    if (cur) subs.push(cur);
+    if (curArr) subs.push(curArr);
 
     const line = d3.line().curve(d3.curveStepAfter).x(p => x(p.t)).y(p => y(p.count));
     const area = d3.area().curve(d3.curveStepAfter).x(p => x(p.t)).y0(y(0)).y1(p => y(p.count));
-
     for (const sub of subs) {
       svg.append('path').datum(sub).attr('fill', COL.available).attr('fill-opacity', 0.15).attr('d', area);
-      svg.append('path').datum(sub).attr('fill', 'none').attr('stroke', COL.available).attr('stroke-width', 1.8).attr('d', line);
+      svg.append('path').datum(sub).attr('fill', 'none').attr('stroke', COL.available).attr('stroke-width', 2.5).attr('d', line);
     }
   }
 
   const focus = svg.append('g').style('display','none');
   focus.append('line').attr('y1', margin.top).attr('y2', height - margin.bottom).attr('stroke', COL.indigo).attr('stroke-dasharray','3,3');
-  focus.append('circle').attr('r', 3.5).attr('fill', COL.available);
+  focus.append('circle').attr('r', 4.5).attr('fill', COL.available).attr('stroke', '#fff').attr('stroke-width', 2);
 
-  svg.append('rect').attr('x', margin.left).attr('y', margin.top)
-      .attr('width', width - margin.left - margin.right).attr('height', height - margin.top - margin.bottom)
-      .attr('fill', 'transparent')
+  svg.append('rect').attr('x', margin.left).attr('y', margin.top).attr('width', width - margin.left - margin.right).attr('height', height - margin.top - margin.bottom).attr('fill', 'transparent')
       .on('mouseover', () => focus.style('display', null))
       .on('mouseout', () => { focus.style('display','none'); hideTip(); })
       .on('mousemove', function(e) {
-        const mx = d3.pointer(e, this)[0];
-        const t = x.invert(mx).getTime();
+        const mx = d3.pointer(e, this)[0]; const t = x.invert(mx).getTime();
         let lo = 0, hi = points.length - 1, idx = 0;
         while (lo <= hi) { const m = (lo+hi)>>1; if (points[m].t <= t) { idx = m; lo = m+1; } else { hi = m-1; } }
         const c = points[idx].count;
@@ -1687,43 +1663,12 @@ function renderAvailability(range) {
         focus.select('circle').attr('cx', x(t)).attr('cy', y(c));
         const dt = new Date(t);
         showTip(`<b>${pad2(dt.getHours())}:${pad2(dt.getMinutes())}:${pad2(dt.getSeconds())}</b><br>Agentes disponibles: ${c}`, e.pageX, e.pageY);
-      })
-      .on('touchstart', function(e) {
-        e.preventDefault();
-        focus.style('display', null);
-        const touch = e.touches[0];
-        const mx = d3.pointer(touch, this)[0];
-        const t = x.invert(mx).getTime();
-        let lo = 0, hi = points.length - 1, idx = 0;
-        while (lo <= hi) { const m = (lo+hi)>>1; if (points[m].t <= t) { idx = m; lo = m+1; } else { hi = m-1; } }
-        const c = points[idx].count;
-        focus.select('line').attr('x1', x(t)).attr('x2', x(t));
-        focus.select('circle').attr('cx', x(t)).attr('cy', y(c));
-        const dt = new Date(t);
-        showTip(`<b>${pad2(dt.getHours())}:${pad2(dt.getMinutes())}:${pad2(dt.getSeconds())}</b><br>Agentes disponibles: ${c}`, touch.pageX, touch.pageY);
-      })
-      .on('touchmove', function(e) {
-        e.preventDefault();
-        const touch = e.touches[0];
-        const mx = d3.pointer(touch, this)[0];
-        const t = x.invert(mx).getTime();
-        let lo = 0, hi = points.length - 1, idx = 0;
-        while (lo <= hi) { const m = (lo+hi)>>1; if (points[m].t <= t) { idx = m; lo = m+1; } else { hi = m-1; } }
-        const c = points[idx].count;
-        focus.select('line').attr('x1', x(t)).attr('x2', x(t));
-        focus.select('circle').attr('cx', x(t)).attr('cy', y(c));
-        const dt = new Date(t);
-        showTip(`<b>${pad2(dt.getHours())}:${pad2(dt.getMinutes())}:${pad2(dt.getSeconds())}</b><br>Agentes disponibles: ${c}`, touch.pageX, touch.pageY);
-      })
-      .on('touchend', () => { focus.style('display','none'); hideTip(); });
+      });
 }
 
 function renderGaps(range) {
   const f = getFilters();
-  const segs = rawSegments.filter(s => f.agents.has(s.agent)
-                                    && categoryFor(s.state) === 'available'
-                                    && s.end > f.from && s.start < f.to);
-
+  const segs = rawSegments.filter(s => f.agents.has(s.agent) && categoryFor(s.state) === 'available' && s.end > f.from && s.start < f.to);
   const events = [];
   for (const s of segs) {
     events.push({ t: s.start < f.from ? +f.from : +s.start, delta: +1 });
@@ -1731,17 +1676,11 @@ function renderGaps(range) {
   }
   events.sort((a,b) => a.t - b.t || a.delta - b.delta);
 
-  const gaps = [];
-  let cur = 0;
-  let zeroStart = +f.from;
+  const gaps = []; let cur = 0; let zeroStart = +f.from;
   for (const e of events) {
-    const prev = cur;
-    cur += e.delta;
-    if (prev === 0 && cur > 0) {
-      if (e.t > zeroStart) gaps.push({ start: zeroStart, end: e.t });
-    } else if (prev > 0 && cur === 0) {
-      zeroStart = e.t;
-    }
+    const prev = cur; cur += e.delta;
+    if (prev === 0 && cur > 0) { if (e.t > zeroStart) gaps.push({ start: zeroStart, end: e.t }); } 
+    else if (prev > 0 && cur === 0) { zeroStart = e.t; }
   }
   if (cur === 0 && +f.to > zeroStart) gaps.push({ start: zeroStart, end: +f.to });
 
@@ -1749,30 +1688,20 @@ function renderGaps(range) {
   svg.selectAll('*').remove();
   const margin = { top: 6, right: RIGHT_MARGIN, bottom: 22, left: LEFT_MARGIN };
   
-  const container = document.getElementById('gapPanel');
+  const container = document.getElementById('mod-gaps').querySelector('.panel-padding');
   const containerWidth = container.clientWidth || 900;
-  const minWidth = 800;
-  const width = Math.max(minWidth, containerWidth - 40);
-  
-  const height = 44;
+  const width = Math.max(800, containerWidth - 48);
+  const height = 100;
   svg.attr('width', width).attr('height', height);
 
   const x = d3.scaleTime().domain(range).range([margin.left, width - margin.right]);
 
-  svg.append('rect')
-    .attr('x', margin.left).attr('y', margin.top)
-    .attr('width', width - margin.left - margin.right)
-    .attr('height', height - margin.top - margin.bottom)
-    .attr('fill', '#f1f3f4').attr('stroke', '#dadce0');
+  svg.append('rect').attr('x', margin.left).attr('y', margin.top).attr('width', width - margin.left - margin.right).attr('height', height - margin.top - margin.bottom).attr('fill', 'rgba(226, 232, 240, 0.3)').attr('stroke', 'rgba(226, 232, 240, 0.8)').attr('rx', 4);
 
   svg.append('g').selectAll('rect.gap')
-    .data(gaps).enter().append('rect')
-    .attr('class','gap')
-    .attr('x', d => x(d.start))
-    .attr('y', margin.top)
-    .attr('width', d => Math.max(1, x(d.end) - x(d.start)))
-    .attr('height', height - margin.top - margin.bottom)
-    .attr('fill', COL.terracotta).attr('fill-opacity', 0.8)
+    .data(gaps).enter().append('rect').attr('class','gap')
+    .attr('x', d => x(d.start)).attr('y', margin.top).attr('width', d => Math.max(1, x(d.end) - x(d.start))).attr('height', height - margin.top - margin.bottom)
+    .attr('fill', COL.terracotta).attr('fill-opacity', 0.8).attr('rx', 3)
     .on('mouseover', (e, d) => {
       const dur = (d.end - d.start) / 1000;
       const h = Math.floor(dur/3600), m = Math.floor((dur%3600)/60), s = Math.floor(dur%60);
@@ -1781,25 +1710,13 @@ function renderGaps(range) {
       showTip(`<b>Sin agentes disponibles</b><br>De ${pad2(sd.getHours())}:${pad2(sd.getMinutes())}:${pad2(sd.getSeconds())} a ${pad2(ed.getHours())}:${pad2(ed.getMinutes())}:${pad2(ed.getSeconds())}<br>Duración: ${durStr}`, e.pageX, e.pageY);
     })
     .on('mousemove', e => { tooltip.style.left=(e.pageX+12)+'px'; tooltip.style.top=(e.pageY+12)+'px'; })
-    .on('mouseout', hideTip)
-    .on('touchstart', (e, d) => {
-      e.preventDefault();
-      const touch = e.touches[0];
-      const dur = (d.end - d.start) / 1000;
-      const h = Math.floor(dur/3600), m = Math.floor((dur%3600)/60), s = Math.floor(dur%60);
-      const durStr = (h?h+'h ':'') + (m?m+'m ':'') + s + 's';
-      const sd = new Date(d.start), ed = new Date(d.end);
-      showTip(`<b>Sin agentes disponibles</b><br>De ${pad2(sd.getHours())}:${pad2(sd.getMinutes())}:${pad2(sd.getSeconds())} a ${pad2(ed.getHours())}:${pad2(ed.getMinutes())}:${pad2(ed.getSeconds())}<br>Duración: ${durStr}`, touch.pageX, touch.pageY);
-    })
-    .on('touchend', hideTip);
+    .on('mouseout', hideTip);
 
   svg.append('g').attr('class','axis').attr('transform', `translate(0,${height - margin.bottom})`)
     .call(d3.axisBottom(x).ticks(10).tickFormat(d3.timeFormat('%H:%M')));
 
-  svg.append('text')
-    .attr('x', margin.left - 8).attr('y', margin.top + (height - margin.top - margin.bottom)/2 + 4)
-    .attr('text-anchor', 'end')
-    .attr('font-size', 11).attr('fill', COL.ink).attr('font-family', 'Montserrat, sans-serif')
+  svg.append('text').attr('x', margin.left - 12).attr('y', margin.top + (height - margin.top - margin.bottom)/2 + 4)
+    .attr('text-anchor', 'end').attr('font-size', '0.6875rem').attr('font-weight', 600).attr('fill', COL.ink).attr('font-family', 'inherit')
     .text('Sin cobertura');
 }
 
@@ -1810,11 +1727,8 @@ document.getElementById('resetBtn').addEventListener('click', () => {
   Array.from(document.getElementById('agentSelect').options).forEach(o => o.selected = true);
   Array.from(document.getElementById('stateSelect').options).forEach(o => o.selected = true);
   Array.from(document.getElementById('queueSelect').options).forEach(o => o.selected = true);
-  
   document.querySelectorAll('.oph-exclude-cb').forEach(cb => cb.checked = false);
-  
-  renderQueueList();
-  render();
+  renderQueueList(); render();
 });
 
 function bindToggle(linkId, selectId, sel) {
@@ -1823,23 +1737,27 @@ function bindToggle(linkId, selectId, sel) {
     Array.from(document.getElementById(selectId).options).forEach(o => o.selected = sel);
   });
 }
-bindToggle('selAllAgents','agentSelect',true);
-bindToggle('selNoneAgents','agentSelect',false);
-bindToggle('selAllStates','stateSelect',true);
-bindToggle('selNoneStates','stateSelect',false);
-bindToggle('selAllQueues','queueSelect',true);
-bindToggle('selNoneQueues','queueSelect',false);
+bindToggle('selAllAgents','agentSelect',true); bindToggle('selNoneAgents','agentSelect',false);
+bindToggle('selAllStates','stateSelect',true); bindToggle('selNoneStates','stateSelect',false);
+bindToggle('selAllQueues','queueSelect',true); bindToggle('selNoneQueues','queueSelect',false);
+
+document.querySelectorAll('input[name="tlView"]').forEach(radio => {
+  radio.addEventListener('change', () => {
+    if (rawSegments.length) {
+      const { segments, range, agents } = filterSegments();
+      renderTimeline(segments, range, agents);
+    }
+  });
+});
 
 window.addEventListener('resize', () => { 
     if (rawSegments.length) {
         clearTimeout(window.resizeTimer);
-        window.resizeTimer = setTimeout(render, 100);
+        window.resizeTimer = setTimeout(render, 150); // slight debounce
     }
 });
 
-// ============================================
-// Exportar a PDF (Paleta fría profesional)
-// ============================================
+// PDF Export Logic for individual charts
 function svgToDataURL(svgEl) {
   const clone = svgEl.cloneNode(true);
   const bg = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
@@ -1850,11 +1768,11 @@ function svgToDataURL(svgEl) {
   clone.insertBefore(bg, clone.firstChild);
   const style = document.createElementNS('http://www.w3.org/2000/svg', 'style');
   style.textContent = `
-    text { font-family: 'Montserrat', -apple-system, sans-serif; }
-    .axis text { font-size: 11px; fill: #5f6368; }
-    .axis path, .axis line { stroke: #dadce0; fill: none; }
-    .grid line { stroke: #f1f3f4; }
-    .agent-label { font-size: 11px; fill: #3c4043; }
+    text { font-family: -apple-system, sans-serif; }
+    .axis text { font-size: 11px; fill: #64748b; font-weight: 500; }
+    .axis path, .axis line { stroke: #e2e8f0; fill: none; }
+    .grid line { stroke: #f1f5f9; }
+    .agent-label { font-size: 11px; fill: #0f172a; font-weight: 600; }
   `;
   clone.insertBefore(style, clone.firstChild);
   clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
@@ -1866,22 +1784,18 @@ function svgToCanvas(svgEl, scale = 2) {
   return new Promise((resolve, reject) => {
     let w = +svgEl.getAttribute('width');
     let h = +svgEl.getAttribute('height');
-    if (!w || !h) {
-      resolve(document.createElement('canvas')); 
-      return;
-    }
+    if (!w || !h) { resolve(document.createElement('canvas')); return; }
     const url = svgToDataURL(svgEl);
     const img = new Image();
     img.onload = () => {
       const canvas = document.createElement('canvas');
       canvas.width = w * scale; canvas.height = h * scale;
       const ctx = canvas.getContext('2d');
-      ctx.fillStyle = '#ffffff';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, canvas.width, canvas.height);
       ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
       resolve(canvas);
     };
-    img.onerror = (e) => reject(new Error('No se pudo rasterizar el SVG'));
+    img.onerror = () => reject(new Error('No se pudo rasterizar el SVG'));
     img.src = url;
   });
 }
@@ -1891,260 +1805,51 @@ function hex2rgb(hex) {
   return [parseInt(h.slice(0,2),16), parseInt(h.slice(2,4),16), parseInt(h.slice(4,6),16)];
 }
 
-document.getElementById('exportPdfBtn').addEventListener('click', async () => {
-  const btn = document.getElementById('exportPdfBtn');
-  const originalText = btn.textContent;
-  btn.textContent = 'Generando...';
-  btn.disabled = true;
-  
-  const contents = document.querySelectorAll('.panel-content');
-  const originalDisplays = [];
-  contents.forEach(el => {
-    originalDisplays.push(el.style.display);
-    el.style.display = '';
-  });
-  await new Promise(r => setTimeout(r, 50));
-
-  try {
-    if (!window.jspdf || !window.jspdf.jsPDF) {
-      throw new Error('jsPDF no se ha cargado. Comprueba la conexión a internet.');
-    }
-    const { jsPDF } = window.jspdf;
-    const svgs = [
-      document.getElementById('availChart'),
-      document.getElementById('gapChart'),
-      document.getElementById('timelineChart')
-    ];
-    const titles = [
-      'Agentes disponibles a lo largo del tiempo',
-      'Franjas sin ningún agente disponible',
-      'Timeline por extensión'
-    ];
-    const canvases = [];
-    for (const s of svgs) canvases.push(await svgToCanvas(s, 2));
-
-    const f = getFilters();
-    const dateStr = dayMin ? `${pad2(dayMin.getDate())}-${pad2(dayMin.getMonth()+1)}-${dayMin.getFullYear()}` : '';
-    const headerInfo = `Rango ${fmtTime(f.from)} – ${fmtTime(f.to)} · ${f.agents.size} ext · ${f.states.size} est · ${f.queues.size}/${allQueues.length} colas`;
-
-    const pdf = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
-    const pageW = pdf.internal.pageSize.getWidth();
-    const pageH = pdf.internal.pageSize.getHeight();
-    const margin = 10;
-    const usableW = pageW - margin * 2;
-
-    const primaryDeepRGB = hex2rgb('#174ea6');
-    const primaryMainRGB = hex2rgb('#1a73e8');
-    const accentSoftRGB  = hex2rgb('#8ab4f8');
-    const inkRGB         = hex2rgb('#3c4043');
-    const mutedRGB       = hex2rgb('#5f6368');
-
-    function drawHeader(isFirst) {
-      pdf.setFillColor(...primaryDeepRGB);
+document.querySelectorAll('.pdf-export-btn').forEach(btn => {
+  btn.addEventListener('click', async function() {
+    const originalText = this.textContent;
+    this.textContent = 'Generando...';
+    this.disabled = true;
+    
+    try {
+      if (!window.jspdf || !window.jspdf.jsPDF) throw new Error('jsPDF no cargado.');
+      
+      const targetId = this.dataset.target;
+      const chartTitle = this.dataset.title;
+      const svg = document.getElementById(targetId);
+      const canvas = await svgToCanvas(svg, 2);
+      
+      const { jsPDF } = window.jspdf;
+      const pdf = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+      
+      const primaryRGB = hex2rgb('#4f46e5');
+      const pageW = pdf.internal.pageSize.getWidth();
+      
+      pdf.setFillColor(15, 23, 42); 
       pdf.rect(0, 0, pageW, 16, 'F');
-      pdf.setFillColor(...primaryMainRGB);
-      pdf.rect(0, 16, pageW, 1.2, 'F');
-
       pdf.setTextColor(255,255,255);
       pdf.setFont('helvetica', 'bold');
       pdf.setFontSize(11);
-      pdf.text('TIMELINE DE ESTADOS Y CRUCE DE TURNOS', margin, 10.5);
+      pdf.text(chartTitle, 10, 10.5);
 
-      if (isFirst) {
-        pdf.setFont('helvetica', 'normal');
-        pdf.setFontSize(8.5);
-        pdf.setTextColor(...accentSoftRGB);
-        const rightText = `${dateStr}   ${headerInfo}`;
-        const tw = pdf.getTextWidth(rightText);
-        pdf.text(rightText, pageW - margin - tw, 10.5);
-      } else {
-        pdf.setFont('helvetica', 'normal');
-        pdf.setFontSize(8.5);
-        pdf.setTextColor(...accentSoftRGB);
-        const rightText = `${dateStr}`;
-        const tw = pdf.getTextWidth(rightText);
-        pdf.text(rightText, pageW - margin - tw, 10.5);
-      }
+      const imgW = pageW - 20;
+      const imgH = (canvas.height * imgW) / canvas.width;
+      
+      pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 10, 24, imgW, imgH);
+      
+      const dateStr = dayMin ? `${pad2(dayMin.getDate())}-${pad2(dayMin.getMonth()+1)}-${dayMin.getFullYear()}` : 'export';
+      pdf.save(`${chartTitle.replace(/\s+/g, '_')}_${dateStr}.pdf`);
+      
+    } catch (err) {
+      console.error(err);
+      customAlert('Error al exportar: ' + (err.message || err));
+    } finally {
+      this.textContent = originalText;
+      this.disabled = false;
     }
-    
-    function drawFooter(pageNum, totalPages) {
-      pdf.setFontSize(8);
-      pdf.setTextColor(...mutedRGB);
-      pdf.setFont('helvetica', 'normal');
-      const txt = `Timeline de estados   ·   página ${pageNum}${totalPages?' de '+totalPages:''}`;
-      pdf.text(txt, margin, pageH - 5);
-    }
-
-    drawHeader(true);
-    let y = 22;
-
-    for (let i = 0; i < canvases.length; i++) {
-      const c = canvases[i];
-      if (!c.width) continue; 
-      const imgW = usableW;
-      const imgH = (c.height * imgW) / c.width;
-      const titleH = 7;
-      const blockH = titleH + imgH + 4;
-
-      if (y + blockH > pageH - 10) {
-        drawFooter(pdf.internal.getNumberOfPages());
-        pdf.addPage();
-        drawHeader(false);
-        y = 22;
-      }
-
-      pdf.setFont('helvetica', 'bold');
-      pdf.setFontSize(11);
-      pdf.setTextColor(...primaryDeepRGB);
-      pdf.text(titles[i].toUpperCase(), margin, y);
-      const tw = pdf.getTextWidth(titles[i].toUpperCase());
-      pdf.setDrawColor(...primaryMainRGB);
-      pdf.setLineWidth(0.6);
-      pdf.line(margin, y + 1.2, margin + tw, y + 1.2);
-      y += titleH;
-
-      if (imgH > pageH - 34) {
-        const maxSliceMm = pageH - 34;
-        const pxPerMm = c.width / imgW;
-        const sliceHpx = Math.floor(maxSliceMm * pxPerMm);
-        let offsetPx = 0, first = true;
-        while (offsetPx < c.height) {
-          const remaining = c.height - offsetPx;
-          const thisSlice = Math.min(sliceHpx, remaining);
-          const tmp = document.createElement('canvas');
-          tmp.width = c.width; tmp.height = thisSlice;
-          tmp.getContext('2d').drawImage(c, 0, offsetPx, c.width, thisSlice, 0, 0, c.width, thisSlice);
-          const sliceMm = thisSlice / pxPerMm;
-          if (!first) {
-            drawFooter(pdf.internal.getNumberOfPages());
-            pdf.addPage();
-            drawHeader(false);
-            y = 22;
-          }
-          pdf.addImage(tmp.toDataURL('image/png'), 'PNG', margin, y, imgW, sliceMm);
-          y += sliceMm + 4;
-          offsetPx += thisSlice;
-          first = false;
-        }
-      } else {
-        pdf.addImage(c.toDataURL('image/png'), 'PNG', margin, y, imgW, imgH);
-        y += imgH + 8;
-      }
-    }
-
-    if (allQueues.length) {
-      pdf.addPage();
-      drawHeader(false);
-      y = 22;
-
-      pdf.setFont('helvetica', 'bold');
-      pdf.setFontSize(13);
-      pdf.setTextColor(...primaryDeepRGB);
-      pdf.text('AGENTES POR COLA', margin, y);
-      const titleW = pdf.getTextWidth('AGENTES POR COLA');
-      pdf.setDrawColor(...primaryMainRGB);
-      pdf.setLineWidth(0.6);
-      pdf.line(margin, y + 1.4, margin + titleW, y + 1.4);
-      y += 7;
-
-      pdf.setFont('helvetica', 'italic');
-      pdf.setFontSize(8);
-      pdf.setTextColor(...mutedRGB);
-      pdf.text('Vinculación deducida a partir de llamadas entregadas.', margin, y);
-      y += 5;
-
-      const colGap = 6;
-      const colW = (usableW - colGap) / 2;
-      const col2X = margin + colW + colGap;
-      const bottomLimit = pageH - 10;
-
-      const queueCards = allQueues.map(q => {
-        const agents = Array.from(queueAgents.get(q.id) || []).sort();
-        const h = 8 + Math.max(1, agents.length) * 3.8 + 3;
-        return { q, agents, h };
-      });
-
-      let curCol = 0;
-      let colYs = [y, y];
-
-      for (const card of queueCards) {
-        if (colYs[curCol] + card.h > bottomLimit) {
-          curCol = curCol === 0 ? 1 : 0;
-          if (colYs[curCol] + card.h > bottomLimit) {
-            pdf.addPage();
-            drawHeader(false);
-            y = 22;
-            colYs = [y, y];
-            curCol = 0;
-          }
-        }
-
-        const x = curCol === 0 ? margin : col2X;
-        let cy = colYs[curCol];
-
-        pdf.setFillColor(...hex2rgb('#f8f9fa'));
-        pdf.rect(x, cy, colW, card.h - 3, 'F');
-        pdf.setFillColor(...primaryMainRGB);
-        pdf.rect(x, cy, 1.2, card.h - 3, 'F');
-
-        pdf.setFont('helvetica', 'bold');
-        pdf.setFontSize(10);
-        pdf.setTextColor(...primaryDeepRGB);
-        pdf.text(card.q.name.toUpperCase(), x + 4, cy + 4.5);
-
-        pdf.setFont('helvetica', 'normal');
-        pdf.setFontSize(8);
-        pdf.setTextColor(...primaryMainRGB);
-        const countTxt = `${card.agents.length} agente${card.agents.length === 1 ? '' : 's'}`;
-        const cW = pdf.getTextWidth(countTxt);
-        pdf.text(countTxt, x + colW - cW - 3, cy + 4.5);
-
-        pdf.setTextColor(...mutedRGB);
-        pdf.setFontSize(7);
-        pdf.text(card.q.id, x + 4, cy + 7.8);
-
-        pdf.setFont('helvetica', 'normal');
-        pdf.setFontSize(8);
-        pdf.setTextColor(...inkRGB);
-        let ay = cy + 12;
-        if (!card.agents.length) {
-          pdf.setTextColor(...mutedRGB);
-          pdf.setFont('helvetica', 'italic');
-          pdf.text('Sin agentes vinculados', x + 4, ay);
-        } else {
-          for (const a of card.agents) {
-            let label = a;
-            const maxW = colW - 7;
-            while (pdf.getTextWidth(label) > maxW && label.length > 3) {
-              label = label.slice(0, -1);
-            }
-            if (label !== a) label = label.slice(0, -1) + '…';
-            pdf.text(label, x + 4, ay);
-            ay += 3.8;
-          }
-        }
-        colYs[curCol] = cy + card.h;
-      }
-    }
-
-    const total = pdf.internal.getNumberOfPages();
-    for (let p = 1; p <= total; p++) {
-      pdf.setPage(p);
-      drawFooter(p, total);
-    }
-
-    pdf.save(`informe_cruce_turnos_${dateStr || 'export'}.pdf`);
-  } catch (err) {
-    console.error(err);
-    alert('Error al exportar a PDF: ' + (err && err.message ? err.message : err));
-  } finally {
-    contents.forEach((el, index) => {
-      el.style.display = originalDisplays[index];
-    });
-    btn.textContent = originalText;
-    btn.disabled = false;
-  }
+  });
 });
+
 </script>
 </body>
 </html>
