@@ -19,13 +19,20 @@
     --muted-foreground: #64748b;
     --sidebar-bg: #ffffff;
     
-    /* Z8 Brand Colors */
+    /* Z8 Brand & Line Sidebar Styling Tokens */
     --primary: #4f46e5;
     --primary-light: #e0e7ff;
     --primary-foreground: #ffffff;
     --violet: #8b5cf6;
     --emerald: #34d399;
     --ring: rgba(79, 70, 229, 0.3);
+
+    --accent-color: #4f46e5;
+    --text-color: #64748b;
+    --marker-color: #cbd5e1;
+    --marker-length: 30px;
+    --max-shift: 16px;
+    --font-size: 0.8125rem;
 
     /* Timeline state colours */
     --state-available: #10b981;
@@ -44,10 +51,9 @@
     margin: 0;
     padding: 0;
     height: 100vh;
-    overflow: hidden; /* Prevent body scroll, handled by layout */
+    overflow: hidden;
   }
   
-  /* Z8 Decorative Background Blurs */
   .bg-fx {
     position: fixed; inset: 0; pointer-events: none; z-index: -1;
     background: radial-gradient(ellipse at top, rgba(79, 70, 229, 0.04), transparent 60%);
@@ -63,90 +69,81 @@
     background: rgba(139, 92, 246, 0.06); filter: blur(120px);
   }
 
-  /* ---- Layout ---- */
-  .app-layout {
-    display: flex;
-    height: 100vh;
-    width: 100vw;
-  }
+  .app-layout { display: flex; height: 100vh; width: 100vw; }
 
-  /* ---- Sidebar ---- */
-  .sidebar {
-    width: 260px;
-    background: var(--sidebar-bg);
-    border-right: 1px solid var(--border);
-    display: flex;
-    flex-direction: column;
-    flex-shrink: 0;
-    z-index: 10;
-  }
-  
-  .sidebar-header {
-    padding: 20px;
-    border-bottom: 1px solid var(--border);
-    display: flex;
-    align-items: center;
-    gap: 12px;
-  }
-  .sidebar-header .icon-box {
-    height: 2.5rem; width: 2.5rem; border-radius: 0.5rem;
-    background: linear-gradient(to bottom right, var(--primary), var(--violet));
-    color: var(--primary-foreground);
-    display: flex; align-items: center; justify-content: center;
-    box-shadow: 0 4px 6px -1px rgba(79,70,229,0.3);
-  }
+  /* ---- Line Sidebar Style ---- */
+  .sidebar { width: 280px; background: var(--sidebar-bg); border-right: 1px solid var(--border); display: flex; flex-direction: column; flex-shrink: 0; z-index: 10; user-select: none; }
+  .sidebar-header { padding: 20px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 12px; }
+  .sidebar-header .icon-box { height: 2.5rem; width: 2.5rem; border-radius: 0.5rem; background: linear-gradient(to bottom right, var(--primary), var(--violet)); color: var(--primary-foreground); display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 6px -1px rgba(79,70,229,0.3); }
   .sidebar-header .icon-box svg { height: 1.25rem; width: 1.25rem; }
   .sidebar-header .titles { display: flex; flex-direction: column; }
   .sidebar-header .sub { font-size: 0.65rem; font-weight: 700; color: var(--primary); text-transform: uppercase; letter-spacing: 0.1em; }
   .sidebar-header .app-title { font-size: 0.875rem; font-weight: 700; color: var(--foreground); margin: 0; line-height: 1.2; }
 
-  .sidebar-nav {
-    flex: 1;
-    overflow-y: auto;
-    padding: 12px;
+  .sidebar-nav { flex: 1; overflow-y: auto; padding: 16px 12px; display: flex; flex-direction: column; gap: 8px; }
+  
+  /* Line Sidebar Item effect variables */
+  .line-sidebar__item {
+    --effect: 0;
+    list-style: none;
+    position: relative;
     display: flex;
-    flex-direction: column;
-    gap: 4px;
+    align-items: center;
+    padding: 8px 12px;
+    border-radius: 0.375rem;
+    cursor: pointer;
+    font-size: var(--font-size);
+    font-weight: 600;
+    color: var(--text-color);
+    transition: color 0.15s ease;
+    transform: translateX(calc(var(--effect) * var(--max-shift)));
+  }
+  .line-sidebar__item:hover { color: var(--foreground); }
+  .line-sidebar__item.active {
+    color: var(--accent-color);
+    background: var(--primary-light);
+  }
+  .line-sidebar__item.disabled { opacity: 0.4; pointer-events: none; }
+
+  .line-sidebar__marker {
+    position: absolute;
+    left: -12px;
+    width: calc(var(--marker-length) * var(--effect));
+    height: 2px;
+    background-color: var(--accent-color);
+    border-radius: 99px;
+    transform-origin: left center;
+    opacity: var(--effect);
+    pointer-events: none;
+    transition: opacity 0.15s ease;
   }
 
-  .nav-item {
-    display: flex; align-items: center; gap: 10px;
-    padding: 10px 12px; border-radius: 0.375rem;
-    font-size: 0.8125rem; font-weight: 600; color: var(--muted-foreground);
-    cursor: pointer; transition: all 0.2s;
-    text-decoration: none; border: none; background: transparent; text-align: left; width: 100%;
+  .line-sidebar__label { display: flex; align-items: center; gap: 10px; width: 100%; z-index: 1; }
+  .line-sidebar__index { font-family: monospace; font-size: 0.7rem; font-weight: 700; opacity: 0.5; color: var(--accent-color); }
+  .line-sidebar__text { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+  /* Sub-menus / Dropdown groups inside Sidebar */
+  .line-sidebar__group { display: flex; flex-direction: column; gap: 4px; }
+  .line-sidebar__group-btn {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 8px 12px; border-radius: 0.375rem; border: none; background: transparent;
+    cursor: pointer; font-family: inherit; font-size: 0.75rem; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted-foreground);
+    width: 100%; transition: all 0.2s;
   }
-  .nav-item svg { width: 18px; height: 18px; opacity: 0.7; }
-  .nav-item:hover { background: var(--muted); color: var(--foreground); }
-  .nav-item.active {
-    background: var(--primary-light);
-    color: var(--primary);
-  }
-  .nav-item.active svg { opacity: 1; stroke: var(--primary); }
-  .nav-item.disabled { opacity: 0.5; pointer-events: none; }
+  .line-sidebar__group-btn:hover { background: var(--muted); color: var(--foreground); }
+  .line-sidebar__group-btn .caret { width: 14px; height: 14px; transition: transform 0.2s; opacity: 0.6; }
+  .line-sidebar__group.collapsed .caret { transform: rotate(-90deg); }
+  .line-sidebar__group-content { display: flex; flex-direction: column; gap: 4px; padding-left: 10px; border-left: 2px solid var(--border); margin-left: 12px; margin-top: 4px; overflow: hidden; }
+  .line-sidebar__group.collapsed .line-sidebar__group-content { display: none; }
 
   /* ---- Main Content ---- */
-  .main-content {
-    flex: 1;
-    overflow-y: auto;
-    padding: 32px;
-    position: relative;
-  }
+  .main-content { flex: 1; overflow-y: auto; padding: 32px; position: relative; }
   .module-view { display: none; max-width: 1200px; margin: 0 auto; animation: fadeIn 0.3s ease-out; }
   .module-view.active { display: block; }
   @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
 
-  /* ---- Panels ---- */
-  .panel {
-    background: var(--card);
-    border: 1px solid var(--border);
-    border-radius: 1rem;
-    box-shadow: 0 10px 15px -3px rgba(0,0,0,0.02), 0 4px 6px -2px rgba(0,0,0,0.01);
-    backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
-    margin-bottom: 24px;
-    position: relative;
-    overflow: hidden;
-  }
+  .panel { background: var(--card); border: 1px solid var(--border); border-radius: 1rem; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.02), 0 4px 6px -2px rgba(0,0,0,0.01); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); margin-bottom: 24px; position: relative; overflow: hidden; }
   .panel-gradient-line { height: 3px; width: 100%; background: linear-gradient(to right, var(--primary), var(--violet)); }
   .panel-padding { padding: 24px; }
   
@@ -156,69 +153,30 @@
   .panel-subtitle { font-size: 0.75rem; color: var(--muted-foreground); margin-top: 4px; font-weight: 500; }
   .panel-actions { display: flex; align-items: center; gap: 10px; }
 
-  /* ---- Drag & Drop Zones ---- */
-  .dropzone-container {
-    display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px;
-  }
-  .dropzone {
-    border: 2px dashed var(--border);
-    border-radius: 0.75rem;
-    padding: 32px 20px;
-    text-align: center;
-    background: var(--background);
-    transition: all 0.2s ease;
-    cursor: pointer;
-    position: relative;
-    display: flex; flex-direction: column; align-items: center; gap: 12px;
-  }
-  .dropzone:hover, .dropzone.dragover {
-    border-color: var(--primary);
-    background: var(--primary-light);
-  }
-  .dropzone-icon {
-    width: 48px; height: 48px; border-radius: 50%;
-    background: var(--muted); color: var(--muted-foreground);
-    display: flex; align-items: center; justify-content: center;
-    transition: all 0.2s;
-  }
-  .dropzone:hover .dropzone-icon, .dropzone.dragover .dropzone-icon {
-    background: var(--primary); color: var(--primary-foreground);
-  }
+  .dropzone-container { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; }
+  .dropzone { border: 2px dashed var(--border); border-radius: 0.75rem; padding: 32px 20px; text-align: center; background: var(--background); transition: all 0.2s ease; cursor: pointer; position: relative; display: flex; flex-direction: column; align-items: center; gap: 12px; }
+  .dropzone:hover, .dropzone.dragover { border-color: var(--primary); background: var(--primary-light); }
+  .dropzone-icon { width: 48px; height: 48px; border-radius: 50%; background: var(--muted); color: var(--muted-foreground); display: flex; align-items: center; justify-content: center; transition: all 0.2s; }
+  .dropzone:hover .dropzone-icon, .dropzone.dragover .dropzone-icon { background: var(--primary); color: var(--primary-foreground); }
   .dropzone-title { font-size: 0.875rem; font-weight: 600; color: var(--foreground); margin: 0;}
   .dropzone-desc { font-size: 0.75rem; color: var(--muted-foreground); margin: 0;}
   
-  .status-badge {
-    display: inline-flex; align-items: center; gap: 6px;
-    padding: 4px 10px; border-radius: 9999px;
-    font-size: 0.6875rem; font-weight: 700; margin-top: 8px;
-  }
+  .status-badge { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 9999px; font-size: 0.6875rem; font-weight: 700; margin-top: 8px; }
   .status-badge.pending { background: var(--muted); color: var(--muted-foreground); }
   .status-badge.success { background: rgba(16, 185, 129, 0.15); color: var(--state-available); }
   .status-badge.error { background: rgba(244, 63, 94, 0.15); color: var(--state-busy); }
-
   .debug-text { font-size: 0.6875rem; color: var(--muted-foreground); margin-top: 12px; font-family: monospace; white-space: pre-wrap; word-break: break-all; text-align: left; width: 100%; max-height: 100px; overflow-y: auto;}
 
-  /* ---- Controls ---- */
   .controls { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; align-items: start; }
   .ctrl label { display: block; font-size: 0.6875rem; font-weight: 700; color: var(--muted-foreground); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.05em; }
-  .ctrl input, .ctrl select {
-    width: 100%; padding: 8px 12px; border: 1px solid var(--border); border-radius: 0.375rem;
-    font-family: inherit; font-size: 0.8125rem; color: var(--foreground); background: var(--background); transition: all 0.2s;
-  }
+  .ctrl input, .ctrl select { width: 100%; padding: 8px 12px; border: 1px solid var(--border); border-radius: 0.375rem; font-family: inherit; font-size: 0.8125rem; color: var(--foreground); background: var(--background); transition: all 0.2s; }
   .ctrl input:focus, .ctrl select:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px var(--ring); }
   select[multiple] { height: 120px; }
   .small { font-size: 0.6875rem; color: var(--muted-foreground); margin-top: 6px; font-weight: 500; }
   .small a { color: var(--primary); text-decoration: none; cursor: pointer; font-weight: 600; transition: opacity 0.2s; }
   .small a:hover { opacity: 0.8; }
 
-  /* ---- Buttons & Switches ---- */
-  button.btn {
-    background: var(--primary); color: var(--primary-foreground); border: 0;
-    padding: 8px 16px; border-radius: 0.375rem; cursor: pointer;
-    font-family: inherit; font-size: 0.8125rem; font-weight: 600;
-    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05); transition: all 0.15s ease-in-out;
-    display: inline-flex; justify-content: center; align-items: center; gap: 6px;
-  }
+  button.btn { background: var(--primary); color: var(--primary-foreground); border: 0; padding: 8px 16px; border-radius: 0.375rem; cursor: pointer; font-family: inherit; font-size: 0.8125rem; font-weight: 600; box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05); transition: all 0.15s ease-in-out; display: inline-flex; justify-content: center; align-items: center; gap: 6px; }
   button.btn:hover { opacity: 0.9; }
   button.btn.secondary { background: var(--muted); color: var(--foreground); border: 1px solid var(--border); box-shadow: none; }
   button.btn.secondary:hover { background: #e2e8f0; }
@@ -231,7 +189,6 @@
   .view-switch span { display: inline-block; padding: 6px 12px; font-size: 0.75rem; font-weight: 600; color: var(--muted-foreground); border-radius: 0.375rem; transition: all 0.2s ease; user-select: none; }
   .view-switch input[type="radio"]:checked + span { background: var(--background); color: var(--foreground); box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
 
-  /* ---- Charts & Tables ---- */
   .chart-wrap { width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; } 
   .axis text { font-size: 0.6875rem; fill: var(--muted-foreground); font-family: inherit; font-weight: 500; }
   .axis path, .axis line { stroke: var(--border); }
@@ -278,7 +235,7 @@
 <div class="bg-fx"></div>
 
 <div class="app-layout">
-  <!-- Sidebar -->
+  <!-- Sidebar con Estilo LineSidebar Interactivo -->
   <aside class="sidebar">
     <div class="sidebar-header">
       <div class="icon-box">
@@ -289,43 +246,64 @@
         <h1 class="app-title">Timeline & Turnos</h1>
       </div>
     </div>
+    
     <nav class="sidebar-nav" id="sidebarNav">
-      <button class="nav-item active" data-target="mod-upload">
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></svg>
-        Carga de Datos
-      </button>
-      <button class="nav-item disabled" data-target="mod-filters">
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
-        Filtros Generales
-      </button>
-      <button class="nav-item disabled" data-target="mod-stats">
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg>
-        Tiempos por Usuario
-      </button>
-      <button class="nav-item disabled" data-target="mod-timeline">
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
-        Timeline de Estados
-      </button>
-      <button class="nav-item disabled" data-target="mod-availability">
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg>
-        Disponibilidad Global
-      </button>
-      <button class="nav-item disabled" data-target="mod-gaps">
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
-        Franjas sin Cobertura
-      </button>
-      <button class="nav-item disabled" data-target="mod-max">
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/><path d="M9 14h6"/><path d="M9 10h6"/><path d="M9 18h6"/></svg>
-        Máximo por Servicio
-      </button>
-      <button class="nav-item disabled" data-target="mod-queues">
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-        Agentes por Cola
-      </button>
-      <button class="nav-item disabled" data-target="mod-exclude">
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="17" x2="22" y1="8" y2="13"/><line x1="22" x2="17" y1="8" y2="13"/></svg>
-        Exclusiones
-      </button>
+      <!-- Item 1: Carga de Datos -->
+      <li class="line-sidebar__item active" data-target="mod-upload">
+        <span class="line-sidebar__marker" aria-hidden="true"></span>
+        <span class="line-sidebar__label">
+          <span class="line-sidebar__index">01</span>
+          <span class="line-sidebar__text">Carga de Datos</span>
+        </span>
+      </li>
+      
+      <!-- GRUPO: CONEXIÓN -->
+      <div class="line-sidebar__group" id="grp-conexion">
+        <button class="line-sidebar__group-btn">
+          <span>Conexión</span>
+          <svg class="caret" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+        </button>
+        <div class="line-sidebar__group-content">
+          <li class="line-sidebar__item disabled" data-target="mod-analysis">
+            <span class="line-sidebar__marker" aria-hidden="true"></span>
+            <span class="line-sidebar__label">
+              <span class="line-sidebar__index">02</span>
+              <span class="line-sidebar__text">Análisis de Tiempos</span>
+            </span>
+          </li>
+          <li class="line-sidebar__item disabled" data-target="mod-visualization">
+            <span class="line-sidebar__marker" aria-hidden="true"></span>
+            <span class="line-sidebar__label">
+              <span class="line-sidebar__index">03</span>
+              <span class="line-sidebar__text">Visualización Global</span>
+            </span>
+          </li>
+          <li class="line-sidebar__item disabled" data-target="mod-services">
+            <span class="line-sidebar__marker" aria-hidden="true"></span>
+            <span class="line-sidebar__label">
+              <span class="line-sidebar__index">04</span>
+              <span class="line-sidebar__text">Servicios y Agentes</span>
+            </span>
+          </li>
+        </div>
+      </div>
+
+      <!-- GRUPO: RATIOS -->
+      <div class="line-sidebar__group" id="grp-ratios">
+        <button class="line-sidebar__group-btn">
+          <span>Ratios</span>
+          <svg class="caret" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+        </button>
+        <div class="line-sidebar__group-content">
+          <li class="line-sidebar__item disabled" data-target="mod-ratios-calls">
+            <span class="line-sidebar__marker" aria-hidden="true"></span>
+            <span class="line-sidebar__label">
+              <span class="line-sidebar__index">05</span>
+              <span class="line-sidebar__text">Rendimiento Llamadas</span>
+            </span>
+          </li>
+        </div>
+      </div>
     </nav>
   </aside>
 
@@ -340,6 +318,34 @@
           <div class="panel-heading with-border">
             <h2 class="panel-title">Importación de Datos</h2>
             <div class="panel-subtitle">Sube los archivos CSV necesarios para generar los informes.</div>
+          </div>
+          
+          <div style="margin-bottom: 24px; background: rgba(79, 70, 229, 0.05); padding: 20px; border-radius: 8px; border: 1px solid var(--border); display: flex; flex-wrap: wrap; gap: 24px; align-items: center; justify-content: space-around;">
+            <div style="text-align: center;">
+              <div style="font-size: 0.75rem; color: var(--muted-foreground); font-weight: 700; text-transform: uppercase; margin-bottom: 4px;">🌍 Tu Sistema (<span id="tzLocalName">...</span>)</div>
+              <div style="font-size: 1.5rem; font-weight: 800; color: var(--foreground); font-variant-numeric: tabular-nums;" id="tzLocalTime">--:--:--</div>
+            </div>
+            
+            <div style="display: flex; flex-direction: column; align-items: center;">
+               <span style="font-size: 0.75rem; font-weight: 600; color: var(--primary); background: var(--primary-light); padding: 4px 12px; border-radius: 999px;">
+                 Diferencia: <span id="tzDiff">...</span>
+               </span>
+               <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--muted-foreground); margin-top: 8px;"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+            </div>
+            
+            <div style="text-align: center;">
+              <div style="font-size: 0.75rem; color: var(--muted-foreground); font-weight: 700; text-transform: uppercase; margin-bottom: 4px;">🇪🇸 Madrid (PBX)</div>
+              <div style="font-size: 1.5rem; font-weight: 800; color: var(--foreground); font-variant-numeric: tabular-nums;" id="tzMadridTime">--:--:--</div>
+            </div>
+            
+            <div style="width: 100%; border-top: 1px dashed var(--border); margin-top: 4px; padding-top: 16px;">
+              <input type="hidden" id="pbxOffset" value="0">
+              <input type="hidden" id="shiftsOffset" value="0">
+              <div style="font-size: 0.8125rem; color: var(--muted-foreground); display: flex; align-items: flex-start; gap: 8px;">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0; margin-top:2px;"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+                <span><strong>Ajuste Automático Activo:</strong> El sistema asume que la PBX exporta en hora de Madrid. Los datos de Turnos (CRM) se ajustarán sumando <strong><span id="tzAutoOffsetInfo">0</span> horas</strong> para alinearlo todo.</span>
+              </div>
+            </div>
           </div>
           
           <div class="dropzone-container">
@@ -376,8 +382,10 @@
       </div>
     </div>
 
-    <!-- MÓDULO 2: FILTROS -->
-    <div id="mod-filters" class="module-view">
+    <!-- MÓDULO 2: ANÁLISIS DE TIEMPOS (Filtros + Tiempos + Exclusiones) -->
+    <div id="mod-analysis" class="module-view">
+      
+      <!-- Panel de Filtros -->
       <div class="panel">
         <div class="panel-gradient-line"></div>
         <div class="panel-padding">
@@ -425,10 +433,8 @@
           </div>
         </div>
       </div>
-    </div>
 
-    <!-- MÓDULO 3: TABLA MAESTRA (TIEMPOS) -->
-    <div id="mod-stats" class="module-view">
+      <!-- Panel de Tiempos -->
       <div class="panel">
         <div class="panel-gradient-line"></div>
         <div class="panel-padding">
@@ -446,10 +452,31 @@
           </div>
         </div>
       </div>
+
+      <!-- Panel de Exclusiones -->
+      <div class="panel">
+        <div class="panel-gradient-line"></div>
+        <div class="panel-padding">
+          <div class="panel-heading with-border">
+            <div>
+              <div class="panel-title">Excluir Extensiones / Usuarios</div>
+              <div class="panel-subtitle">Marca lo que no debe sumar. Las extensiones afectan a las gráficas, los Usuarios Mattermost limpian la tabla maestra.</div>
+            </div>
+          </div>
+          <div class="small" style="margin-bottom: 16px;">
+            <a id="checkAllExclude">Marcar todos</a> · 
+            <a id="uncheckAllExclude">Desmarcar todos</a>
+          </div>
+          <div id="ophExcludeContainer" class="exclude-blocks-wrap"></div>
+        </div>
+      </div>
+
     </div>
 
-    <!-- MÓDULO 4: TIMELINE -->
-    <div id="mod-timeline" class="module-view">
+    <!-- MÓDULO 3: VISUALIZACIÓN GLOBAL (Timeline + Disponibilidad + Gaps) -->
+    <div id="mod-visualization" class="module-view">
+      
+      <!-- Panel de Timeline -->
       <div class="panel">
         <div class="panel-gradient-line"></div>
         <div class="panel-padding">
@@ -467,10 +494,8 @@
           <div class="chart-wrap" style="padding-top: 10px;"><svg id="timelineChart"></svg></div>
         </div>
       </div>
-    </div>
 
-    <!-- MÓDULO 5: DISPONIBILIDAD -->
-    <div id="mod-availability" class="module-view">
+      <!-- Panel de Disponibilidad -->
       <div class="panel">
         <div class="panel-gradient-line"></div>
         <div class="panel-padding">
@@ -483,10 +508,8 @@
           <div class="chart-wrap" style="padding-top: 10px;"><svg id="availChart"></svg></div>
         </div>
       </div>
-    </div>
 
-    <!-- MÓDULO 6: GAPS -->
-    <div id="mod-gaps" class="module-view">
+      <!-- Panel de Gaps -->
       <div class="panel">
         <div class="panel-gradient-line"></div>
         <div class="panel-padding">
@@ -499,10 +522,13 @@
           <div class="chart-wrap" style="padding-top: 10px;"><svg id="gapChart"></svg></div>
         </div>
       </div>
+
     </div>
 
-    <!-- MÓDULO 7: MAX POR SERVICIO -->
-    <div id="mod-max" class="module-view">
+    <!-- MÓDULO 4: SERVICIOS Y AGENTES (Max + Colas) -->
+    <div id="mod-services" class="module-view">
+      
+      <!-- Panel de Max por Servicio -->
       <div class="panel">
         <div class="panel-gradient-line"></div>
         <div class="panel-padding">
@@ -515,10 +541,8 @@
           <div class="chart-wrap" id="maxPerHourTableWrap" style="padding-top: 10px;"></div>
         </div>
       </div>
-    </div>
 
-    <!-- MÓDULO 8: AGENTES POR COLA -->
-    <div id="mod-queues" class="module-view">
+      <!-- Panel de Agentes por Cola -->
       <div class="panel">
         <div class="panel-gradient-line"></div>
         <div class="panel-padding">
@@ -531,24 +555,25 @@
           <div id="queuesList" class="queues-list" style="padding-top: 10px;"></div>
         </div>
       </div>
+
     </div>
 
-    <!-- MÓDULO 9: EXCLUSIONES -->
-    <div id="mod-exclude" class="module-view">
+    <!-- MÓDULO 5: RATIOS - RENDIMIENTO DE LLAMADAS -->
+    <div id="mod-ratios-calls" class="module-view">
       <div class="panel">
         <div class="panel-gradient-line"></div>
         <div class="panel-padding">
           <div class="panel-heading with-border">
             <div>
-              <div class="panel-title">Excluir Extensiones / Usuarios</div>
-              <div class="panel-subtitle">Marca lo que no debe sumar. Las extensiones afectan a las gráficas, los Usuarios Mattermost limpian la tabla maestra.</div>
+              <div class="panel-title" style="color:var(--primary);">Rendimiento y Medias de Llamadas (CDR)</div>
+              <div class="panel-subtitle">Aquí integraremos el CSV de llamadas recibidas para cruzarlo con los operadores y sacar los Ratios.</div>
             </div>
           </div>
-          <div class="small" style="margin-bottom: 16px;">
-            <a id="checkAllExclude">Marcar todos</a> · 
-            <a id="uncheckAllExclude">Desmarcar todos</a>
+          <div style="padding: 60px 20px; text-align: center; color: var(--muted-foreground); background: var(--muted); border-radius: 8px; border: 1px dashed var(--border);">
+             <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="margin: 0 auto 16px auto; opacity: 0.5;"><path d="m18 11-5.5 5.5a2.121 2.121 0 0 1-3 0L7.4 14.4a2.121 2.121 0 0 1 0-3l5.5-5.5"/><circle cx="16" cy="6" r="2"/><path d="M12 12v.01"/></svg>
+             <div style="font-weight: 600; font-size: 1rem; color: var(--foreground); margin-bottom: 8px;">Módulo en Construcción</div>
+             <div style="font-size: 0.8125rem;">La interfaz ya está lista para integrar la lógica de llamadas (CDR) en el siguiente paso.</div>
           </div>
-          <div id="ophExcludeContainer" class="exclude-blocks-wrap"></div>
         </div>
       </div>
     </div>
@@ -560,7 +585,7 @@
 
 <script>
 // ============================================
-// Custom Notification (replaces alert)
+// Funciones Globales y Configuración Base
 // ============================================
 function customAlert(msg) {
   const div = document.createElement('div');
@@ -620,24 +645,89 @@ let dayMin = null, dayMax = null;
 let shiftRules = []; 
 let strictModeConfig = new Set(); 
 
+let rawPbxText = null;
+let rawShiftsText = null;
+
 // ============================================
-// Navigation Logic
+// Lógica de Zona Horaria (Automática)
 // ============================================
+function initTimezoneLogic() {
+  function updateClocks() {
+    const now = new Date();
+    const localFmt = new Intl.DateTimeFormat('es-ES', { timeStyle: 'medium', hour12: false });
+    const madridFmt = new Intl.DateTimeFormat('es-ES', { timeStyle: 'medium', timeZone: 'Europe/Madrid', hour12: false });
+    
+    document.getElementById('tzLocalTime').textContent = localFmt.format(now);
+    document.getElementById('tzMadridTime').textContent = madridFmt.format(now);
+  }
+
+  function calculateOffset() {
+    const now = new Date();
+    const localStr = now.toLocaleString("en-US", { hour12: false });
+    const madridStr = now.toLocaleString("en-US", { timeZone: "Europe/Madrid", hour12: false });
+    
+    const localDate = new Date(localStr);
+    const madridDate = new Date(madridStr);
+    
+    const diffHours = Math.round((madridDate - localDate) / 3600000);
+    const tzLocal = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    const diffText = (diffHours > 0 ? '+' : '') + diffHours;
+    
+    document.getElementById('tzLocalName').textContent = tzLocal;
+    document.getElementById('tzDiff').textContent = diffText + 'h';
+    document.getElementById('tzAutoOffsetInfo').textContent = diffText;
+    
+    document.getElementById('pbxOffset').value = 0;
+    document.getElementById('shiftsOffset').value = diffHours;
+  }
+
+  calculateOffset();
+  updateClocks();
+  setInterval(updateClocks, 1000);
+}
+
+initTimezoneLogic();
+
+// ============================================
+// Line Sidebar Hover Effect & Navigation Logic
+// ============================================
+const navList = document.getElementById('sidebarNav');
+const listItems = Array.from(navList.querySelectorAll('.line-sidebar__item'));
+
+function updateLineSidebarItem(item, pointerY) {
+  const rect = item.getBoundingClientRect();
+  const navRect = navList.getBoundingClientRect();
+  const itemCenter = rect.top + rect.height / 2 - navRect.top;
+  const distance = Math.abs(pointerY - itemCenter);
+  const proximity = 80;
+  const factor = Math.max(0, 1 - distance / proximity);
+  item.style.setProperty('--effect', factor.toFixed(3));
+}
+
+navList.addEventListener('pointermove', (e) => {
+  const navRect = navList.getBoundingClientRect();
+  const pointerY = e.clientY - navRect.top;
+  listItems.forEach(item => updateLineSidebarItem(item, pointerY));
+});
+
+navList.addEventListener('pointerleave', () => {
+  listItems.forEach(item => item.style.setProperty('--effect', '0'));
+});
+
 function showPanel(targetId) {
   document.querySelectorAll('.module-view').forEach(el => el.classList.remove('active'));
-  document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+  listItems.forEach(el => el.classList.remove('active'));
   
   const targetView = document.getElementById(targetId);
-  const targetNav = document.querySelector(`.nav-item[data-target="${targetId}"]`);
+  const targetNav = document.querySelector(`.line-sidebar__item[data-target="${targetId}"]`);
   
   if (targetView) targetView.classList.add('active');
   if (targetNav) targetNav.classList.add('active');
 
-  // Trigger resize to fix D3 chart widths if they were hidden
   window.dispatchEvent(new Event('resize'));
 }
 
-document.querySelectorAll('.nav-item').forEach(btn => {
+listItems.forEach(btn => {
   btn.addEventListener('click', function(e) {
     e.preventDefault();
     if(this.classList.contains('disabled')) return;
@@ -645,12 +735,20 @@ document.querySelectorAll('.nav-item').forEach(btn => {
   });
 });
 
+document.querySelectorAll('.line-sidebar__group-btn').forEach(btn => {
+  btn.addEventListener('click', function(e) {
+    e.preventDefault();
+    const group = this.parentElement;
+    group.classList.toggle('collapsed');
+  });
+});
+
 function enableNavItems() {
-  document.querySelectorAll('.nav-item.disabled').forEach(el => el.classList.remove('disabled'));
+  document.querySelectorAll('.line-sidebar__item.disabled').forEach(el => el.classList.remove('disabled'));
 }
 
 // ============================================
-// Drag & Drop Logic
+// Drag & Drop y Parser CSV
 // ============================================
 function setupDropzone(zoneId, inputId, statusId, debugId, processFn, isSecondary = false) {
   const zone = document.getElementById(zoneId);
@@ -686,7 +784,6 @@ function setupDropzone(zoneId, inputId, statusId, debugId, processFn, isSecondar
   async function handleFile(file) {
     if (!file) return;
     
-    // Safety check for shifts without states
     if (isSecondary && !dayMin) {
       status.textContent = 'Error: Carga primero el CSV de la PBX.';
       status.className = 'status-badge error';
@@ -708,15 +805,25 @@ function setupDropzone(zoneId, inputId, statusId, debugId, processFn, isSecondar
   }
 }
 
-// Attach Drag & Drop to zones
 setupDropzone('dz-states', 'fileInput', 'status', 'debug', (text) => {
-  const { headers, data, sep } = parseCSV(text);
-  processRows(data, headers, sep);
+  rawPbxText = text;
+  reprocessAll();
 }, false);
 
 setupDropzone('dz-shifts', 'shiftsInput', 'shiftsStatus', 'shiftsDebug', (text) => {
-  processShiftsRawText(text);
+  rawShiftsText = text;
+  if (rawPbxText) reprocessAll();
 }, true);
+
+function reprocessAll() {
+  if (rawPbxText) {
+    const { headers, data, sep } = parseCSV(rawPbxText);
+    processRows(data, headers, sep);
+  }
+  if (rawShiftsText && dayMin) {
+    processShiftsRawText(rawShiftsText);
+  }
+}
 
 function normExt(str) {
   if(!str) return '';
@@ -781,7 +888,7 @@ function cleanAgentName(rawName) {
   return String(rawName).replace(/^\[.*?\]\s*/, '').trim();
 }
 
-function parseTimeStringToDate(timeStr, baseDate) {
+function parseTimeStringToDate(timeStr, baseDate, offsetHours = 0) {
   if (!timeStr) return null;
   let str = String(timeStr).trim();
   if (str === '' || str === '-' || str.toLowerCase() === 'n/a') return null;
@@ -797,6 +904,7 @@ function parseTimeStringToDate(timeStr, baseDate) {
          } else {
              d.setHours(Math.floor(val), 0, 0, 0);
          }
+         if (offsetHours !== 0) d.setTime(d.getTime() + (offsetHours * 3600000));
          return d;
      }
   }
@@ -811,6 +919,7 @@ function parseTimeStringToDate(timeStr, baseDate) {
     if (h === 0 && m === 0 && s === 0) {
        d.setHours(23, 59, 59, 999);
     }
+    if (offsetHours !== 0) d.setTime(d.getTime() + (offsetHours * 3600000));
     return d;
   }
   return null;
@@ -834,11 +943,13 @@ function parseTime(s) {
   if (!m) return { H:0, M:0, S:0 };
   return { H:+m[1], M:+m[2], S:+(m[3]||0) };
 }
-function buildTimestamp(fechaStr, horaStr) {
+function buildTimestamp(fechaStr, horaStr, offsetHours = 0) {
   const dp = parseDate(fechaStr);
   if (!dp) return null;
   const tp = parseTime(horaStr);
-  return new Date(dp.y, dp.mo, dp.d, tp.H, tp.M, tp.S, 0);
+  const d = new Date(dp.y, dp.mo, dp.d, tp.H, tp.M, tp.S, 0);
+  if (offsetHours !== 0) d.setTime(d.getTime() + (offsetHours * 3600000));
+  return d;
 }
 
 function pick(row, names) {
@@ -856,7 +967,9 @@ function processRows(rows, headers, sep) {
     document.getElementById('status').className = 'status-badge error';
     return;
   }
-  const dbg = [`Separador: "${sep === '\t' ? '\\t' : sep}" | Cols: ${headers.join(' | ')}`];
+  
+  const offsetHours = parseFloat(document.getElementById('pbxOffset').value) || 0;
+  const dbg = [`Separador: "${sep === '\t' ? '\\t' : sep}" | Cols: ${headers.join(' | ')}`, `Desfase PBX aplicado: ${offsetHours}h`];
 
   const byAgent = new Map();
   let parsedOk = 0, parseFail = 0;
@@ -875,7 +988,7 @@ function processRows(rows, headers, sep) {
     
     if (!rawAgent) continue;
     const agent = cleanAgentName(rawAgent);
-    const ts = buildTimestamp(fecha, hora);
+    const ts = buildTimestamp(fecha, hora, offsetHours);
     if (!ts || isNaN(ts)) { parseFail++; continue; }
     parsedOk++;
     
@@ -943,7 +1056,6 @@ function processRows(rows, headers, sep) {
   document.getElementById('timeFrom').value = fmtTime(dayMin);
   document.getElementById('timeTo').value   = fmtTime(dayMax);
 
-  // Enable navigation and auto-navigate to filters or timeline
   enableNavItems();
   
   if (shiftRules.length > 0) renderUserStats();
@@ -954,14 +1066,12 @@ function processRows(rows, headers, sep) {
 
   renderQueueList();
   render();
-  
-  // Suggest moving to timeline
-  customAlert("Estados cargados correctamente. Ya puedes navegar por los menús laterales.");
 }
 
 function processShiftsRawText(rawText) {
     const lines = rawText.split(/\r?\n/);
-    const dbg = [`--- CSV Turnos (Lector por Posición) ---`, `Líneas totales: ${lines.length}`];
+    const offsetHours = parseFloat(document.getElementById('shiftsOffset').value) || 0;
+    const dbg = [`--- CSV Turnos ---`, `Líneas totales: ${lines.length}`, `Desfase automático CRM aplicado: +${offsetHours}h`];
     
     shiftRules = [];
     const baseDate = new Date(dayMin);
@@ -1014,8 +1124,8 @@ function processShiftsRawText(rawText) {
             if (t + 1 < timeStrs.length) {
                 const startStr = timeStrs[t];
                 const endStr = timeStrs[t+1];
-                const start = parseTimeStringToDate(startStr, baseDate);
-                const end = parseTimeStringToDate(endStr, baseDate);
+                const start = parseTimeStringToDate(startStr, baseDate, offsetHours);
+                const end = parseTimeStringToDate(endStr, baseDate, offsetHours);
                 if (start && end) {
                     if (start > end) end.setDate(end.getDate() + 1);
                     ranges.push({ start, end, rstr: `${startStr} - ${endStr}` });
@@ -1034,13 +1144,12 @@ function processShiftsRawText(rawText) {
     
     if (shiftRules.length > 0) {
         dbg.push(`Asignaciones extraídas: ${shiftRules.length}`);
-        document.getElementById('shiftsStatus').textContent = `Cargado OK (${shiftRules.length} usuarios).`;
+        document.getElementById('shiftsStatus').textContent = `Cargado OK (${shiftRules.length} usuarios ajustados).`;
         document.getElementById('shiftsStatus').className = 'status-badge success';
         document.getElementById('shiftsDebug').textContent = dbg.join('\n');
         
         buildExclusionsPanel();
         renderUserStats();
-        customAlert("Turnos cargados. Ve a 'Tiempos por Usuario' para ver los cruces.");
     } else {
         document.getElementById('shiftsStatus').textContent = 'Error: Formato no válido.';
         document.getElementById('shiftsStatus').className = 'status-badge error';
@@ -1511,9 +1620,9 @@ function renderTimeline(segments, range, agents) {
   svg.selectAll('*').remove();
   const margin = { top: 20, right: RIGHT_MARGIN, bottom: 40, left: LEFT_MARGIN };
   
-  const container = document.getElementById('mod-timeline').querySelector('.panel-padding');
+  const container = document.getElementById('timelineChart').parentElement;
   const containerWidth = container.clientWidth || 900; 
-  const width = Math.max(800, containerWidth - 48); // 48 is roughly panel padding
+  const width = Math.max(800, containerWidth - 48);
   
   const rowH = 28;
   const height = margin.top + margin.bottom + Math.max(1, agents.length) * rowH;
@@ -1598,7 +1707,7 @@ function renderAvailability(range) {
   svg.selectAll('*').remove();
   const margin = { top: 14, right: RIGHT_MARGIN, bottom: 30, left: LEFT_MARGIN };
   
-  const container = document.getElementById('mod-availability').querySelector('.panel-padding');
+  const container = document.getElementById('availChart').parentElement;
   const containerWidth = container.clientWidth || 900;
   const width = Math.max(800, containerWidth - 48);
   const height = 300;
@@ -1688,7 +1797,7 @@ function renderGaps(range) {
   svg.selectAll('*').remove();
   const margin = { top: 6, right: RIGHT_MARGIN, bottom: 22, left: LEFT_MARGIN };
   
-  const container = document.getElementById('mod-gaps').querySelector('.panel-padding');
+  const container = document.getElementById('gapChart').parentElement;
   const containerWidth = container.clientWidth || 900;
   const width = Math.max(800, containerWidth - 48);
   const height = 100;
@@ -1753,11 +1862,10 @@ document.querySelectorAll('input[name="tlView"]').forEach(radio => {
 window.addEventListener('resize', () => { 
     if (rawSegments.length) {
         clearTimeout(window.resizeTimer);
-        window.resizeTimer = setTimeout(render, 150); // slight debounce
+        window.resizeTimer = setTimeout(render, 150);
     }
 });
 
-// PDF Export Logic for individual charts
 function svgToDataURL(svgEl) {
   const clone = svgEl.cloneNode(true);
   const bg = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
@@ -1837,7 +1945,7 @@ document.querySelectorAll('.pdf-export-btn').forEach(btn => {
       
       pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 10, 24, imgW, imgH);
       
-      const dateStr = dayMin ? `${pad2(dayMin.getDate())}-${pad2(dayMin.getMonth()+1)}-${dayMin.getFullYear()}` : 'export';
+      const dateStr = dayMin ? `${pad2(dayMin.getDate())}-${pad2(dayMin.getMonth()+1)}-${pad2(dayMin.getFullYear())}` : 'export';
       pdf.save(`${chartTitle.replace(/\s+/g, '_')}_${dateStr}.pdf`);
       
     } catch (err) {
