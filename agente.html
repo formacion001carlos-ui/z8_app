@@ -136,6 +136,7 @@
     </div>
 
     <!-- AQUÍ DEBES PONER TU api.js -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="api.js"></script>
     
     <script>
@@ -224,8 +225,20 @@
             
             try {
                 await fetchGoogleAPI("setEstado", { usuario: usuarioActivo, estado: nuevoEstado, actividad: act });
-                await refrescarDatosBackend();
                 showToast(`Estado cambiado a: ${nuevoEstado}`);
+                
+                // Optimistic update para mejorar la velocidad percibida
+                let horaOpt = "-";
+                if (nuevoEstado === 'Conectado') {
+                    const now = getHoraActualMadridAsLocal();
+                    horaOpt = (now.getHours()<10?'0':'') + now.getHours() + ':' + 
+                              (now.getMinutes()<10?'0':'') + now.getMinutes() + ':' + 
+                              (now.getSeconds()<10?'0':'') + now.getSeconds();
+                }
+                aplicarEstadoLocal(nuevoEstado, horaOpt, act);
+                
+                // Sincronizar en segundo plano sin bloquear la UI
+                refrescarDatosBackend();
             } catch (error) {
                 showToast("Error al cambiar estado.", false);
             } finally {
@@ -270,7 +283,8 @@
                 document.getElementById('manual-inicio').value = "";
                 document.getElementById('manual-fin').value = "";
                 
-                await refrescarDatosBackend(); 
+                // Refresco en segundo plano para no bloquear al usuario
+                refrescarDatosBackend(); 
             } catch (error) {
                 showToast("Error al guardar registro manual.", false);
             } finally {
@@ -279,9 +293,36 @@
         }
 
         function iniciarLatidos() {
+            // Heartbeat normal
             latidoTimer = setInterval(() => {
                 if(estadoApp !== "Desconectado") fetchGoogleAPI("heartbeat", { usuario: usuarioActivo }).catch(()=>{});
             }, 180000); 
+            
+            // Suscripción de tiempo real a Supabase
+            if (typeof supabaseClient !== 'undefined') {
+                supabaseClient
+                    .channel('estado_agente_' + usuarioActivo)
+                    .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'estado_vivo', filter: 'usuario=eq.' + usuarioActivo }, payload => {
+                        const nuevoEstado = payload.new;
+                        if (nuevoEstado.estado === 'Desconectado' && estadoApp !== 'Desconectado') {
+                            // Hemos sido desconectados remotamente
+                            if (cronometroVirtual) clearInterval(cronometroVirtual);
+                            document.getElementById('display-cronometro').textContent = "00:00:00";
+                            
+                            estadoApp = 'Desconectado';
+                            document.getElementById('texto-estado').textContent = "Desconectado (por Admin)";
+                            document.getElementById('texto-hora-inicio').textContent = "Jornada detenida por el administrador.";
+                            document.querySelectorAll('.state-btn').forEach(b => b.classList.remove('active-work','active-break','active-pause','active-off'));
+                            document.getElementById('btn-logout').classList.add('active-off');
+                            
+                            // Guardar en local storage para consistencia
+                            localStorage.setItem('tt_estado', 'Desconectado');
+                            
+                            alert("⚠️ El administrador ha cerrado tu sesión remotamente.");
+                        }
+                    })
+                    .subscribe();
+            }
         }
 
         function aplicarEstadoLocal(estado, horaInicioStr, actividad) {
@@ -320,6 +361,11 @@
                             parseInt(timeParts[1]), 
                             parseInt(timeParts[2])
                         );
+                    } else if (parts.length === 1) {
+                        // Caso donde solo llega la hora "HH:mm:ss"
+                        const timeParts = parts[0].split(":");
+                        horaInicioGlobal = getHoraActualMadridAsLocal();
+                        horaInicioGlobal.setHours(parseInt(timeParts[0]), parseInt(timeParts[1]), parseInt(timeParts[2] || 0), 0);
                     }
                     cronometroVirtual = setInterval(ticTacCronometro, 1000);
                 } catch(e) {
