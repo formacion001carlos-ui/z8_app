@@ -5,19 +5,22 @@ const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 async function fetchGoogleAPI(action, payload) {
     if (action === "login") {
+        const usr = (payload.usuario || "").trim().toUpperCase();
+        const pwd = (payload.password || "").trim();
+        
         const { data, error } = await supabaseClient
             .from('usuarios')
             .select('rol')
-            .eq('nombre', payload.usuario)
-            .eq('clave', payload.password)
+            .eq('nombre', usr)
+            .eq('clave', pwd)
             .single();
             
         if (error || !data) return { valido: false };
         return { valido: true, rol: data.rol };
     }
     
-    if (action === "setEstado") {
-        const usr = payload.usuario;
+    if (action === "setEstado" || action === "registrarFichaje") {
+        const usr = (payload.usuario || "").trim().toUpperCase();
         const { data: vivo } = await supabaseClient
             .from('estado_vivo')
             .select('*')
@@ -55,7 +58,7 @@ async function fetchGoogleAPI(action, payload) {
     }
     
     if (action === "getEstado") {
-        const usr = payload.usuario;
+        const usr = (payload.usuario || "").trim().toUpperCase();
         const { data: vivo } = await supabaseClient
             .from('estado_vivo')
             .select('*')
@@ -103,19 +106,39 @@ async function fetchGoogleAPI(action, payload) {
         };
     }
     
-    if (action === "registroManual") {
-        // payload: {usuario, fecha (DD/MM/YYYY), inicio (HH:MM:SS), fin (HH:MM:SS), actividad}
+        if (action === "registroManual") {
+        let usr = (payload.usuario || "").trim().toUpperCase();
         let partsD = payload.fecha.split("/");
         let strIni = `${partsD[2]}-${partsD[1]}-${partsD[0]}T${payload.inicio}Z`;
         let strFin = `${partsD[2]}-${partsD[1]}-${partsD[0]}T${payload.fin}Z`;
         
-        await supabaseClient.from('maestro').insert({
-            usuario: payload.usuario,
-            estado: "Carga Manual",
-            actividad: payload.actividad,
-            inicio: new Date(strIni).toISOString(),
-            fin: new Date(strFin).toISOString()
-        });
+        let dIni = new Date(strIni).toISOString();
+        let dFin = new Date(strFin).toISOString();
+        
+        // Evitar duplicados: comprobar si ya hay un registro que se cruce
+        const { data: exist } = await supabaseClient.from('maestro')
+            .select('*')
+            .eq('usuario', usr)
+            .gte('inicio', dIni.substring(0, 10) + 'T00:00:00Z')
+            .lte('inicio', dIni.substring(0, 10) + 'T23:59:59Z');
+            
+        let overlap = false;
+        if(exist) {
+            for(let r of exist) {
+                // Si coinciden exactamente, lo bloqueamos
+                if(r.inicio === dIni && r.fin === dFin) overlap = true;
+            }
+        }
+        
+        if(!overlap) {
+            await supabaseClient.from('maestro').insert({
+                usuario: usr,
+                estado: "Carga Manual",
+                actividad: payload.actividad,
+                inicio: dIni,
+                fin: dFin
+            });
+        }
         return { success: true };
     }
     
@@ -249,7 +272,7 @@ async function fetchGoogleAPI(action, payload) {
     if (action === "heartbeat") {
         await supabaseClient.from('estado_vivo')
             .update({ actualizado_en: new Date().toISOString() })
-            .eq('usuario', payload.usuario);
+            .eq('usuario', (payload.usuario || "").trim().toUpperCase());
         return { success: true };
     }
 }
