@@ -46,10 +46,10 @@
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
             <div class="bento-panel md:col-span-2 flex flex-col justify-center bg-slate-900 text-white border-none shadow-xl">
                 <h2 class="text-xl font-bold mb-1">Centro de Control Operativo</h2>
-                <p class="text-slate-400 text-sm mb-5">Exportación de registros crudos y auditoría completa.</p>
+                <p class="text-slate-400 text-sm mb-5">Exportación de la Matriz WFM a formato CSV.</p>
                 <div>
                     <button onclick="descargarCSV()" id="btn-csv" class="bg-blue-600 hover:bg-blue-500 text-white px-5 py-2.5 rounded-lg font-bold text-sm transition flex items-center gap-2 shadow-lg shadow-blue-900/50">
-                        Descargar Historial Maestro (CSV)
+                        Descargar Matriz Actual (CSV)
                     </button>
                 </div>
             </div>
@@ -116,7 +116,7 @@
         window.onload = () => {
             cargarMonitor();
             cargarMatrizMensual();
-            setInterval(cargarMonitor, 60000); // Refresco automático monitor
+            setInterval(cargarMonitor, 60000); // Refresco automático monitor de estados base
         };
 
         function cerrarSesion() { localStorage.clear(); window.location.href = 'index.html'; }
@@ -129,6 +129,9 @@
             document.getElementById('tab-btn-matriz').classList.toggle('active', tab === 'matriz');
         }
 
+        let agentesData = [];
+        let adminTimer = null;
+
         // Lógica: Monitor en Vivo
         async function cargarMonitor() {
             const tbody = document.getElementById('tabla-monitor');
@@ -139,46 +142,109 @@
                 document.getElementById('txt-actualizacion').textContent = "Últ. act: " + new Date().toLocaleTimeString();
                 
                 // Filtrar solo los que están en sistema hoy o activos
-                let agentesVisibles = agentes.filter(a => a.estado !== "Desconectado" || a.horasHoy !== "00:00:00");
-                document.getElementById('contador-agentes').textContent = agentesVisibles.length;
+                agentesData = agentes.filter(a => a.estado !== "Desconectado" || a.horasHoy !== "00:00:00");
+                document.getElementById('contador-agentes').textContent = agentesData.length;
 
-                if (agentesVisibles.length === 0) {
+                if (agentesData.length === 0) {
                     tbody.innerHTML = `<tr><td colspan="6" class="text-center py-8 text-slate-400 text-sm">Sin actividad registrada hoy.</td></tr>`;
                     return;
                 }
 
-                let html = "";
-                agentesVisibles.forEach(a => {
-                    let dot = 'bg-slate-300';
-                    let btnDesconectar = "";
-
-                    if (a.estado === 'Conectado') dot = 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]';
-                    if (a.estado === 'Descanso') dot = 'bg-blue-500';
-                    if (a.estado === 'Pausado') dot = 'bg-amber-500';
-
-                    // Botón franco-tirador para desconectar
-                    if(a.estado !== 'Desconectado') {
-                        btnDesconectar = `<button onclick="forzarDesconexion('${a.usuario}')" class="btn-kick" title="Cerrar sesión remotamente">Desconectar</button>`;
-                    }
-
-                    html += `<tr>
-                        <td class="font-bold text-slate-800">${a.usuario.toUpperCase()}</td>
-                        <td>
-                            <div class="flex items-center"><div class="w-2 h-2 rounded-full ${dot} mr-2"></div>
-                            <span class="text-[10px] uppercase font-bold text-slate-500">${a.estado}</span></div>
-                        </td>
-                        <td class="font-mono text-blue-700 font-bold">${a.horasHoy}</td>
-                        <td class="text-xs text-slate-500">${a.inicio}</td>
-                        <td class="text-xs max-w-[200px] truncate text-slate-600" title="${a.actividad}">${a.actividad}</td>
-                        <td>${btnDesconectar}</td>
-                    </tr>`;
-                });
-                tbody.innerHTML = html;
+                renderTablaMonitor();
+                
+                // Iniciar el cronómetro en vivo si no está corriendo
+                if (!adminTimer) adminTimer = setInterval(tickMonitor, 1000);
 
             } catch (error) {
                 document.getElementById('txt-actualizacion').textContent = "Error de red";
                 tbody.innerHTML = `<tr><td colspan="6" class="text-center py-8 text-red-500 font-bold text-sm">Fallo de conexión. Reintentando...</td></tr>`;
             }
+        }
+
+        function renderTablaMonitor() {
+            const tbody = document.getElementById('tabla-monitor');
+            let html = "";
+            agentesData.forEach((a, index) => {
+                let dot = 'bg-slate-300';
+                let btnDesconectar = "";
+
+                if (a.estado === 'Conectado') dot = 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]';
+                if (a.estado === 'Descanso') dot = 'bg-blue-500';
+                if (a.estado === 'Pausado') dot = 'bg-amber-500';
+
+                if(a.estado !== 'Desconectado') {
+                    btnDesconectar = `<button onclick="forzarDesconexion('${a.usuario}')" class="btn-kick" title="Cerrar sesión remotamente">Desconectar</button>`;
+                }
+
+                html += `<tr>
+                    <td class="font-bold text-slate-800">${a.usuario.toUpperCase()}</td>
+                    <td>
+                        <div class="flex items-center"><div class="w-2 h-2 rounded-full ${dot} mr-2"></div>
+                        <span class="text-[10px] uppercase font-bold text-slate-500">${a.estado}</span></div>
+                    </td>
+                    <td class="font-mono text-blue-700 font-bold" id="live-time-${index}">${a.horasHoy}</td>
+                    <td class="text-xs text-slate-500">${a.inicio}</td>
+                    <td class="text-xs max-w-[200px] truncate text-slate-600" title="${a.actividad}">${a.actividad}</td>
+                    <td>${btnDesconectar}</td>
+                </tr>`;
+            });
+            tbody.innerHTML = html;
+        }
+
+        // Método robusto para obtener hora local alineada a Madrid
+        function getHoraActualMadridAsLocalAdmin() {
+            try {
+                const now = new Date();
+                const str = now.toLocaleString("en-US", { timeZone: "Europe/Madrid", hour12: false });
+                const parts = str.split(", ");
+                const dateParts = parts[0].split("/");
+                let timeParts = parts[1].trim().split(":");
+                let h = parseInt(timeParts[0]);
+                if (h === 24) h = 0;
+                return new Date(dateParts[2], parseInt(dateParts[0])-1, dateParts[1], h, parseInt(timeParts[1]), parseInt(timeParts[2]));
+            } catch (e) {
+                return new Date(); 
+            }
+        }
+
+        function tickMonitor() {
+            const ahora = getHoraActualMadridAsLocalAdmin();
+            agentesData.forEach((a, index) => {
+                let cell = document.getElementById(`live-time-${index}`);
+                if (!cell) return;
+                
+                // Parsear base segundos
+                let baseParts = a.horasHoy.split(":");
+                let baseSecs = 0;
+                if(baseParts.length === 3) {
+                    baseSecs = (parseInt(baseParts[0])*3600) + (parseInt(baseParts[1])*60) + parseInt(baseParts[2]);
+                }
+                
+                let extraSecs = 0;
+                // Sumar el tiempo de la sesión actual si está conectado
+                if (a.estado === 'Conectado' && a.inicio !== '-') {
+                    let p = a.inicio.split(" ");
+                    if (p.length === 2) {
+                        let dp = p[0].split("/");
+                        let tp = p[1].split(":");
+                        let dInicio = new Date(dp[2], dp[1]-1, dp[0], tp[0], tp[1], tp[2]);
+                        let diffMs = ahora.getTime() - dInicio.getTime();
+                        if (diffMs > 0) extraSecs = Math.floor(diffMs / 1000);
+                    } else if (p.length === 1) {
+                        let tp = p[0].split(":");
+                        let dInicio = getHoraActualMadridAsLocalAdmin();
+                        dInicio.setHours(parseInt(tp[0]), parseInt(tp[1]), parseInt(tp[2] || 0), 0);
+                        let diffMs = ahora.getTime() - dInicio.getTime();
+                        if (diffMs > 0) extraSecs = Math.floor(diffMs / 1000);
+                    }
+                }
+                
+                let totalSecs = baseSecs + extraSecs;
+                let h = Math.floor(totalSecs / 3600);
+                let m = Math.floor((totalSecs % 3600) / 60);
+                let s = totalSecs % 60;
+                cell.textContent = (h<10?"0"+h:h)+":"+(m<10?"0"+m:m)+":"+(s<10?"0"+s:s);
+            });
         }
 
         // Lógica: Botón de Desconexión Remota
@@ -190,6 +256,8 @@
             } catch(e) { alert("Error al desconectar."); }
         }
 
+        let matrizGlobal = null;
+
         // Lógica: Constructor de la Matriz WFM
         async function cargarMatrizMensual() {
             const tabla = document.getElementById('tabla-matriz-wfm');
@@ -197,16 +265,18 @@
             
             try {
                 const response = await fetchGoogleAPI("getMonthlySummary", {});
+                matrizGlobal = response;
                 document.getElementById('titulo-mes').textContent = `Matriz del Mes: ${response.mes}`;
                 
-                // Averiguar cuántos días tiene el mes actual (ej. mes "09/2026")
                 const partes = response.mes.split("/");
                 const diasEnMes = new Date(partes[1], partes[0], 0).getDate();
 
                 // 1. Construir Cabeceras (Días 1 al 31)
                 let thead = `<thead><tr>
                     <th class="sticky left-0 bg-slate-100 z-10 w-32 border-r border-slate-200">Agente</th>
-                    <th class="bg-blue-50 text-blue-800 border-r border-slate-200">Total Mes</th>`;
+                    <th class="bg-blue-50 text-blue-800 border-r border-slate-200" title="Total Acumulado">Total Mes</th>
+                    <th class="bg-slate-50 text-slate-600 border-r border-slate-200" title="Horas Laborables del Mes">Previstas</th>
+                    <th class="bg-slate-50 text-slate-600 border-r border-slate-200" title="Diferencia (Positivo = Extra, Negativo = Falta)">Diferencia</th>`;
                 for(let d=1; d<=diasEnMes; d++) {
                     thead += `<th class="text-center px-2 !text-[9px] text-slate-400">${d}</th>`;
                 }
@@ -216,15 +286,22 @@
                 let tbody = "";
                 const agentes = Object.keys(response.datos).sort();
                 
-                if(agentes.length === 0) tbody = `<tr><td colspan="${diasEnMes+2}" class="text-center py-4">Sin registros este mes.</td></tr>`;
+                if(agentes.length === 0) tbody = `<tr><td colspan="${diasEnMes+4}" class="text-center py-4">Sin registros este mes.</td></tr>`;
 
                 agentes.forEach(usr => {
                     let agentData = response.datos[usr];
                     let totalMesFormato = formatoSegundos(agentData.totalMes);
+                    let previstasFormato = formatoSegundos(agentData.previstas || 0);
+                    
+                    let diffSegs = agentData.totalMes - (agentData.previstas || 0);
+                    let diffFormato = (diffSegs < 0 ? "-" : "+") + formatoSegundos(Math.abs(diffSegs));
+                    let diffClass = diffSegs < 0 ? "text-red-500" : "text-green-600";
                     
                     tbody += `<tr class="hover:bg-slate-50">
                         <td class="sticky left-0 bg-white font-bold text-xs text-slate-700 border-r border-slate-100 z-10 shadow-[2px_0_5px_rgba(0,0,0,0.02)]">${usr}</td>
-                        <td class="font-mono text-xs font-bold text-blue-700 border-r border-slate-100 bg-blue-50/30">${totalMesFormato}</td>`;
+                        <td class="font-mono text-xs font-bold text-blue-700 border-r border-slate-100 bg-blue-50/30">${totalMesFormato}</td>
+                        <td class="font-mono text-[10px] font-semibold text-slate-500 border-r border-slate-100 bg-slate-50/50">${previstasFormato}</td>
+                        <td class="font-mono text-[10px] font-bold ${diffClass} border-r border-slate-100 bg-slate-50/50">${diffFormato}</td>`;
                     
                     // Rellenar cada día
                     for(let d=1; d<=diasEnMes; d++) {
@@ -254,18 +331,44 @@
         }
 
         async function descargarCSV() {
+            if (!matrizGlobal) {
+                alert("La matriz aún no se ha cargado. Espera un momento y vuelve a intentar.");
+                return;
+            }
+
             const btn = document.getElementById('btn-csv');
             const txtOriginal = btn.innerHTML;
             btn.innerHTML = "Generando archivo...";
             btn.classList.add("opacity-70", "cursor-wait");
 
             try {
-                const csvContent = await fetchGoogleAPI("exportCSV", {});
-                const blob = new Blob(["\uFEFF" + csvContent], { type: 'text/csv;charset=utf-8;' });
+                const partes = matrizGlobal.mes.split("/");
+                const diasEnMes = new Date(partes[1], partes[0], 0).getDate();
+                
+                let csv = "Agente,Total Mes,Previstas,Diferencia";
+                for(let d=1; d<=diasEnMes; d++) csv += "," + d;
+                csv += "\n";
+                
+                const agentes = Object.keys(matrizGlobal.datos).sort();
+                agentes.forEach(usr => {
+                    let agentData = matrizGlobal.datos[usr];
+                    let diffSegs = agentData.totalMes - (agentData.previstas || 0);
+                    let diffStr = (diffSegs < 0 ? "-" : "+") + formatoSegundos(Math.abs(diffSegs));
+                    
+                    csv += `"${usr}","${formatoSegundos(agentData.totalMes)}","${formatoSegundos(agentData.previstas || 0)}","${diffStr}"`;
+                    
+                    for(let d=1; d<=diasEnMes; d++) {
+                        let s = agentData.dias[d];
+                        csv += `,"${s ? formatoSegundos(s) : "-"}"`;
+                    }
+                    csv += "\n";
+                });
+
+                const blob = new Blob(["\uFEFF" + csv], { type: 'text/csv;charset=utf-8;' });
                 const link = document.createElement("a");
                 const url = URL.createObjectURL(blob);
                 link.setAttribute("href", url);
-                link.setAttribute("download", `Data_Cruda_TimeTrack_${new Date().toISOString().slice(0,10)}.csv`);
+                link.setAttribute("download", `Matriz_WFM_${matrizGlobal.mes.replace("/", "-")}.csv`);
                 link.style.visibility = 'hidden';
                 document.body.appendChild(link);
                 link.click();
