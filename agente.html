@@ -289,7 +289,7 @@
             document.getElementById('tiempo-real-txt').textContent = timeStr;
 
             // Lógica visual y de Overtime
-            const objSegundos = 28800; // 8 horas fijas
+            const objSegundos = objetivoSegundos; // <-- AHORA USA EL OBJETIVO DINÁMICO
             let porcentaje = (totalSegundosDelDia / objSegundos) * 100;
             let barra = document.getElementById('barra-progreso');
             let msg = document.getElementById('mensaje-progreso');
