@@ -19,7 +19,6 @@
         td { padding: 16px; border-bottom: 1px solid #f1f5f9; font-size: 13px; color: #1e293b; font-weight: 500; white-space: nowrap; }
         tr:hover td { background-color: #f8fafc; }
 
-        /* Estilos de las Pestañas (Tabs) */
         .tab-btn { padding: 12px 24px; font-weight: 600; font-size: 14px; border-bottom: 3px solid transparent; color: #64748b; transition: all 0.2s; cursor: pointer; }
         .tab-btn:hover { color: #2563eb; }
         .tab-btn.active { color: #2563eb; border-bottom-color: #2563eb; }
@@ -116,7 +115,7 @@
         window.onload = () => {
             cargarMonitor();
             cargarMatrizMensual();
-            setInterval(cargarMonitor, 60000); // Refresco automático monitor de estados base
+            setInterval(cargarMonitor, 60000); 
         };
 
         function cerrarSesion() { localStorage.clear(); window.location.href = 'index.html'; }
@@ -141,7 +140,6 @@
                 const agentes = await fetchGoogleAPI("getAdminData", {});
                 document.getElementById('txt-actualizacion').textContent = "Últ. act: " + new Date().toLocaleTimeString();
                 
-                // Filtrar solo los que están en sistema hoy o activos
                 agentesData = agentes.filter(a => a.estado !== "Desconectado" || a.horasHoy !== "00:00:00");
                 document.getElementById('contador-agentes').textContent = agentesData.length;
 
@@ -152,7 +150,6 @@
 
                 renderTablaMonitor();
                 
-                // Iniciar el cronómetro en vivo si no está corriendo
                 if (!adminTimer) adminTimer = setInterval(tickMonitor, 1000);
 
             } catch (error) {
@@ -202,9 +199,7 @@
                 let h = parseInt(timeParts[0]);
                 if (h === 24) h = 0;
                 return new Date(dateParts[2], parseInt(dateParts[0])-1, dateParts[1], h, parseInt(timeParts[1]), parseInt(timeParts[2]));
-            } catch (e) {
-                return new Date(); 
-            }
+            } catch (e) { return new Date(); }
         }
 
         function tickMonitor() {
@@ -213,7 +208,6 @@
                 let cell = document.getElementById(`live-time-${index}`);
                 if (!cell) return;
                 
-                // Parsear base segundos
                 let baseParts = a.horasHoy.split(":");
                 let baseSecs = 0;
                 if(baseParts.length === 3) {
@@ -221,7 +215,6 @@
                 }
                 
                 let extraSecs = 0;
-                // Sumar el tiempo de la sesión actual si está conectado
                 if (a.estado === 'Conectado' && a.inicio !== '-') {
                     let p = a.inicio.split(" ");
                     if (p.length === 2) {
@@ -247,18 +240,16 @@
             });
         }
 
-        // Lógica: Botón de Desconexión Remota
         async function forzarDesconexion(usuario) {
             if(!confirm(`¿Estás seguro de desconectar a ${usuario}? Esto cerrará su tiempo de trabajo.`)) return;
             try {
                 await fetchGoogleAPI("forceDisconnect", { usuario: usuario });
-                cargarMonitor(); // Refrescar vista
+                cargarMonitor();
             } catch(e) { alert("Error al desconectar."); }
         }
 
         let matrizGlobal = null;
 
-        // Lógica: Constructor de la Matriz WFM
         async function cargarMatrizMensual() {
             const tabla = document.getElementById('tabla-matriz-wfm');
             tabla.innerHTML = `<tr><td class="text-center py-8 text-blue-500 animate-pulse">Calculando matriz mensual...</td></tr>`;
@@ -275,10 +266,15 @@
                 let thead = `<thead><tr>
                     <th class="sticky left-0 bg-slate-100 z-10 w-32 border-r border-slate-200">Agente</th>
                     <th class="bg-blue-50 text-blue-800 border-r border-slate-200" title="Total Acumulado">Total Mes</th>
+                    <th class="bg-slate-50 text-slate-600 border-r border-slate-200" title="Total laborables">Laborables</th>
+                    <th class="bg-slate-50 text-slate-600 border-r border-slate-200" title="Total fines de semana">Finde</th>
                     <th class="bg-slate-50 text-slate-600 border-r border-slate-200" title="Horas Laborables del Mes">Previstas</th>
                     <th class="bg-slate-50 text-slate-600 border-r border-slate-200" title="Diferencia (Positivo = Extra, Negativo = Falta)">Diferencia</th>`;
                 for(let d=1; d<=diasEnMes; d++) {
-                    thead += `<th class="text-center px-2 !text-[9px] text-slate-400">${d}</th>`;
+                    let date = new Date(partes[1], parseInt(partes[0]) - 1, d);
+                    let isFinde = (date.getDay() === 0 || date.getDay() === 6);
+                    let bgH = isFinde ? "bg-amber-50 text-amber-600" : "text-slate-400";
+                    thead += `<th class="text-center px-2 !text-[9px] ${bgH}">${d}</th>`;
                 }
                 thead += `</tr></thead><tbody>`;
 
@@ -286,12 +282,14 @@
                 let tbody = "";
                 const agentes = Object.keys(response.datos).sort();
                 
-                if(agentes.length === 0) tbody = `<tr><td colspan="${diasEnMes+4}" class="text-center py-4">Sin registros este mes.</td></tr>`;
+                if(agentes.length === 0) tbody = `<tr><td colspan="${diasEnMes+6}" class="text-center py-4">Sin registros este mes.</td></tr>`;
 
                 agentes.forEach(usr => {
                     let agentData = response.datos[usr];
                     let totalMesFormato = formatoSegundos(agentData.totalMes);
                     let previstasFormato = formatoSegundos(agentData.previstas || 0);
+                    let labFormato = formatoSegundos(agentData.horasLaborables || 0);
+                    let findeFormato = formatoSegundos(agentData.horasFinde || 0);
                     
                     let diffSegs = agentData.totalMes - (agentData.previstas || 0);
                     let diffFormato = (diffSegs < 0 ? "-" : "+") + formatoSegundos(Math.abs(diffSegs));
@@ -300,16 +298,22 @@
                     tbody += `<tr class="hover:bg-slate-50">
                         <td class="sticky left-0 bg-white font-bold text-xs text-slate-700 border-r border-slate-100 z-10 shadow-[2px_0_5px_rgba(0,0,0,0.02)]">${usr}</td>
                         <td class="font-mono text-xs font-bold text-blue-700 border-r border-slate-100 bg-blue-50/30">${totalMesFormato}</td>
+                        <td class="font-mono text-[10px] text-slate-600 border-r border-slate-100 bg-slate-50/50">${labFormato}</td>
+                        <td class="font-mono text-[10px] text-amber-600 border-r border-slate-100 bg-amber-50/30">${findeFormato}</td>
                         <td class="font-mono text-[10px] font-semibold text-slate-500 border-r border-slate-100 bg-slate-50/50">${previstasFormato}</td>
                         <td class="font-mono text-[10px] font-bold ${diffClass} border-r border-slate-100 bg-slate-50/50">${diffFormato}</td>`;
                     
                     // Rellenar cada día
                     for(let d=1; d<=diasEnMes; d++) {
+                        let date = new Date(partes[1], parseInt(partes[0]) - 1, d);
+                        let isFinde = (date.getDay() === 0 || date.getDay() === 6);
+                        let bgCell = isFinde ? "bg-amber-50/30 border-amber-100" : "border-slate-50";
+                        
                         let segsDia = agentData.dias[d];
                         if(segsDia) {
-                            tbody += `<td class="text-center font-mono text-[10px] text-slate-600 px-2 border-r border-slate-50">${formatoSegundos(segsDia)}</td>`;
+                            tbody += `<td class="text-center font-mono text-[10px] text-slate-600 px-2 border-r ${bgCell}">${formatoSegundos(segsDia)}</td>`;
                         } else {
-                            tbody += `<td class="text-center text-[10px] text-slate-300 border-r border-slate-50">-</td>`;
+                            tbody += `<td class="text-center text-[10px] text-slate-300 border-r ${bgCell}">-</td>`;
                         }
                     }
                     tbody += `</tr>`;
@@ -345,7 +349,7 @@
                 const partes = matrizGlobal.mes.split("/");
                 const diasEnMes = new Date(partes[1], partes[0], 0).getDate();
                 
-                let csv = "Agente,Total Mes,Previstas,Diferencia";
+                let csv = "Agente,Total Mes,Laborables,Finde,Previstas,Diferencia";
                 for(let d=1; d<=diasEnMes; d++) csv += "," + d;
                 csv += "\n";
                 
@@ -355,7 +359,7 @@
                     let diffSegs = agentData.totalMes - (agentData.previstas || 0);
                     let diffStr = (diffSegs < 0 ? "-" : "+") + formatoSegundos(Math.abs(diffSegs));
                     
-                    csv += `"${usr}","${formatoSegundos(agentData.totalMes)}","${formatoSegundos(agentData.previstas || 0)}","${diffStr}"`;
+                    csv += `"${usr}","${formatoSegundos(agentData.totalMes)}","${formatoSegundos(agentData.horasLaborables || 0)}","${formatoSegundos(agentData.horasFinde || 0)}","${formatoSegundos(agentData.previstas || 0)}","${diffStr}"`;
                     
                     for(let d=1; d<=diasEnMes; d++) {
                         let s = agentData.dias[d];
