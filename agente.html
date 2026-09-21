@@ -57,6 +57,8 @@
         </div>
 
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            
+            <!-- TARJETA DE ESTADO -->
             <div id="tarjeta-estado" class="bento-panel flex flex-col justify-center border-l-4 border-slate-400 transition-colors duration-300">
                 <div class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Hola, <span id="lbl-nombre">Agente</span></div>
                 <div class="flex items-center mb-1">
@@ -71,20 +73,22 @@
                 </div>
             </div>
 
+            <!-- TARJETA DE PROGRESO -->
             <div class="bento-panel flex flex-col justify-center">
                 <div class="flex justify-between items-end mb-3">
                     <h3 class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Progreso Diario</h3>
                     <div class="text-right">
                         <span id="tiempo-real-txt" class="text-2xl font-bold text-blue-700 font-mono tracking-tighter">00:00:00</span>
-                        <span class="text-xs font-semibold text-slate-400"> / 08:00:00</span>
+                        <span class="text-xs font-semibold text-slate-400"> / <span id="tiempo-objetivo-txt">08:00:00</span></span>
                     </div>
                 </div>
                 <div class="progress-track mb-3">
                     <div id="barra-progreso" class="progress-fill"></div>
                 </div>
-                <p id="mensaje-progreso" class="text-xs text-slate-500 font-medium">Sincronizando tiempos del día...</p>
+                <p id="mensaje-progreso" class="text-xs text-slate-500 font-medium">Iniciando sistema...</p>
             </div>
 
+            <!-- BOTONERA OPERATIVA -->
             <div class="bento-panel md:col-span-2">
                 <h3 class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-4">Acciones Operativas</h3>
                 <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -106,10 +110,34 @@
                     </button>
                 </div>
             </div>
+
+            <!-- INICIO SECCIÓN MANUAL -->
+            <div id="seccion-manual" class="bento-panel md:col-span-2 bg-slate-50 border border-slate-200 mt-4">
+                <h3 class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-3">Añadir Fichaje Omitido (Manual)</h3>
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-3 items-end">
+                    <div class="flex flex-col">
+                        <label class="text-[10px] font-bold text-slate-500 uppercase mb-1">Fecha</label>
+                        <input type="date" id="manual-fecha" class="px-3 py-2 rounded-lg border border-slate-200 text-sm outline-none focus:border-blue-500 bg-white shadow-sm">
+                    </div>
+                    <div class="flex flex-col">
+                        <label class="text-[10px] font-bold text-slate-500 uppercase mb-1">Hora Inicio</label>
+                        <input type="time" id="manual-inicio" class="px-3 py-2 rounded-lg border border-slate-200 text-sm outline-none focus:border-blue-500 bg-white shadow-sm">
+                    </div>
+                    <div class="flex flex-col">
+                        <label class="text-[10px] font-bold text-slate-500 uppercase mb-1">Hora Fin</label>
+                        <input type="time" id="manual-fin" class="px-3 py-2 rounded-lg border border-slate-200 text-sm outline-none focus:border-blue-500 bg-white shadow-sm">
+                    </div>
+                    <button onclick="enviarHorasManuales()" class="btn-generic whitespace-nowrap !py-2 shadow-sm">Guardar Manual</button>
+                </div>
+            </div>
+            <!-- FIN SECCIÓN MANUAL -->
+
         </div>
     </div>
 
+    <!-- AQUÍ DEBES PONER TU api.js -->
     <script src="api.js"></script>
+    
     <script>
         let usuarioActivo = localStorage.getItem('tt_usuario');
         let rolActivo = localStorage.getItem('tt_rol');
@@ -117,30 +145,33 @@
         
         let horaInicioGlobal = null;
         let cronometroVirtual = null;
-        let baseSegundosDiarios = 0; // <--- AQUÍ SE GUARDA LA MEMORIA DEL DÍA
+        let baseSegundosDiarios = 0; 
+        let objetivoSegundos = 8 * 3600; 
         let latidoTimer = null;
         let overtimeAvisado = false;
-
-        // Función vital para alinear las zonas horarias (Madrid vs Caracas)
-        function getHoraActualMadridAsLocal() {
-            const now = new Date();
-            const formatter = new Intl.DateTimeFormat('en-US', {
-                timeZone: 'Europe/Madrid',
-                year: 'numeric', month: 'numeric', day: 'numeric',
-                hour: 'numeric', minute: 'numeric', second: 'numeric',
-                hour12: false
-            });
-            const parts = formatter.formatToParts(now);
-            const map = {};
-            parts.forEach(p => map[p.type] = p.value);
-            let h = parseInt(map.hour);
-            if (h === 24) h = 0; // Corrección de medianoche
-            return new Date(map.year, parseInt(map.month)-1, map.day, h, map.minute, map.second);
-        }
 
         // Barrera de seguridad
         if (!usuarioActivo || rolActivo !== 'agente') window.location.href = 'index.html';
         document.getElementById('lbl-nombre').textContent = usuarioActivo;
+
+        // Método blindado para obtener la hora de Madrid sin crashear navegadores
+        function getHoraActualMadridAsLocal() {
+            try {
+                const now = new Date();
+                const str = now.toLocaleString("en-US", { timeZone: "Europe/Madrid", hour12: false });
+                const parts = str.split(", ");
+                const dateParts = parts[0].split("/");
+                let timeParts = parts[1].trim().split(":");
+                
+                let h = parseInt(timeParts[0]);
+                if (h === 24) h = 0;
+                
+                return new Date(dateParts[2], parseInt(dateParts[0])-1, dateParts[1], h, parseInt(timeParts[1]), parseInt(timeParts[2]));
+            } catch (e) {
+                // Si el navegador falla por completo, usamos la hora local como fallback seguro
+                return new Date(); 
+            }
+        }
 
         window.onload = async () => {
             await refrescarDatosBackend();
@@ -165,9 +196,21 @@
 
         async function refrescarDatosBackend() {
             try {
-                // Obtenemos del servidor el estado y TODO el tiempo acumulado de hoy
                 const data = await fetchGoogleAPI("getEstado", { usuario: usuarioActivo });
-                baseSegundosDiarios = data.segundosAcumuladosHoy || 0; // Guardamos la memoria
+                
+                baseSegundosDiarios = data.segundosAcumuladosHoy || 0; 
+                
+                let horasMeta = data.horasObjetivo ? parseFloat(data.horasObjetivo) : 8;
+                objetivoSegundos = horasMeta * 3600;
+                
+                let hObj = Math.floor(objetivoSegundos / 3600);
+                let mObj = Math.floor((objetivoSegundos % 3600) / 60);
+                let sObj = objetivoSegundos % 60;
+                document.getElementById('tiempo-objetivo-txt').textContent = 
+                    (hObj < 10 ? "0" + hObj : hObj) + ":" + 
+                    (mObj < 10 ? "0" + mObj : mObj) + ":" + 
+                    (sObj < 10 ? "0" + sObj : sObj);
+
                 aplicarEstadoLocal(data.estado, data.horaInicio, data.actividad);
             } catch (error) {
                 showToast("Fallo de conexión. Intentando reanudar...", false);
@@ -180,12 +223,8 @@
             const act = document.getElementById('input-actividad').value.trim();
             
             try {
-                // Al cambiar de estado, pedimos primero actualizar la base de tiempo
-                const dataGS = await fetchGoogleAPI("getEstado", { usuario: usuarioActivo });
-                baseSegundosDiarios = dataGS.segundosAcumuladosHoy || 0;
-
-                const data = await fetchGoogleAPI("setEstado", { usuario: usuarioActivo, estado: nuevoEstado, actividad: act });
-                aplicarEstadoLocal(data.estado, data.hora, data.actividad);
+                await fetchGoogleAPI("setEstado", { usuario: usuarioActivo, estado: nuevoEstado, actividad: act });
+                await refrescarDatosBackend();
                 showToast(`Estado cambiado a: ${nuevoEstado}`);
             } catch (error) {
                 showToast("Error al cambiar estado.", false);
@@ -198,10 +237,45 @@
             const act = document.getElementById('input-actividad').value.trim();
             if(!act) return;
             try {
-                // Notifica a la API pero no cambiamos el estado
                 await fetchGoogleAPI("setEstado", { usuario: usuarioActivo, estado: estadoApp, actividad: act });
                 showToast("Tarea fijada correctamente.");
             } catch (error) { showToast("Error al fijar tarea."); }
+        }
+
+        async function enviarHorasManuales() {
+            const f = document.getElementById('manual-fecha').value;
+            const i = document.getElementById('manual-inicio').value;
+            const fn = document.getElementById('manual-fin').value;
+            
+            if(!f || !i || !fn) { 
+                showToast("Completa fecha y ambas horas.", false); 
+                return; 
+            }
+            
+            // Adaptar formato YYYY-MM-DD del calendario a DD/MM/YYYY para Google Sheets
+            const fParts = f.split('-');
+            const fFormated = `${fParts[2]}/${fParts[1]}/${fParts[0]}`;
+            
+            document.getElementById('loading-overlay').classList.remove('hidden');
+            try {
+                await fetchGoogleAPI("registroManual", { 
+                    usuario: usuarioActivo, 
+                    fecha: fFormated, 
+                    inicio: i + ":00", 
+                    fin: fn + ":00" 
+                });
+                
+                showToast("Fichaje manual guardado con éxito.");
+                document.getElementById('manual-fecha').value = "";
+                document.getElementById('manual-inicio').value = "";
+                document.getElementById('manual-fin').value = "";
+                
+                await refrescarDatosBackend(); 
+            } catch (error) {
+                showToast("Error al guardar registro manual.", false);
+            } finally {
+                document.getElementById('loading-overlay').classList.add('hidden');
+            }
         }
 
         function iniciarLatidos() {
@@ -227,21 +301,17 @@
             document.getElementById('tarjeta-estado').style.borderLeftColor = colorBorder;
             document.getElementById('icono-estado-mini').style.backgroundColor = colorBorder;
 
-            // Limpiamos siempre el cronómetro antes de arrancar uno nuevo
             if (cronometroVirtual) {
                 clearInterval(cronometroVirtual);
                 cronometroVirtual = null;
             }
             
-            // Reconstruimos la hora de inicio global si está conectado
             if (horaInicioStr !== "-" && estado === "Conectado") {
-                // Ejemplo de horaInicioStr: "21/09/2026 14:19:11"
                 try {
                     const parts = horaInicioStr.split(" ");
                     if(parts.length === 2) {
                         const dateParts = parts[0].split("/");
                         const timeParts = parts[1].split(":");
-                        // Meses en JS son index 0 (Ene=0, Feb=1...)
                         horaInicioGlobal = new Date(
                             parseInt(dateParts[2]), 
                             parseInt(dateParts[1]) - 1, 
@@ -251,69 +321,70 @@
                             parseInt(timeParts[2])
                         );
                     }
-                    // Arrancamos el motor visual
                     cronometroVirtual = setInterval(ticTacCronometro, 1000);
                 } catch(e) {
                     horaInicioGlobal = null;
-                    console.error("Error parseando fecha:", e);
                 }
             } else {
                 horaInicioGlobal = null;
             }
             
-            // Forzamos un tick inmediato para pintar el primer frame sin esperar 1 segundo
             ticTacCronometro();
         }
 
         function ticTacCronometro() {
-            let segundosSesionActual = 0;
-            
-            // Calculamos cuánto lleva activo en este bloque en tiempo real (Ajustado a Madrid)
-            if (horaInicioGlobal && estadoApp === 'Conectado') {
-                const ahoraMadrid = getHoraActualMadridAsLocal();
-                const diffMs = ahoraMadrid.getTime() - horaInicioGlobal.getTime();
-                if (diffMs > 0) {
-                    segundosSesionActual = Math.floor(diffMs / 1000);
-                }
-            }
-
-            // Memoria diaria + tiempo de sesión activa
-            let totalSegundosDelDia = baseSegundosDiarios + segundosSesionActual;
-
-            // Formatear HH:MM:SS
-            let h = Math.floor(totalSegundosDelDia / 3600);
-            let m = Math.floor((totalSegundosDelDia % 3600) / 60);
-            let s = totalSegundosDelDia % 60;
-            const timeStr = (h<10?"0"+h:h) + ":" + (m<10?"0"+m:m) + ":" + (s<10?"0"+s:s);
-            
-            document.getElementById('tiempo-real-txt').textContent = timeStr;
-
-            // Lógica visual y de Overtime
-            const objSegundos = objetivoSegundos; // <-- AHORA USA EL OBJETIVO DINÁMICO
-            let porcentaje = (totalSegundosDelDia / objSegundos) * 100;
-            let barra = document.getElementById('barra-progreso');
-            let msg = document.getElementById('mensaje-progreso');
-
-            if (totalSegundosDelDia >= objSegundos) {
-                // OVERTIME
-                barra.style.width = "100%";
-                barra.classList.add('progress-overtime');
-                document.getElementById('tiempo-real-txt').style.color = "#d97706";
-                msg.textContent = "Jornada completada. Horas extra en curso.";
-                msg.style.color = "#d97706";
+            try {
+                let segundosSesionActual = 0;
                 
-                if (!overtimeAvisado && estadoApp !== 'Desconectado') {
-                    showToast("¡Objetivo cumplido! Has superado las 8 horas.", true);
-                    overtimeAvisado = true;
+                if (horaInicioGlobal && estadoApp === 'Conectado') {
+                    const ahoraMadrid = getHoraActualMadridAsLocal();
+                    const diffMs = ahoraMadrid.getTime() - horaInicioGlobal.getTime();
+                    if (diffMs > 0) {
+                        segundosSesionActual = Math.floor(diffMs / 1000);
+                    }
                 }
-            } else {
-                // NORMAL
-                barra.style.width = `${porcentaje}%`;
-                barra.classList.remove('progress-overtime');
-                document.getElementById('tiempo-real-txt').style.color = "#1d4ed8";
-                msg.textContent = estadoApp === 'Conectado' ? "Construyendo tu jornada..." : "Reloj detenido.";
-                msg.style.color = "#64748b";
-                overtimeAvisado = false;
+
+                let totalSegundosDelDia = baseSegundosDiarios + segundosSesionActual;
+
+                let h = Math.floor(totalSegundosDelDia / 3600);
+                let m = Math.floor((totalSegundosDelDia % 3600) / 60);
+                let s = totalSegundosDelDia % 60;
+                const timeStr = (h<10?"0"+h:h) + ":" + (m<10?"0"+m:m) + ":" + (s<10?"0"+s:s);
+                
+                document.getElementById('tiempo-real-txt').textContent = timeStr;
+
+                // Prevenir divisiones por cero o nulos
+                let objetivoSeguro = (objetivoSegundos && objetivoSegundos > 0) ? objetivoSegundos : (8*3600);
+                let porcentaje = Math.min((totalSegundosDelDia / objetivoSeguro) * 100, 100);
+                
+                let barra = document.getElementById('barra-progreso');
+                let msg = document.getElementById('mensaje-progreso');
+                let textoReloj = document.getElementById('tiempo-real-txt');
+
+                if (barra && msg && textoReloj) {
+                    if (totalSegundosDelDia >= objetivoSeguro) {
+                        barra.style.width = "100%";
+                        barra.classList.add('progress-overtime');
+                        textoReloj.style.color = "#d97706";
+                        msg.textContent = "Jornada completada. Horas extra en curso.";
+                        msg.style.color = "#d97706";
+                        
+                        if (!overtimeAvisado && estadoApp !== 'Desconectado') {
+                            showToast("¡Objetivo cumplido! Has superado tu meta de hoy.", true);
+                            overtimeAvisado = true;
+                        }
+                    } else {
+                        barra.style.width = `${porcentaje}%`;
+                        barra.classList.remove('progress-overtime');
+                        textoReloj.style.color = "#1d4ed8";
+                        msg.textContent = estadoApp === 'Conectado' ? "Construyendo tu jornada..." : "Reloj detenido.";
+                        msg.style.color = "#64748b";
+                        overtimeAvisado = false;
+                    }
+                }
+            } catch (error) {
+                // Si algo falla al renderizar (por culpa del navegador), no rompemos todo.
+                console.error("Error en renderizado visual:", error);
             }
         }
     </script>
