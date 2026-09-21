@@ -212,7 +212,8 @@
                     (mObj < 10 ? "0" + mObj : mObj) + ":" + 
                     (sObj < 10 ? "0" + sObj : sObj);
 
-                aplicarEstadoLocal(data.estado, data.horaInicio, data.actividad);
+                let vInicio = (data.inicio && data.inicio !== "undefined" && data.inicio !== "-") ? data.inicio : ((data.horaInicio && data.horaInicio !== "undefined" && data.horaInicio !== "-") ? data.horaInicio : getHoraActualMadridAsLocal().toLocaleTimeString('es-ES', {hour12:false}));
+                aplicarEstadoLocal(data.estado, vInicio, data.actividad);
             } catch (error) {
                 showToast("Fallo de conexión. Intentando reanudar...", false);
             }
