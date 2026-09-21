@@ -9,15 +9,15 @@ async function fetchGoogleAPI(action, payload) {
             .from('usuarios')
             .select('rol')
             .eq('nombre', payload.usuario)
-            .eq('clave', payload.clave)
+            .eq('clave', payload.password)
             .single();
-        if (error || !data) throw new Error("Usuario o clave incorrecta");
-        return { rol: data.rol };
+            
+        if (error || !data) return { valido: false };
+        return { valido: true, rol: data.rol };
     }
     
-    if (action === "registrarFichaje") {
+    if (action === "setEstado") {
         const usr = payload.usuario;
-        
         const { data: vivo } = await supabaseClient
             .from('estado_vivo')
             .select('*')
@@ -51,6 +51,71 @@ async function fetchGoogleAPI(action, payload) {
                 actualizado_en: new Date().toISOString()
             });
         }
+        return { success: true };
+    }
+    
+    if (action === "getEstado") {
+        const usr = payload.usuario;
+        const { data: vivo } = await supabaseClient
+            .from('estado_vivo')
+            .select('*')
+            .eq('usuario', usr)
+            .single();
+            
+        // Calcular segundos acumulados hoy
+        const ahora = new Date();
+        const hoyStr = ahora.toISOString().split('T')[0];
+        const inicioDia = new Date(hoyStr + "T00:00:00Z").toISOString();
+        const finDia = new Date(hoyStr + "T23:59:59Z").toISOString();
+        
+        const { data: fichajesHoy } = await supabaseClient.from('maestro')
+            .select('*')
+            .eq('usuario', usr)
+            .gte('inicio', inicioDia)
+            .lte('inicio', finDia);
+            
+        let segundosHoy = 0;
+        if (fichajesHoy) {
+            for (let f of fichajesHoy) {
+                if (f.fin) {
+                    let dIni = new Date(f.inicio);
+                    let dFin = new Date(f.fin);
+                    segundosHoy += Math.floor((dFin - dIni)/1000);
+                }
+            }
+        }
+        
+        if (!vivo || vivo.estado === 'Desconectado') {
+            return { estado: 'Desconectado', actividad: '', inicio: '-', segundosAcumuladosHoy: segundosHoy };
+        }
+        
+        let di = new Date(vivo.inicio);
+        let hh = String(di.getHours()).padStart(2, '0');
+        let mm = String(di.getMinutes()).padStart(2, '0');
+        let ss = String(di.getSeconds()).padStart(2, '0');
+        let inicioStr = `${hh}:${mm}:${ss}`;
+        
+        return {
+            estado: vivo.estado,
+            actividad: vivo.actividad || '',
+            inicio: inicioStr,
+            segundosAcumuladosHoy: segundosHoy
+        };
+    }
+    
+    if (action === "registroManual") {
+        // payload: {usuario, fecha (DD/MM/YYYY), inicio (HH:MM:SS), fin (HH:MM:SS), actividad}
+        let partsD = payload.fecha.split("/");
+        let strIni = `${partsD[2]}-${partsD[1]}-${partsD[0]}T${payload.inicio}Z`;
+        let strFin = `${partsD[2]}-${partsD[1]}-${partsD[0]}T${payload.fin}Z`;
+        
+        await supabaseClient.from('maestro').insert({
+            usuario: payload.usuario,
+            estado: "Carga Manual",
+            actividad: payload.actividad,
+            inicio: new Date(strIni).toISOString(),
+            fin: new Date(strFin).toISOString()
+        });
         return { success: true };
     }
     
