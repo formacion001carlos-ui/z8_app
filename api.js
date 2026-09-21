@@ -1,3 +1,5 @@
+// api.js
+
 const SUPABASE_URL = "https://owjddgjnqhwvyoafhakm.supabase.co";
 const SUPABASE_ANON_KEY = "sb_publishable_1o-mFgTMNbTvQiXuQ8JIJg_9O7u8inj";
 
@@ -19,6 +21,11 @@ async function fetchGoogleAPI(action, payload) {
         return { valido: true, rol: data.rol };
     }
     
+        if (action === "forceDisconnect") {
+        payload.estado = "Desconectado";
+        payload.actividad = "";
+        action = "setEstado";
+    }
     if (action === "setEstado" || action === "registrarFichaje") {
         const usr = (payload.usuario || "").trim().toUpperCase();
         const { data: vivo } = await supabaseClient
