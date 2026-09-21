@@ -121,6 +121,23 @@
         let latidoTimer = null;
         let overtimeAvisado = false;
 
+        // Función vital para alinear las zonas horarias (Madrid vs Caracas)
+        function getHoraActualMadridAsLocal() {
+            const now = new Date();
+            const formatter = new Intl.DateTimeFormat('en-US', {
+                timeZone: 'Europe/Madrid',
+                year: 'numeric', month: 'numeric', day: 'numeric',
+                hour: 'numeric', minute: 'numeric', second: 'numeric',
+                hour12: false
+            });
+            const parts = formatter.formatToParts(now);
+            const map = {};
+            parts.forEach(p => map[p.type] = p.value);
+            let h = parseInt(map.hour);
+            if (h === 24) h = 0; // Corrección de medianoche
+            return new Date(map.year, parseInt(map.month)-1, map.day, h, map.minute, map.second);
+        }
+
         // Barrera de seguridad
         if (!usuarioActivo || rolActivo !== 'agente') window.location.href = 'index.html';
         document.getElementById('lbl-nombre').textContent = usuarioActivo;
@@ -251,10 +268,10 @@
         function ticTacCronometro() {
             let segundosSesionActual = 0;
             
-            // Calculamos cuánto lleva activo en este bloque en tiempo real
+            // Calculamos cuánto lleva activo en este bloque en tiempo real (Ajustado a Madrid)
             if (horaInicioGlobal && estadoApp === 'Conectado') {
-                const ahora = new Date();
-                const diffMs = ahora.getTime() - horaInicioGlobal.getTime();
+                const ahoraMadrid = getHoraActualMadridAsLocal();
+                const diffMs = ahoraMadrid.getTime() - horaInicioGlobal.getTime();
                 if (diffMs > 0) {
                     segundosSesionActual = Math.floor(diffMs / 1000);
                 }
