@@ -4,9 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>TimeTrack | Agente</title>
-    <!-- Favicon -->
     <link rel="icon" href="https://cdn-icons-png.flaticon.com/512/2088/2088617.png" type="image/png">
-    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
@@ -21,13 +19,10 @@
         
         .active-work { border-color: #16a34a; background: #f0fdf4; }
         .active-work .state-icon { background: #16a34a; }
-        
         .active-break { border-color: #2563eb; background: #eff6ff; }
         .active-break .state-icon { background: #2563eb; }
-        
         .active-pause { border-color: #d97706; background: #fffbeb; }
         .active-pause .state-icon { background: #d97706; }
-
         .active-off { border-color: #94a3b8; background: #f8fafc; }
         .active-off .state-icon { background: #94a3b8; }
 
@@ -40,14 +35,12 @@
         .progress-fill { background: #2563eb; height: 100%; border-radius: 99px; transition: width 0.5s ease; width: 0%; }
         .progress-overtime { background: #d97706 !important; box-shadow: 0 0 10px rgba(217, 119, 6, 0.5); }
 
-        /* Toast Notifications */
         #toast-container { position: fixed; bottom: 20px; right: 20px; z-index: 50; display: flex; flex-direction: column; gap: 10px; }
         .toast { background: white; color: #1e293b; padding: 12px 20px; border-radius: 8px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); border-left: 4px solid #2563eb; font-size: 13px; font-weight: 600; animation: slideIn 0.3s forwards; }
         @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
     </style>
 </head>
 <body>
-
     <div id="toast-container"></div>
 
     <div class="max-w-4xl mx-auto pt-6 pb-12 px-4">
@@ -60,11 +53,10 @@
         </header>
 
         <div id="loading-overlay" class="fixed inset-0 bg-white/80 backdrop-blur-sm z-40 flex items-center justify-center">
-            <div class="text-blue-600 font-bold animate-pulse">Sincronizando con el servidor...</div>
+            <div class="text-blue-600 font-bold animate-pulse">Sincronizando matriz...</div>
         </div>
 
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            
             <div id="tarjeta-estado" class="bento-panel flex flex-col justify-center border-l-4 border-slate-400 transition-colors duration-300">
                 <div class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Hola, <span id="lbl-nombre">Agente</span></div>
                 <div class="flex items-center mb-1">
@@ -90,7 +82,7 @@
                 <div class="progress-track mb-3">
                     <div id="barra-progreso" class="progress-fill"></div>
                 </div>
-                <p id="mensaje-progreso" class="text-xs text-slate-500 font-medium">Listo para comenzar el día.</p>
+                <p id="mensaje-progreso" class="text-xs text-slate-500 font-medium">Sincronizando tiempos del día...</p>
             </div>
 
             <div class="bento-panel md:col-span-2">
@@ -114,17 +106,6 @@
                     </button>
                 </div>
             </div>
-            
-            <div class="bento-panel md:col-span-2 bg-blue-50/50 border-blue-100">
-                <h3 class="text-[10px] font-bold text-blue-800 uppercase tracking-widest mb-3">Fichaje Manual Omitido</h3>
-                <div class="grid grid-cols-1 sm:grid-cols-4 gap-3 items-end">
-                    <div><label class="text-[10px] font-bold text-slate-500 uppercase mb-1 block">Fecha</label><input type="date" id="man-fecha" class="w-full p-2 rounded border border-slate-200 text-sm outline-none"></div>
-                    <div><label class="text-[10px] font-bold text-slate-500 uppercase mb-1 block">Inicio</label><input type="time" step="1" id="man-inicio" class="w-full p-2 rounded border border-slate-200 text-sm outline-none"></div>
-                    <div><label class="text-[10px] font-bold text-slate-500 uppercase mb-1 block">Fin</label><input type="time" step="1" id="man-fin" class="w-full p-2 rounded border border-slate-200 text-sm outline-none"></div>
-                    <button onclick="notificarManual()" class="btn-generic w-full">Guardar Manual</button>
-                </div>
-                <p class="text-[10px] text-slate-400 mt-2">* El reporte manual será auditado por un supervisor.</p>
-            </div>
         </div>
     </div>
 
@@ -133,19 +114,17 @@
         let usuarioActivo = localStorage.getItem('tt_usuario');
         let rolActivo = localStorage.getItem('tt_rol');
         let estadoApp = "Desconectado";
+        
         let horaInicioGlobal = null;
         let cronometroVirtual = null;
+        let baseSegundosDiarios = 0; // <--- AQUÍ SE GUARDA LA MEMORIA DEL DÍA
         let latidoTimer = null;
         let overtimeAvisado = false;
 
-        // BARRERA DE SEGURIDAD (Routing)
-        if (!usuarioActivo || rolActivo !== 'agente') {
-            window.location.href = 'index.html';
-        }
-
+        // Barrera de seguridad
+        if (!usuarioActivo || rolActivo !== 'agente') window.location.href = 'index.html';
         document.getElementById('lbl-nombre').textContent = usuarioActivo;
 
-        // Inicialización
         window.onload = async () => {
             await refrescarDatosBackend();
             iniciarLatidos();
@@ -167,12 +146,11 @@
             window.location.href = 'index.html';
         }
 
-        // =====================================
-        // CORE: COMUNICACIÓN CON API
-        // =====================================
         async function refrescarDatosBackend() {
             try {
+                // Obtenemos del servidor el estado y TODO el tiempo acumulado de hoy
                 const data = await fetchGoogleAPI("getEstado", { usuario: usuarioActivo });
+                baseSegundosDiarios = data.segundosAcumuladosHoy || 0; // Guardamos la memoria
                 aplicarEstadoLocal(data.estado, data.horaInicio, data.actividad);
             } catch (error) {
                 showToast("Fallo de conexión. Intentando reanudar...", false);
@@ -181,19 +159,21 @@
 
         async function cambiarEstadoUI(nuevoEstado) {
             if (nuevoEstado === estadoApp) return;
-            const btnLoader = document.getElementById('loading-overlay');
-            btnLoader.classList.remove('hidden');
-
+            document.getElementById('loading-overlay').classList.remove('hidden');
             const act = document.getElementById('input-actividad').value.trim();
             
             try {
+                // Al cambiar de estado, pedimos primero actualizar la base de tiempo
+                const dataGS = await fetchGoogleAPI("getEstado", { usuario: usuarioActivo });
+                baseSegundosDiarios = dataGS.segundosAcumuladosHoy || 0;
+
                 const data = await fetchGoogleAPI("setEstado", { usuario: usuarioActivo, estado: nuevoEstado, actividad: act });
                 aplicarEstadoLocal(data.estado, data.hora, data.actividad);
                 showToast(`Estado cambiado a: ${nuevoEstado}`);
             } catch (error) {
                 showToast("Error al cambiar estado.", false);
             } finally {
-                btnLoader.classList.add('hidden');
+                document.getElementById('loading-overlay').classList.add('hidden');
             }
         }
 
@@ -206,28 +186,21 @@
             } catch (error) { showToast("Error al fijar tarea."); }
         }
 
-        // Latido Anti-Zombies (Cada 3 minutos)
         function iniciarLatidos() {
             latidoTimer = setInterval(() => {
-                if(estadoApp !== "Desconectado") {
-                    fetchGoogleAPI("heartbeat", { usuario: usuarioActivo }).catch(e => console.warn("Latido perdido"));
-                }
+                if(estadoApp !== "Desconectado") fetchGoogleAPI("heartbeat", { usuario: usuarioActivo }).catch(()=>{});
             }, 180000); 
         }
 
-        // =====================================
-        // LÓGICA DE INTERFAZ Y CRONÓMETRO VIVO
-        // =====================================
         function aplicarEstadoLocal(estado, horaInicioStr, actividad) {
             estadoApp = estado;
             document.getElementById('texto-estado').textContent = estado;
-            document.getElementById('texto-hora-inicio').textContent = (horaInicioStr !== "-") ? `Desde las ${horaInicioStr}` : "Tu jornada no está activa.";
+            document.getElementById('texto-hora-inicio').textContent = (horaInicioStr !== "-") ? `Desde las ${horaInicioStr}` : "Jornada detenida.";
             document.getElementById('input-actividad').value = actividad;
 
-            // Reset UI Botones
             document.querySelectorAll('.state-btn').forEach(b => b.classList.remove('active-work','active-break','active-pause','active-off'));
             
-            let colorBorder = "#94a3b8"; // Off
+            let colorBorder = "#94a3b8"; 
             if (estado === 'Conectado') { document.getElementById('btn-work').classList.add('active-work'); colorBorder = "#16a34a"; }
             if (estado === 'Descanso') { document.getElementById('btn-break').classList.add('active-break'); colorBorder = "#2563eb"; }
             if (estado === 'Pausado') { document.getElementById('btn-pause').classList.add('active-pause'); colorBorder = "#d97706"; }
@@ -236,70 +209,69 @@
             document.getElementById('tarjeta-estado').style.borderLeftColor = colorBorder;
             document.getElementById('icono-estado-mini').style.backgroundColor = colorBorder;
 
-            // Manejo del Cronómetro
             clearInterval(cronometroVirtual);
             
-            if (horaInicioStr !== "-" && (estado === "Conectado" || estado === "Descanso")) {
-                // Parsea el string dd/MM/yyyy HH:mm:ss del server para crear el contador
+            if (horaInicioStr !== "-" && estado === "Conectado") {
                 const parts = horaInicioStr.split(" ");
                 if(parts.length === 2) {
                     const d = parts[0].split("/");
                     const t = parts[1].split(":");
                     horaInicioGlobal = new Date(d[2], d[1]-1, d[0], t[0], t[1], t[2]);
                     cronometroVirtual = setInterval(ticTacCronometro, 1000);
-                    ticTacCronometro(); // Primer tick inmediato
                 }
             } else {
                 horaInicioGlobal = null;
-                document.getElementById('tiempo-real-txt').textContent = "00:00:00";
-                document.getElementById('barra-progreso').style.width = "0%";
-                document.getElementById('barra-progreso').classList.remove('progress-overtime');
-                document.getElementById('tiempo-real-txt').style.color = "#1d4ed8";
             }
+            
+            // Forzar un tick para actualizar la UI (incluso si está pausado mostrará la base acumulada)
+            ticTacCronometro();
         }
 
         function ticTacCronometro() {
-            if (!horaInicioGlobal) return;
-            const ahora = new Date();
-            const diffMs = ahora - horaInicioGlobal;
+            let segundosSesionActual = 0;
             
-            if (diffMs < 0) return;
+            // Si está activo, calculamos los segundos desde que inició este bloque
+            if (horaInicioGlobal && estadoApp === 'Conectado') {
+                const diffMs = new Date() - horaInicioGlobal;
+                if (diffMs > 0) segundosSesionActual = Math.floor(diffMs / 1000);
+            }
 
-            let totalSecs = Math.floor(diffMs / 1000);
-            let h = Math.floor(totalSecs / 3600);
-            let m = Math.floor((totalSecs % 3600) / 60);
-            let s = totalSecs % 60;
+            // TOTAL REAL = Lo que ya había trabajado hoy + lo de la sesión actual
+            let totalSegundosDelDia = baseSegundosDiarios + segundosSesionActual;
 
-            const timeStr = [h, m, s].map(v => v < 10 ? "0" + v : v).join(":");
+            // Formatear HH:MM:SS
+            let h = Math.floor(totalSegundosDelDia / 3600);
+            let m = Math.floor((totalSegundosDelDia % 3600) / 60);
+            let s = totalSegundosDelDia % 60;
+            const timeStr = (h<10?"0"+h:h) + ":" + (m<10?"0"+m:m) + ":" + (s<10?"0"+s:s);
+            
             document.getElementById('tiempo-real-txt').textContent = timeStr;
 
-            // Barra de progreso (Objetivo: 8 horas = 28800 segundos)
-            const objSegundos = 28800;
-            let porcentaje = (totalSecs / objSegundos) * 100;
+            // Lógica de Barra de Progreso y Overtime
+            const objSegundos = 28800; // 8 horas
+            let porcentaje = (totalSegundosDelDia / objSegundos) * 100;
             let barra = document.getElementById('barra-progreso');
+            let msg = document.getElementById('mensaje-progreso');
 
-            if (totalSecs >= objSegundos) {
+            if (totalSegundosDelDia >= objSegundos) {
                 barra.style.width = "100%";
                 barra.classList.add('progress-overtime');
                 document.getElementById('tiempo-real-txt').style.color = "#d97706";
-                document.getElementById('mensaje-progreso').textContent = "Jornada completada. Horas extra en curso.";
-                document.getElementById('mensaje-progreso').style.color = "#d97706";
+                msg.textContent = "Jornada completada. Horas extra en curso.";
+                msg.style.color = "#d97706";
                 
-                if (!overtimeAvisado) {
+                if (!overtimeAvisado && estadoApp !== 'Desconectado') {
                     showToast("¡Objetivo cumplido! Has superado las 8 horas.", true);
                     overtimeAvisado = true;
                 }
             } else {
                 barra.style.width = `${porcentaje}%`;
+                barra.classList.remove('progress-overtime');
+                document.getElementById('tiempo-real-txt').style.color = "#1d4ed8";
+                msg.textContent = estadoApp === 'Conectado' ? "Construyendo tu jornada..." : "Reloj detenido.";
+                msg.style.color = "#64748b";
                 overtimeAvisado = false;
             }
-        }
-
-        function notificarManual() {
-            showToast("Aviso: Esta función será enlazada con Sheets pronto.");
-            document.getElementById('man-fecha').value = "";
-            document.getElementById('man-inicio').value = "";
-            document.getElementById('man-fin').value = "";
         }
     </script>
 </body>
