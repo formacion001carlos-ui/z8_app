@@ -305,6 +305,11 @@
         </div>
       </div>
     </nav>
+    <div style="padding: 16px; border-top: 1px solid var(--border);">
+      <button onclick="volverAlPanel()" style="width: 100%; background: var(--primary); color: white; padding: 10px; border-radius: 8px; font-weight: 600; border: none; cursor: pointer; transition: opacity 0.2s;" onmouseover="this.style.opacity='0.9'" onmouseout="this.style.opacity='1'">
+        Regresar al Panel
+      </button>
+    </div>
   </aside>
 
   <!-- Main Content -->
@@ -1957,6 +1962,17 @@ document.querySelectorAll('.pdf-export-btn').forEach(btn => {
     }
   });
 });
+
+function volverAlPanel() {
+  const rol = localStorage.getItem('tt_rol');
+  if (rol === 'admin') {
+    window.location.href = 'admin.html';
+  } else if (rol === 'agente') {
+    window.location.href = 'agente.html';
+  } else {
+    window.location.href = 'index.html';
+  }
+}
 
 </script>
 </body>
