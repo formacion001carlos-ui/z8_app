@@ -181,6 +181,7 @@
             const act = document.getElementById('input-actividad').value.trim();
             if(!act) return;
             try {
+                // Notifica a la API pero no cambiamos el estado
                 await fetchGoogleAPI("setEstado", { usuario: usuarioActivo, estado: estadoApp, actividad: act });
                 showToast("Tarea fijada correctamente.");
             } catch (error) { showToast("Error al fijar tarea."); }
@@ -209,34 +210,57 @@
             document.getElementById('tarjeta-estado').style.borderLeftColor = colorBorder;
             document.getElementById('icono-estado-mini').style.backgroundColor = colorBorder;
 
-            clearInterval(cronometroVirtual);
+            // Limpiamos siempre el cronómetro antes de arrancar uno nuevo
+            if (cronometroVirtual) {
+                clearInterval(cronometroVirtual);
+                cronometroVirtual = null;
+            }
             
+            // Reconstruimos la hora de inicio global si está conectado
             if (horaInicioStr !== "-" && estado === "Conectado") {
-                const parts = horaInicioStr.split(" ");
-                if(parts.length === 2) {
-                    const d = parts[0].split("/");
-                    const t = parts[1].split(":");
-                    horaInicioGlobal = new Date(d[2], d[1]-1, d[0], t[0], t[1], t[2]);
+                // Ejemplo de horaInicioStr: "21/09/2026 14:19:11"
+                try {
+                    const parts = horaInicioStr.split(" ");
+                    if(parts.length === 2) {
+                        const dateParts = parts[0].split("/");
+                        const timeParts = parts[1].split(":");
+                        // Meses en JS son index 0 (Ene=0, Feb=1...)
+                        horaInicioGlobal = new Date(
+                            parseInt(dateParts[2]), 
+                            parseInt(dateParts[1]) - 1, 
+                            parseInt(dateParts[0]), 
+                            parseInt(timeParts[0]), 
+                            parseInt(timeParts[1]), 
+                            parseInt(timeParts[2])
+                        );
+                    }
+                    // Arrancamos el motor visual
                     cronometroVirtual = setInterval(ticTacCronometro, 1000);
+                } catch(e) {
+                    horaInicioGlobal = null;
+                    console.error("Error parseando fecha:", e);
                 }
             } else {
                 horaInicioGlobal = null;
             }
             
-            // Forzar un tick para actualizar la UI (incluso si está pausado mostrará la base acumulada)
+            // Forzamos un tick inmediato para pintar el primer frame sin esperar 1 segundo
             ticTacCronometro();
         }
 
         function ticTacCronometro() {
             let segundosSesionActual = 0;
             
-            // Si está activo, calculamos los segundos desde que inició este bloque
+            // Calculamos cuánto lleva activo en este bloque en tiempo real
             if (horaInicioGlobal && estadoApp === 'Conectado') {
-                const diffMs = new Date() - horaInicioGlobal;
-                if (diffMs > 0) segundosSesionActual = Math.floor(diffMs / 1000);
+                const ahora = new Date();
+                const diffMs = ahora.getTime() - horaInicioGlobal.getTime();
+                if (diffMs > 0) {
+                    segundosSesionActual = Math.floor(diffMs / 1000);
+                }
             }
 
-            // TOTAL REAL = Lo que ya había trabajado hoy + lo de la sesión actual
+            // Memoria diaria + tiempo de sesión activa
             let totalSegundosDelDia = baseSegundosDiarios + segundosSesionActual;
 
             // Formatear HH:MM:SS
@@ -247,13 +271,14 @@
             
             document.getElementById('tiempo-real-txt').textContent = timeStr;
 
-            // Lógica de Barra de Progreso y Overtime
-            const objSegundos = 28800; // 8 horas
+            // Lógica visual y de Overtime
+            const objSegundos = 28800; // 8 horas fijas
             let porcentaje = (totalSegundosDelDia / objSegundos) * 100;
             let barra = document.getElementById('barra-progreso');
             let msg = document.getElementById('mensaje-progreso');
 
             if (totalSegundosDelDia >= objSegundos) {
+                // OVERTIME
                 barra.style.width = "100%";
                 barra.classList.add('progress-overtime');
                 document.getElementById('tiempo-real-txt').style.color = "#d97706";
@@ -265,6 +290,7 @@
                     overtimeAvisado = true;
                 }
             } else {
+                // NORMAL
                 barra.style.width = `${porcentaje}%`;
                 barra.classList.remove('progress-overtime');
                 document.getElementById('tiempo-real-txt').style.color = "#1d4ed8";
