@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>TimeTrack | Administrador</title>
-    <!-- Favicon -->
     <link rel="icon" href="https://cdn-icons-png.flaticon.com/512/2088/2088617.png" type="image/png">
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
@@ -12,76 +11,99 @@
         body { background-color: #f8fafc; font-family: 'Inter', sans-serif; color: #334155; }
         
         .bento-panel { background: white; border: 1px solid #e2e8f0; border-radius: 16px; padding: 24px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.02); }
-        .btn-generic { background-color: #0f172a; color: white; padding: 10px 20px; border-radius: 8px; font-weight: 600; font-size: 14px; transition: all 0.2s; display: inline-flex; justify-content: center; align-items: center;}
-        .btn-generic:hover { background-color: #1e293b; box-shadow: 0 4px 12px rgba(15, 23, 42, 0.2); }
-        
         .btn-calc { background-color: white; color: #2563eb; border: 1px solid #2563eb; padding: 8px 16px; border-radius: 8px; font-weight: 600; font-size: 12px; transition: all 0.2s;}
         .btn-calc:hover { background-color: #eff6ff; }
         
         table { width: 100%; border-collapse: collapse; }
-        th { text-align: left; padding: 12px 16px; border-bottom: 2px solid #e2e8f0; color: #64748b; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; }
-        td { padding: 16px; border-bottom: 1px solid #f1f5f9; font-size: 14px; color: #1e293b; font-weight: 500; }
+        th { text-align: left; padding: 12px 16px; border-bottom: 2px solid #e2e8f0; color: #64748b; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; white-space: nowrap; }
+        td { padding: 16px; border-bottom: 1px solid #f1f5f9; font-size: 13px; color: #1e293b; font-weight: 500; white-space: nowrap; }
         tr:hover td { background-color: #f8fafc; }
+
+        /* Estilos de las Pestañas (Tabs) */
+        .tab-btn { padding: 12px 24px; font-weight: 600; font-size: 14px; border-bottom: 3px solid transparent; color: #64748b; transition: all 0.2s; cursor: pointer; }
+        .tab-btn:hover { color: #2563eb; }
+        .tab-btn.active { color: #2563eb; border-bottom-color: #2563eb; }
+
+        .btn-kick { background-color: #fee2e2; color: #ef4444; border: 1px solid #fca5a5; padding: 4px 10px; border-radius: 6px; font-size: 10px; font-weight: bold; text-transform: uppercase; transition: all 0.2s; cursor: pointer; }
+        .btn-kick:hover { background-color: #ef4444; color: white; }
     </style>
 </head>
 <body>
 
-    <div class="max-w-5xl mx-auto pt-6 pb-12 px-4">
+    <div class="max-w-6xl mx-auto pt-6 pb-12 px-4">
         
         <header class="flex justify-between items-center mb-8">
             <div>
                 <h1 class="text-2xl font-bold tracking-tight text-slate-800">TimeTrack<span class="text-slate-900">.</span></h1>
-                <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Panel de Supervisión</p>
+                <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Módulo WFM & Supervisión</p>
             </div>
-            <div class="flex gap-3">
-                <a href="calculadora.html" class="btn-calc flex items-center gap-2">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg>
-                    Ir a Calculadora
-                </a>
-                <button onclick="cerrarSesion()" class="text-xs font-semibold text-slate-500 hover:text-slate-800 transition px-3">Cerrar sesión</button>
+            <div class="flex gap-3 items-center">
+                <a href="calculadora.html" class="btn-calc flex items-center gap-2 shadow-sm">Ir a Calculadora</a>
+                <button onclick="cerrarSesion()" class="text-xs font-bold text-slate-400 hover:text-slate-800 transition">Cerrar sesión</button>
             </div>
         </header>
 
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
             <div class="bento-panel md:col-span-2 flex flex-col justify-center bg-slate-900 text-white border-none shadow-xl">
                 <h2 class="text-xl font-bold mb-1">Centro de Control Operativo</h2>
-                <p class="text-slate-400 text-sm mb-5">Exportación de registros unificados y auditoría.</p>
+                <p class="text-slate-400 text-sm mb-5">Exportación de registros crudos y auditoría completa.</p>
                 <div>
                     <button onclick="descargarCSV()" id="btn-csv" class="bg-blue-600 hover:bg-blue-500 text-white px-5 py-2.5 rounded-lg font-bold text-sm transition flex items-center gap-2 shadow-lg shadow-blue-900/50">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
                         Descargar Historial Maestro (CSV)
                     </button>
                 </div>
             </div>
             <div class="bento-panel flex flex-col justify-center text-center">
-                <div class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Agentes Activos</div>
-                <div class="text-4xl font-bold text-blue-600" id="contador-agentes">-</div>
+                <div class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Agentes Activos (Hoy)</div>
+                <div class="text-5xl font-black text-blue-600 tracking-tighter" id="contador-agentes">-</div>
             </div>
         </div>
 
         <div class="bento-panel overflow-hidden !p-0">
-            <div class="p-5 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
-                <h3 class="text-xs font-bold text-slate-700 uppercase tracking-widest flex items-center gap-2">
+            <!-- Menú de Pestañas -->
+            <div class="flex border-b border-slate-200 bg-slate-50">
+                <button onclick="cambiarTab('monitor')" id="tab-btn-monitor" class="tab-btn active flex items-center gap-2">
                     <span class="relative flex h-2.5 w-2.5"><span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span><span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-green-500"></span></span>
                     Monitor en Vivo
-                </h3>
-                <span id="txt-actualizacion" class="text-[10px] font-semibold text-slate-400">Refrescando...</span>
+                </button>
+                <button onclick="cambiarTab('matriz')" id="tab-btn-matriz" class="tab-btn">Resumen Mensual (WFM)</button>
             </div>
-            <div class="overflow-x-auto">
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Agente</th>
-                            <th>Estado Actual</th>
-                            <th>Total Horas Hoy</th>
-                            <th>Conectado Desde</th>
-                            <th>Tarea Actual</th>
-                        </tr>
-                    </thead>
-                    <tbody id="tabla-monitor">
-                        <tr><td colspan="5" class="text-center py-10 text-slate-400 font-semibold animate-pulse">Estableciendo conexión con la matriz...</td></tr>
-                    </tbody>
-                </table>
+
+            <!-- VISTA 1: MONITOR EN VIVO -->
+            <div id="vista-monitor" class="block">
+                <div class="p-3 bg-white flex justify-end">
+                    <span id="txt-actualizacion" class="text-[10px] font-semibold text-slate-400">Actualizando...</span>
+                </div>
+                <div class="overflow-x-auto">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Agente</th>
+                                <th>Estado</th>
+                                <th>Total Hoy</th>
+                                <th>Desde</th>
+                                <th>Tarea Actual</th>
+                                <th>Acción</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tabla-monitor">
+                            <tr><td colspan="6" class="text-center py-10 text-slate-400 font-semibold animate-pulse">Estableciendo conexión...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- VISTA 2: MATRIZ MENSUAL -->
+            <div id="vista-matriz" class="hidden">
+                <div class="p-4 bg-blue-50/50 flex justify-between items-center border-b border-blue-100">
+                    <h3 class="text-xs font-bold text-blue-800 uppercase tracking-widest" id="titulo-mes">Matriz del Mes: -</h3>
+                    <button onclick="cargarMatrizMensual()" class="text-[10px] text-blue-600 font-bold hover:underline">↻ Refrescar Matriz</button>
+                </div>
+                <div class="overflow-x-auto pb-4">
+                    <table id="tabla-matriz-wfm" class="min-w-max">
+                        <!-- Se llena con Javascript -->
+                    </table>
+                </div>
             </div>
         </div>
     </div>
@@ -93,56 +115,142 @@
 
         window.onload = () => {
             cargarMonitor();
-            // Refresco automático cada 60 segundos
-            setInterval(cargarMonitor, 60000);
+            cargarMatrizMensual();
+            setInterval(cargarMonitor, 60000); // Refresco automático monitor
         };
 
-        function cerrarSesion() {
-            localStorage.clear();
-            window.location.href = 'index.html';
+        function cerrarSesion() { localStorage.clear(); window.location.href = 'index.html'; }
+
+        // Control de Pestañas
+        function cambiarTab(tab) {
+            document.getElementById('vista-monitor').classList.toggle('hidden', tab !== 'monitor');
+            document.getElementById('vista-matriz').classList.toggle('hidden', tab !== 'matriz');
+            document.getElementById('tab-btn-monitor').classList.toggle('active', tab === 'monitor');
+            document.getElementById('tab-btn-matriz').classList.toggle('active', tab === 'matriz');
         }
 
+        // Lógica: Monitor en Vivo
         async function cargarMonitor() {
             const tbody = document.getElementById('tabla-monitor');
             document.getElementById('txt-actualizacion').textContent = "Sincronizando...";
             
             try {
                 const agentes = await fetchGoogleAPI("getAdminData", {});
-                
                 document.getElementById('txt-actualizacion').textContent = "Últ. act: " + new Date().toLocaleTimeString();
-                document.getElementById('contador-agentes').textContent = agentes.length;
+                
+                // Filtrar solo los que están en sistema hoy o activos
+                let agentesVisibles = agentes.filter(a => a.estado !== "Desconectado" || a.horasHoy !== "00:00:00");
+                document.getElementById('contador-agentes').textContent = agentesVisibles.length;
 
-                if (agentes.length === 0) {
-                    tbody.innerHTML = `<tr><td colspan="5" class="text-center py-8 text-slate-400 text-sm">No hay agentes conectados actualmente.</td></tr>`;
+                if (agentesVisibles.length === 0) {
+                    tbody.innerHTML = `<tr><td colspan="6" class="text-center py-8 text-slate-400 text-sm">Sin actividad registrada hoy.</td></tr>`;
                     return;
                 }
 
                 let html = "";
-                agentes.forEach(a => {
+                agentesVisibles.forEach(a => {
                     let dot = 'bg-slate-300';
+                    let btnDesconectar = "";
+
                     if (a.estado === 'Conectado') dot = 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]';
                     if (a.estado === 'Descanso') dot = 'bg-blue-500';
                     if (a.estado === 'Pausado') dot = 'bg-amber-500';
 
+                    // Botón franco-tirador para desconectar
+                    if(a.estado !== 'Desconectado') {
+                        btnDesconectar = `<button onclick="forzarDesconexion('${a.usuario}')" class="btn-kick" title="Cerrar sesión remotamente">Desconectar</button>`;
+                    }
+
                     html += `<tr>
                         <td class="font-bold text-slate-800">${a.usuario.toUpperCase()}</td>
                         <td>
-                            <div class="flex items-center">
-                                <div class="w-2 h-2 rounded-full ${dot} mr-2"></div>
-                                <span class="text-xs uppercase font-bold text-slate-500">${a.estado}</span>
-                            </div>
+                            <div class="flex items-center"><div class="w-2 h-2 rounded-full ${dot} mr-2"></div>
+                            <span class="text-[10px] uppercase font-bold text-slate-500">${a.estado}</span></div>
                         </td>
                         <td class="font-mono text-blue-700 font-bold">${a.horasHoy}</td>
                         <td class="text-xs text-slate-500">${a.inicio}</td>
                         <td class="text-xs max-w-[200px] truncate text-slate-600" title="${a.actividad}">${a.actividad}</td>
+                        <td>${btnDesconectar}</td>
                     </tr>`;
                 });
                 tbody.innerHTML = html;
 
             } catch (error) {
                 document.getElementById('txt-actualizacion').textContent = "Error de red";
-                tbody.innerHTML = `<tr><td colspan="5" class="text-center py-8 text-red-500 font-bold text-sm">Fallo de conexión. Reintentando...</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="6" class="text-center py-8 text-red-500 font-bold text-sm">Fallo de conexión. Reintentando...</td></tr>`;
             }
+        }
+
+        // Lógica: Botón de Desconexión Remota
+        async function forzarDesconexion(usuario) {
+            if(!confirm(`¿Estás seguro de desconectar a ${usuario}? Esto cerrará su tiempo de trabajo.`)) return;
+            try {
+                await fetchGoogleAPI("forceDisconnect", { usuario: usuario });
+                cargarMonitor(); // Refrescar vista
+            } catch(e) { alert("Error al desconectar."); }
+        }
+
+        // Lógica: Constructor de la Matriz WFM
+        async function cargarMatrizMensual() {
+            const tabla = document.getElementById('tabla-matriz-wfm');
+            tabla.innerHTML = `<tr><td class="text-center py-8 text-blue-500 animate-pulse">Calculando matriz mensual...</td></tr>`;
+            
+            try {
+                const response = await fetchGoogleAPI("getMonthlySummary", {});
+                document.getElementById('titulo-mes').textContent = `Matriz del Mes: ${response.mes}`;
+                
+                // Averiguar cuántos días tiene el mes actual (ej. mes "09/2026")
+                const partes = response.mes.split("/");
+                const diasEnMes = new Date(partes[1], partes[0], 0).getDate();
+
+                // 1. Construir Cabeceras (Días 1 al 31)
+                let thead = `<thead><tr>
+                    <th class="sticky left-0 bg-slate-100 z-10 w-32 border-r border-slate-200">Agente</th>
+                    <th class="bg-blue-50 text-blue-800 border-r border-slate-200">Total Mes</th>`;
+                for(let d=1; d<=diasEnMes; d++) {
+                    thead += `<th class="text-center px-2 !text-[9px] text-slate-400">${d}</th>`;
+                }
+                thead += `</tr></thead><tbody>`;
+
+                // 2. Construir Filas por Agente
+                let tbody = "";
+                const agentes = Object.keys(response.datos).sort();
+                
+                if(agentes.length === 0) tbody = `<tr><td colspan="${diasEnMes+2}" class="text-center py-4">Sin registros este mes.</td></tr>`;
+
+                agentes.forEach(usr => {
+                    let agentData = response.datos[usr];
+                    let totalMesFormato = formatoSegundos(agentData.totalMes);
+                    
+                    tbody += `<tr class="hover:bg-slate-50">
+                        <td class="sticky left-0 bg-white font-bold text-xs text-slate-700 border-r border-slate-100 z-10 shadow-[2px_0_5px_rgba(0,0,0,0.02)]">${usr}</td>
+                        <td class="font-mono text-xs font-bold text-blue-700 border-r border-slate-100 bg-blue-50/30">${totalMesFormato}</td>`;
+                    
+                    // Rellenar cada día
+                    for(let d=1; d<=diasEnMes; d++) {
+                        let segsDia = agentData.dias[d];
+                        if(segsDia) {
+                            tbody += `<td class="text-center font-mono text-[10px] text-slate-600 px-2 border-r border-slate-50">${formatoSegundos(segsDia)}</td>`;
+                        } else {
+                            tbody += `<td class="text-center text-[10px] text-slate-300 border-r border-slate-50">-</td>`;
+                        }
+                    }
+                    tbody += `</tr>`;
+                });
+
+                tabla.innerHTML = thead + tbody + `</tbody>`;
+
+            } catch (error) {
+                tabla.innerHTML = `<tr><td class="text-center py-8 text-red-500 font-bold">Fallo al cargar matriz.</td></tr>`;
+            }
+        }
+
+        // Helper: Convertir segundos a HH:MM:SS
+        function formatoSegundos(totalSegundos) {
+            let h = Math.floor(totalSegundos / 3600);
+            let m = Math.floor((totalSegundos % 3600) / 60);
+            let s = totalSegundos % 60;
+            return (h<10?"0"+h:h)+":"+(m<10?"0"+m:m)+":"+(s<10?"0"+s:s);
         }
 
         async function descargarCSV() {
@@ -153,20 +261,17 @@
 
             try {
                 const csvContent = await fetchGoogleAPI("exportCSV", {});
-                
-                // Forzar descarga en el navegador
                 const blob = new Blob(["\uFEFF" + csvContent], { type: 'text/csv;charset=utf-8;' });
                 const link = document.createElement("a");
                 const url = URL.createObjectURL(blob);
                 link.setAttribute("href", url);
-                link.setAttribute("download", `Reporte_TimeTrack_${new Date().toISOString().slice(0,10)}.csv`);
+                link.setAttribute("download", `Data_Cruda_TimeTrack_${new Date().toISOString().slice(0,10)}.csv`);
                 link.style.visibility = 'hidden';
                 document.body.appendChild(link);
                 link.click();
                 document.body.removeChild(link);
-                
             } catch (error) {
-                alert("Hubo un error al generar el CSV. Intente de nuevo.");
+                alert("Hubo un error al generar el CSV.");
             } finally {
                 btn.innerHTML = txtOriginal;
                 btn.classList.remove("opacity-70", "cursor-wait");
