@@ -19,6 +19,7 @@
         td { padding: 16px; border-bottom: 1px solid #f1f5f9; font-size: 13px; color: #1e293b; font-weight: 500; white-space: nowrap; }
         tr:hover td { background-color: #f8fafc; }
 
+        /* Estilos de las Pestañas (Tabs) */
         .tab-btn { padding: 12px 24px; font-weight: 600; font-size: 14px; border-bottom: 3px solid transparent; color: #64748b; transition: all 0.2s; cursor: pointer; }
         .tab-btn:hover { color: #2563eb; }
         .tab-btn.active { color: #2563eb; border-bottom-color: #2563eb; }
@@ -45,10 +46,10 @@
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
             <div class="bento-panel md:col-span-2 flex flex-col justify-center bg-slate-900 text-white border-none shadow-xl">
                 <h2 class="text-xl font-bold mb-1">Centro de Control Operativo</h2>
-                <p class="text-slate-400 text-sm mb-5">Exportación de la Matriz WFM a formato CSV.</p>
+                <p class="text-slate-400 text-sm mb-5">Exportación de registros crudos y auditoría completa.</p>
                 <div>
                     <button onclick="descargarCSV()" id="btn-csv" class="bg-blue-600 hover:bg-blue-500 text-white px-5 py-2.5 rounded-lg font-bold text-sm transition flex items-center gap-2 shadow-lg shadow-blue-900/50">
-                        Descargar Matriz Actual (CSV)
+                        Descargar Historial Maestro (CSV)
                     </button>
                 </div>
             </div>
@@ -107,6 +108,7 @@
         </div>
     </div>
 
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="api.js"></script>
     <script>
         let rolActivo = localStorage.getItem('tt_rol');
@@ -115,7 +117,7 @@
         window.onload = () => {
             cargarMonitor();
             cargarMatrizMensual();
-            setInterval(cargarMonitor, 60000); 
+            setInterval(cargarMonitor, 60000); // Refresco automático monitor
         };
 
         function cerrarSesion() { localStorage.clear(); window.location.href = 'index.html'; }
@@ -140,6 +142,7 @@
                 const agentes = await fetchGoogleAPI("getAdminData", {});
                 document.getElementById('txt-actualizacion').textContent = "Últ. act: " + new Date().toLocaleTimeString();
                 
+                // Filtrar solo los que están en sistema hoy o activos
                 agentesData = agentes.filter(a => a.estado !== "Desconectado" || a.horasHoy !== "00:00:00");
                 document.getElementById('contador-agentes').textContent = agentesData.length;
 
@@ -150,6 +153,7 @@
 
                 renderTablaMonitor();
                 
+                // Iniciar el cronómetro en vivo si no está corriendo
                 if (!adminTimer) adminTimer = setInterval(tickMonitor, 1000);
 
             } catch (error) {
@@ -199,7 +203,9 @@
                 let h = parseInt(timeParts[0]);
                 if (h === 24) h = 0;
                 return new Date(dateParts[2], parseInt(dateParts[0])-1, dateParts[1], h, parseInt(timeParts[1]), parseInt(timeParts[2]));
-            } catch (e) { return new Date(); }
+            } catch (e) {
+                return new Date(); 
+            }
         }
 
         function tickMonitor() {
@@ -208,6 +214,7 @@
                 let cell = document.getElementById(`live-time-${index}`);
                 if (!cell) return;
                 
+                // Parsear base segundos
                 let baseParts = a.horasHoy.split(":");
                 let baseSecs = 0;
                 if(baseParts.length === 3) {
@@ -215,6 +222,7 @@
                 }
                 
                 let extraSecs = 0;
+                // Sumar el tiempo de la sesión actual si está conectado
                 if (a.estado === 'Conectado' && a.inicio !== '-') {
                     let p = a.inicio.split(" ");
                     if (p.length === 2) {
@@ -240,16 +248,18 @@
             });
         }
 
+        // Lógica: Botón de Desconexión Remota
         async function forzarDesconexion(usuario) {
             if(!confirm(`¿Estás seguro de desconectar a ${usuario}? Esto cerrará su tiempo de trabajo.`)) return;
             try {
                 await fetchGoogleAPI("forceDisconnect", { usuario: usuario });
-                cargarMonitor();
+                cargarMonitor(); // Refrescar vista
             } catch(e) { alert("Error al desconectar."); }
         }
 
         let matrizGlobal = null;
 
+        // Lógica: Constructor de la Matriz WFM
         async function cargarMatrizMensual() {
             const tabla = document.getElementById('tabla-matriz-wfm');
             tabla.innerHTML = `<tr><td class="text-center py-8 text-blue-500 animate-pulse">Calculando matriz mensual...</td></tr>`;
