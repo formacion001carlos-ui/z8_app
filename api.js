@@ -1,5 +1,5 @@
 // api.js
-const API_URL = "https://script.google.com/macros/s/AKfycbzeJ1tIsfYuQHJVVv7NAPFtrobFc2ZVVHwEWBpXbhF8jqj3ec8a3hqYraxusn3Lejpb/exec";
+const API_URL = "https://script.google.com/macros/s/AKfycbwO73pHr-JucPVgdz2YDJcIQ4_aOtYsuSiWevJuOvff51m7mdIqCMW2Ggk2AbWAyArF/exec";
 
 async function fetchGoogleAPI(action, payload) {
     try {
