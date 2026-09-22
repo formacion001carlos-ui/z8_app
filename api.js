@@ -242,11 +242,15 @@ async function fetchGoogleAPI(action, payload) {
             
         const { data: usuarios } = await supabaseClient
             .from('usuarios')
-            .select('nombre, horas_objetivo');
+            .select('*');
             
         let metas = {};
+        let zonas = {};
         if(usuarios) {
-            for(let u of usuarios) metas[u.nombre] = u.horas_objetivo || 8;
+            for(let u of usuarios) {
+                metas[u.nombre] = u.horas_objetivo || 8;
+                zonas[u.nombre] = u.UTC || u.utc || "-4:00";
+            }
         }
         
         let diasLaborables = 0;
@@ -281,10 +285,18 @@ async function fetchGoogleAPI(action, payload) {
                 
                 matriz[usr].totalMes += diffSegundos;
                 
-                let diaDelMes = dIni.getDate();
+                let offsetStr = zonas[usr] || "-4:00";
+                let sign = offsetStr.startsWith("-") ? -1 : 1;
+                let offsetParts = offsetStr.replace("+", "").replace("-", "").split(":");
+                let offsetMinutes = sign * ((parseInt(offsetParts[0]) * 60) + parseInt(offsetParts[1] || 0));
+                
+                let localMs = dIni.getTime() + (offsetMinutes * 60 * 1000);
+                let localDate = new Date(localMs);
+                
+                let diaDelMes = localDate.getUTCDate();
                 matriz[usr].dias[diaDelMes] = (matriz[usr].dias[diaDelMes] || 0) + diffSegundos;
                 
-                let diaSemana = dIni.getDay();
+                let diaSemana = localDate.getUTCDay();
                 if(diaSemana === 0 || diaSemana === 6) {
                     matriz[usr].horasFinde += diffSegundos;
                 } else {
