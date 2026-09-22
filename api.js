@@ -193,18 +193,25 @@ async function fetchGoogleAPI(action, payload) {
                 let m = Math.floor((horasHoySecs % 3600) / 60);
                 let s = horasHoySecs % 60;
                 let horasHoyStr = `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
-                
                 let inicioStr = "-";
-                if (v.inicio) {
-                    let di = new Date(v.inicio);
-                    let dia = String(di.getDate()).padStart(2, '0');
-                    let mes = String(di.getMonth() + 1).padStart(2, '0');
-                    let ano = di.getFullYear();
-                    let hh = String(di.getHours()).padStart(2, '0');
-                    let mm = String(di.getMinutes()).padStart(2, '0');
-                    let ss = String(di.getSeconds()).padStart(2, '0');
-                    inicioStr = `${dia}/${mes}/${ano} ${hh}:${mm}:${ss}`;
-                }
+                  if (v.inicio) {
+                      let di = new Date(v.inicio);
+                      let str = di.toLocaleString("en-US", { timeZone: "Europe/Madrid", hour12: false });
+                      let parts = str.split(", ");
+                      let dateParts = parts[0].split("/");
+                      let timeParts = parts[1].trim().split(":");
+                      
+                      let h = parseInt(timeParts[0]);
+                      if (h === 24) h = 0;
+                      
+                      let dia = String(dateParts[1]).padStart(2, '0');
+                      let mes = String(dateParts[0]).padStart(2, '0');
+                      let ano = dateParts[2];
+                      let hh = String(h).padStart(2, '0');
+                      let mm = String(timeParts[1]).padStart(2, '0');
+                      let ss = String(timeParts[2]).padStart(2, '0');
+                      inicioStr = `${dia}/${mes}/${ano} ${hh}:${mm}:${ss}`;
+                  }
                 
                 arr.push({
                     usuario: v.usuario,
