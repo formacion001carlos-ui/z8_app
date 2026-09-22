@@ -1,5 +1,3 @@
-// api.js
-
 const SUPABASE_URL = "https://owjddgjnqhwvyoafhakm.supabase.co";
 const SUPABASE_ANON_KEY = "sb_publishable_1o-mFgTMNbTvQiXuQ8JIJg_9O7u8inj";
 
@@ -64,13 +62,21 @@ async function fetchGoogleAPI(action, payload) {
         return { success: true };
     }
     
-    if (action === "getEstado") {
+        if (action === "getEstado") {
         const usr = (payload.usuario || "").trim().toUpperCase();
         const { data: vivo } = await supabaseClient
             .from('estado_vivo')
             .select('*')
             .eq('usuario', usr)
             .single();
+            
+        // Get user target hours
+        const { data: userData } = await supabaseClient
+            .from('usuarios')
+            .select('horas_objetivo')
+            .eq('nombre', usr)
+            .single();
+        let target = userData ? userData.horas_objetivo : 8;
             
         // Calcular segundos acumulados hoy
         const ahora = new Date();
@@ -96,7 +102,7 @@ async function fetchGoogleAPI(action, payload) {
         }
         
         if (!vivo || vivo.estado === 'Desconectado') {
-            return { estado: 'Desconectado', actividad: '', inicio: '-', segundosAcumuladosHoy: segundosHoy };
+            return { estado: 'Desconectado', actividad: '', inicio: '-', segundosAcumuladosHoy: segundosHoy, horasObjetivo: target };
         }
         
         let di = new Date(vivo.inicio);
@@ -109,11 +115,13 @@ async function fetchGoogleAPI(action, payload) {
             estado: vivo.estado,
             actividad: vivo.actividad || '',
             inicio: inicioStr,
-            segundosAcumuladosHoy: segundosHoy
+            horaInicio: inicioStr,
+            segundosAcumuladosHoy: segundosHoy,
+            horasObjetivo: target
         };
     }
     
-        if (action === "registroManual") {
+    if (action === "registroManual") {
         let usr = (payload.usuario || "").trim().toUpperCase();
         let partsD = payload.fecha.split("/");
         let strIni = `${partsD[2]}-${partsD[1]}-${partsD[0]}T${payload.inicio}Z`;
@@ -196,6 +204,7 @@ async function fetchGoogleAPI(action, payload) {
                     estado: v.estado,
                     actividad: v.actividad || "-",
                     inicio: inicioStr,
+            horaInicio: inicioStr,
                     horasHoy: horasHoyStr
                 });
             }
