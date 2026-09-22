@@ -1,3 +1,5 @@
+// api.js
+
 const SUPABASE_URL = "https://owjddgjnqhwvyoafhakm.supabase.co";
 const SUPABASE_ANON_KEY = "sb_publishable_1o-mFgTMNbTvQiXuQ8JIJg_9O7u8inj";
 
@@ -106,9 +108,14 @@ async function fetchGoogleAPI(action, payload) {
         }
         
         let di = new Date(vivo.inicio);
-        let hh = String(di.getHours()).padStart(2, '0');
-        let mm = String(di.getMinutes()).padStart(2, '0');
-        let ss = String(di.getSeconds()).padStart(2, '0');
+        let str = di.toLocaleString("en-US", { timeZone: "Europe/Madrid", hour12: false });
+        let timePart = str.split(", ")[1].trim();
+        let parts = timePart.split(":");
+        let h = parseInt(parts[0]);
+        if (h === 24) h = 0;
+        let hh = String(h).padStart(2, '0');
+        let mm = String(parts[1]).padStart(2, '0');
+        let ss = String(parts[2]).padStart(2, '0');
         let inicioStr = `${hh}:${mm}:${ss}`;
         
         return {
