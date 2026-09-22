@@ -285,18 +285,10 @@ async function fetchGoogleAPI(action, payload) {
                 
                 matriz[usr].totalMes += diffSegundos;
                 
-                let offsetStr = zonas[usr] || "-4:00";
-                let sign = offsetStr.startsWith("-") ? -1 : 1;
-                let offsetParts = offsetStr.replace("+", "").replace("-", "").split(":");
-                let offsetMinutes = sign * ((parseInt(offsetParts[0]) * 60) + parseInt(offsetParts[1] || 0));
-                
-                let localMs = dIni.getTime() + (offsetMinutes * 60 * 1000);
-                let localDate = new Date(localMs);
-                
-                let diaDelMes = localDate.getUTCDate();
+                let diaDelMes = dIni.getUTCDate();
                 matriz[usr].dias[diaDelMes] = (matriz[usr].dias[diaDelMes] || 0) + diffSegundos;
                 
-                let diaSemana = localDate.getUTCDay();
+                let diaSemana = dIni.getUTCDay();
                 if(diaSemana === 0 || diaSemana === 6) {
                     matriz[usr].horasFinde += diffSegundos;
                 } else {
