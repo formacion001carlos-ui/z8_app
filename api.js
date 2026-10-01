@@ -227,9 +227,16 @@ async function fetchGoogleAPI(action, payload) {
     }
     
     if (action === "getMonthlySummary") {
-        const ahora = new Date();
-        const ano = ahora.getFullYear();
-        const mes = ahora.getMonth(); 
+        let ano, mes;
+        if (payload.month) {
+            const parts = payload.month.split('-');
+            ano = parseInt(parts[0], 10);
+            mes = parseInt(parts[1], 10) - 1; // 0-indexed
+        } else {
+            const ahora = new Date();
+            ano = ahora.getFullYear();
+            mes = ahora.getMonth();
+        }
         
         const primerDia = new Date(ano, mes, 1).toISOString();
         const ultimoDia = new Date(ano, mes + 1, 0, 23, 59, 59).toISOString();
