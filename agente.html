@@ -112,31 +112,131 @@
                 </div>
             </div>
 
-            <!-- INICIO SECCIÓN MANUAL -->
-            <div id="seccion-manual" class="bento-panel md:col-span-2 bg-slate-50 border border-slate-200 mt-4">
-                <h3 class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-3">Añadir Fichaje Omitido (Manual)</h3>
-                <div class="grid grid-cols-1 md:grid-cols-4 gap-3 items-end">
-                    <div class="flex flex-col">
-                        <label class="text-[10px] font-bold text-slate-500 uppercase mb-1">Fecha</label>
-                        <input type="date" id="manual-fecha" class="px-3 py-2 rounded-lg border border-slate-200 text-sm outline-none focus:border-blue-500 bg-white shadow-sm">
+            <!-- MÓDULO 1: REGISTRO TOTAL DE HORAS DEL MES -->
+            <div id="seccion-mensual" class="bento-panel md:col-span-2 mt-2">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5 pb-4 border-b border-slate-100">
+                    <div>
+                        <h3 class="text-xs font-bold text-slate-700 uppercase tracking-widest flex items-center gap-2">
+                            <svg class="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                            Mi Registro Mensual de Horas
+                        </h3>
+                        <p class="text-xs text-slate-400 mt-0.5">Resumen acumulado del mes y detalle día por día</p>
                     </div>
-                    <div class="flex flex-col">
-                        <label class="text-[10px] font-bold text-slate-500 uppercase mb-1">Hora Inicio</label>
-                        <input type="time" id="manual-inicio" class="px-3 py-2 rounded-lg border border-slate-200 text-sm outline-none focus:border-blue-500 bg-white shadow-sm">
+                    <div class="flex items-center gap-2">
+                        <input type="month" id="agente-mes-selector" onchange="cargarDatosMensualesAgente()" class="px-3 py-1.5 text-xs font-semibold border border-slate-200 rounded-lg bg-slate-50 text-slate-700 focus:outline-none focus:border-blue-500">
+                        <button onclick="cargarDatosMensualesAgente()" class="btn-generic btn-secondary !py-1.5 !px-3 !text-xs">↻ Actualizar</button>
                     </div>
-                    <div class="flex flex-col">
-                        <label class="text-[10px] font-bold text-slate-500 uppercase mb-1">Hora Fin</label>
-                        <input type="time" id="manual-fin" class="px-3 py-2 rounded-lg border border-slate-200 text-sm outline-none focus:border-blue-500 bg-white shadow-sm">
+                </div>
+
+                <!-- 3 Tarjetas de Resumen del Mes -->
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5">
+                    <div class="p-4 rounded-xl bg-blue-50/60 border border-blue-100">
+                        <div class="text-[10px] font-bold text-blue-600 uppercase tracking-wider mb-1">Total Trabajado Mes</div>
+                        <div id="mes-total-trabajado" class="text-2xl font-bold font-mono text-blue-800">00:00:00</div>
+                        <div id="mes-desglose-lab-finde" class="text-[11px] text-slate-500 mt-1">Lab: 00:00:00 · Finde: 00:00:00</div>
                     </div>
-                    <button onclick="enviarHorasManuales()" class="btn-generic whitespace-nowrap !py-2 shadow-sm">Guardar Manual</button>
+                    <div class="p-4 rounded-xl bg-slate-50 border border-slate-200/80">
+                        <div class="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Horas Previstas (Meta)</div>
+                        <div id="mes-total-previsto" class="text-2xl font-bold font-mono text-slate-700">00:00:00</div>
+                        <div id="mes-meta-diaria-txt" class="text-[11px] text-slate-400 mt-1">Objetivo: 8h / día laborable</div>
+                    </div>
+                    <div class="p-4 rounded-xl bg-slate-50 border border-slate-200/80">
+                        <div class="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Balance / Diferencia</div>
+                        <div id="mes-diferencia" class="text-2xl font-bold font-mono text-slate-700">00:00:00</div>
+                        <div id="mes-diferencia-sub" class="text-[11px] text-slate-400 mt-1">Respecto al total mensual</div>
+                    </div>
+                </div>
+
+                <!-- Desglose Diario del Mes -->
+                <div class="flex justify-between items-center mb-2">
+                    <span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Detalle por Días (Del 1 al final del mes)</span>
+                    <label class="flex items-center gap-1.5 text-xs text-slate-500 cursor-pointer select-none">
+                        <input type="checkbox" id="chk-mostrar-todo-mes" onchange="renderTablaDiasAgente()" class="rounded text-blue-600">
+                        Ver mes completo
+                    </label>
+                </div>
+                <div class="overflow-x-auto max-h-80 overflow-y-auto border border-slate-200 rounded-xl shadow-inner bg-slate-50/30">
+                    <table class="w-full text-left border-collapse">
+                        <thead class="bg-slate-100 sticky top-0 z-10 border-b-2 border-slate-200">
+                            <tr>
+                                <th class="py-2.5 px-3 text-[10px] font-bold text-slate-500 uppercase">Día</th>
+                                <th class="py-2.5 px-3 text-[10px] font-bold text-slate-500 uppercase">Horas Registradas</th>
+                                <th class="py-2.5 px-3 text-[10px] font-bold text-slate-500 uppercase">Estado / Ajustes</th>
+                                <th class="py-2.5 px-3 text-[10px] font-bold text-slate-500 uppercase text-right">Acción</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tabla-dias-agente" class="text-xs">
+                            <tr><td colspan="4" class="text-center py-6 text-slate-400">Cargando registro mensual...</td></tr>
+                        </tbody>
+                    </table>
                 </div>
             </div>
-            <!-- FIN SECCIÓN MANUAL -->
+
+            <!-- MÓDULO 2: SOLICITUD DE CORRECCIÓN DE HORAS (COLAPSABLE Y MINIMALISTA) -->
+            <div id="seccion-correccion" class="bento-panel md:col-span-2 !p-0 overflow-hidden border border-slate-200">
+                <!-- Cabecera Colapsable -->
+                <button type="button" onclick="toggleModuloCorreccion()" class="w-full px-6 py-4 flex items-center justify-between bg-white hover:bg-slate-50/80 transition text-left">
+                    <div class="flex items-center gap-2.5">
+                        <svg class="w-4 h-4 text-amber-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
+                        <span class="text-xs font-bold text-slate-700 uppercase tracking-wider">Solicitar Corrección de Horas</span>
+                        <span id="contador-mis-solicitudes" class="hidden px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800"></span>
+                    </div>
+                    <div class="flex items-center gap-1.5 text-xs font-semibold text-blue-600">
+                        <span id="txt-toggle-correccion">Abrir</span>
+                        <svg id="icono-toggle-correccion" class="w-4 h-4 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                    </div>
+                </button>
+
+                <!-- Cuerpo Colapsable (Oculto por defecto) -->
+                <div id="cuerpo-correccion" class="hidden px-6 pb-5 pt-3 border-t border-slate-100 bg-slate-50/50">
+                    <div class="grid grid-cols-1 md:grid-cols-12 gap-2.5 items-end">
+                        <div class="md:col-span-3">
+                            <label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">Día</label>
+                            <input type="date" id="corr-fecha" onchange="actualizarPreviewCorreccion()" class="w-full px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs outline-none focus:border-blue-500 bg-white">
+                        </div>
+
+                        <div class="md:col-span-4">
+                            <label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">Acción</label>
+                            <select id="corr-tipo" onchange="actualizarPreviewCorreccion()" class="w-full px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs outline-none focus:border-blue-500 bg-white font-medium text-slate-700">
+                                <option value="sumar">+ Sumar horas faltantes</option>
+                                <option value="restar">- Restar horas de más</option>
+                                <option value="fijar">= Fijar total del día en...</option>
+                            </select>
+                        </div>
+
+                        <div class="md:col-span-3">
+                            <label id="lbl-corr-tiempo" class="block text-[10px] font-bold text-slate-500 uppercase mb-1">Horas : Minutos</label>
+                            <div class="flex items-center gap-1">
+                                <input type="number" id="corr-horas" min="0" max="23" value="1" oninput="actualizarPreviewCorreccion()" class="w-full px-2 py-1.5 rounded-lg border border-slate-200 text-xs font-mono text-center outline-none focus:border-blue-500 bg-white" placeholder="HH">
+                                <span class="font-bold text-slate-400">:</span>
+                                <input type="number" id="corr-minutos" min="0" max="59" value="0" oninput="actualizarPreviewCorreccion()" class="w-full px-2 py-1.5 rounded-lg border border-slate-200 text-xs font-mono text-center outline-none focus:border-blue-500 bg-white" placeholder="MM">
+                            </div>
+                        </div>
+
+                        <div class="md:col-span-2">
+                            <button onclick="enviarSolicitudCorreccion()" class="btn-generic w-full !py-1.5 !text-xs shadow-sm">Enviar</button>
+                        </div>
+
+                        <div class="md:col-span-12 mt-1">
+                            <input type="text" id="corr-motivo" class="w-full px-3 py-1.5 rounded-lg border border-slate-200 text-xs outline-none focus:border-blue-500 bg-white" placeholder="Motivo breve (obligatorio): ej. olvidé fichar al volver del descanso...">
+                        </div>
+                    </div>
+
+                    <div id="corr-preview-box" class="mt-2.5 px-3 py-1.5 rounded-lg bg-blue-50/70 border border-blue-100 text-[11px] text-blue-800">
+                        <span id="corr-preview-txt"></span>
+                    </div>
+
+                    <!-- Historial compacto (solo visible si tiene solicitudes) -->
+                    <div id="contenedor-mis-solicitudes" class="hidden mt-4 pt-3 border-t border-slate-200/70">
+                        <div class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Mis Solicitudes</div>
+                        <div id="lista-mis-solicitudes" class="space-y-1.5"></div>
+                    </div>
+                </div>
+            </div>
 
         </div>
     </div>
 
-    <!-- AQUÍ DEBES PONER TU api.js -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="api.js"></script>
     
@@ -150,7 +250,11 @@
         let baseSegundosDiarios = 0; 
         let objetivoSegundos = 8 * 3600; 
         let latidoTimer = null;
+        let heartbeatWorker = null;
         let overtimeAvisado = false;
+
+        let datosMensualesAgente = null;
+        let solicitudesAgente = [];
 
         // Barrera de seguridad
         if (!usuarioActivo || rolActivo !== 'agente') window.location.href = 'index.html';
@@ -170,16 +274,51 @@
                 
                 return new Date(dateParts[2], parseInt(dateParts[0])-1, dateParts[1], h, parseInt(timeParts[1]), parseInt(timeParts[2]));
             } catch (e) {
-                // Si el navegador falla por completo, usamos la hora local como fallback seguro
                 return new Date(); 
             }
         }
 
+        function formatoHMS(totalSegundos) {
+            const segs = Math.max(0, Math.floor(Math.abs(totalSegundos || 0)));
+            let h = Math.floor(segs / 3600);
+            let m = Math.floor((segs % 3600) / 60);
+            let s = segs % 60;
+            return (h < 10 ? "0" + h : h) + ":" + (m < 10 ? "0" + m : m) + ":" + (s < 10 ? "0" + s : s);
+        }
+
         window.onload = async () => {
+            const ahora = getHoraActualMadridAsLocal();
+            const yyyy = ahora.getFullYear();
+            const mm = String(ahora.getMonth() + 1).padStart(2, '0');
+            const dd = String(ahora.getDate()).padStart(2, '0');
+            document.getElementById('agente-mes-selector').value = `${yyyy}-${mm}`;
+            document.getElementById('corr-fecha').value = `${yyyy}-${mm}-${dd}`;
+
             await refrescarDatosBackend();
+            await cargarDatosMensualesAgente();
             iniciarLatidos();
+            if (typeof iniciarDetectorVersion === 'function') iniciarDetectorVersion();
             document.getElementById('loading-overlay').classList.add('hidden');
         };
+
+        function toggleModuloCorreccion(forzarAbrir) {
+            const cuerpo = document.getElementById('cuerpo-correccion');
+            const icono = document.getElementById('icono-toggle-correccion');
+            const txt = document.getElementById('txt-toggle-correccion');
+            const estaOculto = cuerpo.classList.contains('hidden');
+            const abrir = (typeof forzarAbrir === 'boolean') ? forzarAbrir : estaOculto;
+
+            if (abrir) {
+                cuerpo.classList.remove('hidden');
+                icono.classList.add('rotate-180');
+                txt.textContent = 'Cerrar';
+                actualizarPreviewCorreccion();
+            } else {
+                cuerpo.classList.add('hidden');
+                icono.classList.remove('rotate-180');
+                txt.textContent = 'Abrir';
+            }
+        }
 
         function showToast(msg, isOvertime = false) {
             const container = document.getElementById('toast-container');
@@ -200,24 +339,297 @@
             try {
                 const data = await fetchGoogleAPI("getEstado", { usuario: usuarioActivo });
                 
+                if (data.autoCerradoPorHeartbeat) {
+                    showToast("ℹ️ Tu sesión anterior se cerró en tu último latido al haberse cerrado la ventana.", true);
+                }
+
                 baseSegundosDiarios = data.segundosAcumuladosHoy || 0; 
                 
                 let horasMeta = data.horasObjetivo ? parseFloat(data.horasObjetivo) : 8;
                 objetivoSegundos = horasMeta * 3600;
                 
-                let hObj = Math.floor(objetivoSegundos / 3600);
-                let mObj = Math.floor((objetivoSegundos % 3600) / 60);
-                let sObj = objetivoSegundos % 60;
-                document.getElementById('tiempo-objetivo-txt').textContent = 
-                    (hObj < 10 ? "0" + hObj : hObj) + ":" + 
-                    (mObj < 10 ? "0" + mObj : mObj) + ":" + 
-                    (sObj < 10 ? "0" + sObj : sObj);
+                document.getElementById('tiempo-objetivo-txt').textContent = formatoHMS(objetivoSegundos);
 
                 let vInicio = (data.inicio && data.inicio !== "undefined" && data.inicio !== "-") ? data.inicio : ((data.horaInicio && data.horaInicio !== "undefined" && data.horaInicio !== "-") ? data.horaInicio : getHoraActualMadridAsLocal().toLocaleTimeString('es-ES', {hour12:false}));
                 aplicarEstadoLocal(data.estado, vInicio, data.actividad);
             } catch (error) {
                 showToast("Fallo de conexión. Intentando reanudar...", false);
             }
+        }
+
+        async function cargarDatosMensualesAgente() {
+            try {
+                const mesSel = document.getElementById('agente-mes-selector').value;
+                const resp = await fetchGoogleAPI("getAgentMonthlyData", {
+                    usuario: usuarioActivo,
+                    month: mesSel
+                });
+                datosMensualesAgente = resp;
+                solicitudesAgente = resp.solicitudes || [];
+
+                const res = resp.resumen;
+                document.getElementById('mes-total-trabajado').textContent = formatoHMS(res.totalMes || 0);
+                document.getElementById('mes-desglose-lab-finde').textContent = `Lab: ${formatoHMS(res.horasLaborables || 0)} · Finde: ${formatoHMS(res.horasFinde || 0)}`;
+                document.getElementById('mes-total-previsto').textContent = formatoHMS(res.previstas || 0);
+                document.getElementById('mes-meta-diaria-txt').textContent = `Objetivo: ${res.horasObjetivoDiarias || 8}h / día laborable`;
+
+                const diffSegs = (res.totalMes || 0) - (res.previstas || 0);
+                const diffEl = document.getElementById('mes-diferencia');
+                const diffSub = document.getElementById('mes-diferencia-sub');
+                diffEl.textContent = (diffSegs < 0 ? "-" : "+") + formatoHMS(Math.abs(diffSegs));
+                if (diffSegs < 0) {
+                    diffEl.className = "text-2xl font-bold font-mono text-amber-600";
+                    diffSub.textContent = "Horas restantes para la meta mensual";
+                } else {
+                    diffEl.className = "text-2xl font-bold font-mono text-green-600";
+                    diffSub.textContent = "Saldo positivo / horas extra este mes";
+                }
+
+                renderTablaDiasAgente();
+                renderMisSolicitudes();
+                actualizarPreviewCorreccion();
+            } catch (e) {
+                console.error("Error cargando resumen mensual:", e);
+            }
+        }
+
+        function renderTablaDiasAgente() {
+            const tbody = document.getElementById('tabla-dias-agente');
+            if (!datosMensualesAgente) return;
+
+            const partes = datosMensualesAgente.mes.split("/");
+            const mesNum = parseInt(partes[0], 10);
+            const anoNum = parseInt(partes[1], 10);
+            const diasEnMes = new Date(anoNum, mesNum, 0).getDate();
+            const mostrarTodo = document.getElementById('chk-mostrar-todo-mes').checked;
+
+            const ahora = getHoraActualMadridAsLocal();
+            const esMesActual = (ahora.getFullYear() === anoNum && (ahora.getMonth() + 1) === mesNum);
+            const diaHoy = ahora.getDate();
+
+            const diasNombres = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
+            const mesesCortos = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
+
+            let filasHtml = "";
+            const diasMap = datosMensualesAgente.resumen.dias || {};
+
+            // Orden de arriba hacia abajo: desde el día 1 hasta el final del mes
+            for (let d = 1; d <= diasEnMes; d++) {
+                const fechaStr = `${anoNum}-${String(mesNum).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+                const segsDia = diasMap[d] || 0;
+                const solsDia = solicitudesAgente.filter(s => s.fecha === fechaStr);
+
+                if (!mostrarTodo) {
+                    if (esMesActual && d > diaHoy && segsDia === 0 && solsDia.length === 0) continue;
+                }
+
+                const dateObj = new Date(anoNum, mesNum - 1, d);
+                const dow = dateObj.getDay();
+                const isFinde = (dow === 0 || dow === 6);
+                const isHoy = (esMesActual && d === diaHoy);
+
+                let badgesHtml = "";
+                solsDia.forEach(s => {
+                    const signo = s.ajusteSegs >= 0 ? "+" : "-";
+                    const deltaTxt = `${signo}${formatoHMS(Math.abs(s.ajusteSegs))}`;
+                    if (s.estado === 'SOLICITUD_PENDIENTE') {
+                        badgesHtml += `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 mr-1">⏳ Pendiente (${deltaTxt})</span>`;
+                    } else if (s.estado === 'SOLICITUD_APROBADA') {
+                        badgesHtml += `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-green-100 text-green-800 mr-1">✅ Aprobada (${deltaTxt})</span>`;
+                    } else if (s.estado === 'SOLICITUD_RECHAZADA') {
+                        badgesHtml += `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-100 text-red-700 mr-1">❌ Rechazada</span>`;
+                    }
+                });
+                if (!badgesHtml) badgesHtml = `<span class="text-slate-300">—</span>`;
+
+                const rowBg = isHoy ? "bg-blue-50/60" : (isFinde ? "bg-amber-50/25" : "bg-white");
+                // Separador claro entre cada día, y separador ligeramente más marcado al cerrar la semana (domingo)
+                const borderRow = (dow === 0) ? "border-b-2 border-slate-300" : "border-b border-slate-200/80";
+                const tagHoy = isHoy ? `<span class="ml-1.5 px-1.5 py-0.5 text-[9px] font-bold bg-blue-600 text-white rounded">HOY</span>` : "";
+
+                filasHtml += `<tr id="fila-dia-${d}" class="${rowBg} ${borderRow} hover:bg-slate-100/70 transition">
+                    <td class="py-2.5 px-3 font-semibold ${isFinde ? 'text-amber-700' : 'text-slate-700'}">
+                        ${diasNombres[dow]} ${String(d).padStart(2, '0')} ${mesesCortos[mesNum - 1]} ${tagHoy}
+                    </td>
+                    <td class="py-2.5 px-3 font-mono font-bold ${segsDia > 0 ? 'text-slate-800' : 'text-slate-300'}">
+                        ${formatoHMS(segsDia)}
+                    </td>
+                    <td class="py-2.5 px-3">${badgesHtml}</td>
+                    <td class="py-2.5 px-3 text-right">
+                        <button onclick="seleccionarDiaParaCorregir('${fechaStr}')" class="text-[11px] font-bold text-blue-600 hover:text-blue-800 hover:underline">
+                            Solicitar corrección
+                        </button>
+                    </td>
+                </tr>`;
+            }
+
+            if (!filasHtml) {
+                filasHtml = `<tr><td colspan="4" class="text-center py-6 text-slate-400">Sin registros aún en este periodo.</td></tr>`;
+            }
+            tbody.innerHTML = filasHtml;
+        }
+
+        function seleccionarDiaParaCorregir(fechaStr) {
+            toggleModuloCorreccion(true);
+            const inputFecha = document.getElementById('corr-fecha');
+            inputFecha.value = fechaStr;
+            actualizarPreviewCorreccion();
+            document.getElementById('seccion-correccion').scrollIntoView({ behavior: 'smooth', block: 'center' });
+            document.getElementById('corr-motivo').focus();
+        }
+
+        function obtenerSegundosRegistradosEnFecha(fechaStr) {
+            if (!fechaStr || !datosMensualesAgente) return 0;
+            const partesFecha = fechaStr.split("-");
+            const partesMes = datosMensualesAgente.mes.split("/");
+            if (parseInt(partesFecha[0], 10) === parseInt(partesMes[1], 10) &&
+                parseInt(partesFecha[1], 10) === parseInt(partesMes[0], 10)) {
+                const dia = parseInt(partesFecha[2], 10);
+                return (datosMensualesAgente.resumen.dias && datosMensualesAgente.resumen.dias[dia]) || 0;
+            }
+            return 0;
+        }
+
+        function actualizarPreviewCorreccion() {
+            const fecha = document.getElementById('corr-fecha').value;
+            const tipo = document.getElementById('corr-tipo').value;
+            const h = Math.max(0, parseInt(document.getElementById('corr-horas').value || 0, 10));
+            const m = Math.max(0, Math.min(59, parseInt(document.getElementById('corr-minutos').value || 0, 10)));
+            const segsInput = (h * 3600) + (m * 60);
+
+            const lbl = document.getElementById('lbl-corr-tiempo');
+            if (tipo === 'sumar') lbl.textContent = "Sumar (HH : MM)";
+            if (tipo === 'restar') lbl.textContent = "Restar (HH : MM)";
+            if (tipo === 'fijar') lbl.textContent = "Total Día (HH : MM)";
+
+            const previewTxt = document.getElementById('corr-preview-txt');
+            if (!fecha) {
+                previewTxt.textContent = "Selecciona una fecha.";
+                return;
+            }
+
+            const actuales = obtenerSegundosRegistradosEnFecha(fecha);
+            let nuevoTotal = actuales;
+            let delta = 0;
+
+            if (tipo === 'sumar') {
+                delta = segsInput;
+                nuevoTotal = actuales + segsInput;
+            } else if (tipo === 'restar') {
+                delta = -segsInput;
+                nuevoTotal = Math.max(0, actuales - segsInput);
+            } else if (tipo === 'fijar') {
+                delta = segsInput - actuales;
+                nuevoTotal = segsInput;
+            }
+
+            const signo = delta >= 0 ? "+" : "-";
+            previewTxt.innerHTML = `Día <b>${fecha.split('-').reverse().join('/')}</b>: <span class="font-mono">${formatoHMS(actuales)}</span> → <b class="font-mono">${formatoHMS(nuevoTotal)}</b> (<span class="font-mono font-bold">${signo}${formatoHMS(Math.abs(delta))}</span>)`;
+        }
+
+        async function enviarSolicitudCorreccion() {
+            const fecha = document.getElementById('corr-fecha').value;
+            const tipo = document.getElementById('corr-tipo').value;
+            const h = Math.max(0, parseInt(document.getElementById('corr-horas').value || 0, 10));
+            const m = Math.max(0, Math.min(59, parseInt(document.getElementById('corr-minutos').value || 0, 10)));
+            const segundos = (h * 3600) + (m * 60);
+            const motivo = document.getElementById('corr-motivo').value.trim();
+
+            if (!fecha) {
+                showToast("Selecciona el día que deseas corregir.");
+                return;
+            }
+            if ((tipo === 'sumar' || tipo === 'restar') && segundos <= 0) {
+                showToast("Indica una cantidad de horas o minutos mayor a cero.");
+                return;
+            }
+            if (!motivo) {
+                showToast("Escribe el motivo de la corrección para el supervisor.");
+                document.getElementById('corr-motivo').focus();
+                return;
+            }
+
+            document.getElementById('loading-overlay').classList.remove('hidden');
+            try {
+                await fetchGoogleAPI("crearSolicitudCorreccion", {
+                    usuario: usuarioActivo,
+                    fecha: fecha,
+                    tipo: tipo,
+                    segundos: segundos,
+                    motivo: motivo
+                });
+                showToast("Solicitud enviada al supervisor.");
+                document.getElementById('corr-motivo').value = "";
+                await cargarDatosMensualesAgente();
+            } catch (e) {
+                showToast("Error al enviar la solicitud de corrección.");
+                console.error(e);
+            } finally {
+                document.getElementById('loading-overlay').classList.add('hidden');
+            }
+        }
+
+        async function cancelarMiSolicitud(id) {
+            if (!confirm("¿Deseas cancelar y eliminar esta solicitud pendiente?")) return;
+            try {
+                await fetchGoogleAPI("cancelarSolicitudCorreccion", { id: id, usuario: usuarioActivo });
+                showToast("Solicitud cancelada.");
+                await cargarDatosMensualesAgente();
+            } catch (e) {
+                showToast("No se pudo cancelar la solicitud.");
+            }
+        }
+
+        function renderMisSolicitudes() {
+            const wrapper = document.getElementById('contenedor-mis-solicitudes');
+            const cont = document.getElementById('lista-mis-solicitudes');
+            const badgeCount = document.getElementById('contador-mis-solicitudes');
+
+            if (!solicitudesAgente || solicitudesAgente.length === 0) {
+                badgeCount.classList.add('hidden');
+                wrapper.classList.add('hidden');
+                cont.innerHTML = "";
+                return;
+            }
+
+            const pendientes = solicitudesAgente.filter(s => s.estado === 'SOLICITUD_PENDIENTE').length;
+            badgeCount.textContent = pendientes > 0 ? `${pendientes} pendiente${pendientes === 1 ? '' : 's'}` : `${solicitudesAgente.length} solic.`;
+            badgeCount.classList.remove('hidden');
+            wrapper.classList.remove('hidden');
+
+            let html = "";
+            solicitudesAgente.slice(0, 10).forEach(s => {
+                const fechaBonita = s.fecha ? s.fecha.split('-').reverse().join('/') : '-';
+                const signo = s.ajusteSegs >= 0 ? "+" : "-";
+                const deltaStr = `${signo}${formatoHMS(Math.abs(s.ajusteSegs))}`;
+
+                let estadoBadge = "";
+                let btnCancelar = "";
+                if (s.estado === 'SOLICITUD_PENDIENTE') {
+                    estadoBadge = `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800">⏳ Pendiente</span>`;
+                    btnCancelar = `<button onclick="cancelarMiSolicitud('${s.id}')" class="text-[10px] font-bold text-red-500 hover:underline ml-2">Cancelar</button>`;
+                } else if (s.estado === 'SOLICITUD_APROBADA') {
+                    estadoBadge = `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-green-100 text-green-800">✅ Aprobada</span>`;
+                } else if (s.estado === 'SOLICITUD_RECHAZADA') {
+                    estadoBadge = `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-100 text-red-700">❌ Rechazada</span>`;
+                }
+
+                const notaAdmin = s.comentarioAdmin ? ` · <span class="text-slate-500">💬 ${s.comentarioAdmin}</span>` : "";
+
+                html += `<div class="bg-white px-3 py-2 rounded-lg border border-slate-200 flex items-center justify-between gap-2 text-xs">
+                    <div class="truncate">
+                        <span class="font-bold text-slate-700">${fechaBonita}</span>
+                        <span class="font-mono font-bold ml-1.5 ${s.ajusteSegs >= 0 ? 'text-green-600' : 'text-amber-600'}">${deltaStr}</span>
+                        <span class="text-slate-400 ml-1.5 italic">${s.motivo || ''}</span>
+                        ${notaAdmin}
+                    </div>
+                    <div class="flex items-center shrink-0">
+                        ${estadoBadge}
+                        ${btnCancelar}
+                    </div>
+                </div>`;
+            });
+            cont.innerHTML = html;
         }
 
         async function cambiarEstadoUI(nuevoEstado) {
@@ -229,7 +641,6 @@
                 await fetchGoogleAPI("setEstado", { usuario: usuarioActivo, estado: nuevoEstado, actividad: act });
                 showToast(`Estado cambiado a: ${nuevoEstado}`);
                 
-                // Optimistic update para mejorar la velocidad percibida
                 let horaOpt = "-";
                 if (nuevoEstado === 'Conectado') {
                     const now = getHoraActualMadridAsLocal();
@@ -239,8 +650,8 @@
                 }
                 aplicarEstadoLocal(nuevoEstado, horaOpt, act);
                 
-                // Sincronizar en segundo plano sin bloquear la UI
                 refrescarDatosBackend();
+                cargarDatosMensualesAgente();
             } catch (error) {
                 showToast("Error al cambiar estado.", false);
             } finally {
@@ -257,70 +668,62 @@
             } catch (error) { showToast("Error al fijar tarea."); }
         }
 
-        async function enviarHorasManuales() {
-            const f = document.getElementById('manual-fecha').value;
-            const i = document.getElementById('manual-inicio').value;
-            const fn = document.getElementById('manual-fin').value;
-            
-            if(!f || !i || !fn) { 
-                showToast("Completa fecha y ambas horas.", false); 
-                return; 
-            }
-            
-            // Adaptar formato YYYY-MM-DD del calendario a DD/MM/YYYY para Google Sheets
-            const fParts = f.split('-');
-            const fFormated = `${fParts[2]}/${fParts[1]}/${fParts[0]}`;
-            
-            document.getElementById('loading-overlay').classList.remove('hidden');
-            try {
-                await fetchGoogleAPI("registroManual", { 
-                    usuario: usuarioActivo, 
-                    fecha: fFormated, 
-                    inicio: i + ":00", 
-                    fin: fn + ":00" 
-                });
-                
-                showToast("Fichaje manual guardado con éxito.");
-                document.getElementById('manual-fecha').value = "";
-                document.getElementById('manual-inicio').value = "";
-                document.getElementById('manual-fin').value = "";
-                
-                // Refresco en segundo plano para no bloquear al usuario
-                refrescarDatosBackend(); 
-            } catch (error) {
-                showToast("Error al guardar registro manual.", false);
-            } finally {
-                document.getElementById('loading-overlay').classList.add('hidden');
+        function enviarLatidoActivo() {
+            if (estadoApp !== "Desconectado") {
+                fetchGoogleAPI("heartbeat", { usuario: usuarioActivo }).catch(() => {});
             }
         }
 
         function iniciarLatidos() {
-            // Heartbeat normal
-            latidoTimer = setInterval(() => {
-                if(estadoApp !== "Desconectado") fetchGoogleAPI("heartbeat", { usuario: usuarioActivo }).catch(()=>{});
-            }, 180000); 
+            // Usamos un Web Worker en línea para que el navegador NUNCA congele el latido cuando la pestaña está minimizada,
+            // pero muera en el acto si se cierra la ventana/pestaña.
+            try {
+                const blob = new Blob([`setInterval(() => postMessage('tick'), 45000);`], { type: 'application/javascript' });
+                heartbeatWorker = new Worker(URL.createObjectURL(blob));
+                heartbeatWorker.onmessage = () => enviarLatidoActivo();
+            } catch (e) {
+                latidoTimer = setInterval(enviarLatidoActivo, 45000);
+            }
+
+            // Al cerrar la pestaña o cambiar visibilidad, sellamos la marca de tiempo exacta del último segundo activo
+            window.addEventListener('pagehide', () => {
+                if (estadoApp !== "Desconectado" && typeof enviarUltimoLatidoKeepalive === 'function') {
+                    enviarUltimoLatidoKeepalive(usuarioActivo);
+                }
+            });
+            document.addEventListener('visibilitychange', () => {
+                if (document.visibilityState === 'visible') {
+                    enviarLatidoActivo();
+                } else if (estadoApp !== "Desconectado" && typeof enviarUltimoLatidoKeepalive === 'function') {
+                    enviarUltimoLatidoKeepalive(usuarioActivo);
+                }
+            });
             
-            // Suscripción de tiempo real a Supabase
             if (typeof supabaseClient !== 'undefined') {
                 supabaseClient
                     .channel('estado_agente_' + usuarioActivo)
                     .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'estado_vivo', filter: 'usuario=eq.' + usuarioActivo }, payload => {
                         const nuevoEstado = payload.new;
                         if (nuevoEstado.estado === 'Desconectado' && estadoApp !== 'Desconectado') {
-                            // Hemos sido desconectados remotamente
                             if (cronometroVirtual) clearInterval(cronometroVirtual);
-                            document.getElementById('display-cronometro').textContent = "00:00:00";
+                            document.getElementById('tiempo-real-txt').textContent = "00:00:00";
                             
                             estadoApp = 'Desconectado';
                             document.getElementById('texto-estado').textContent = "Desconectado (por Admin)";
                             document.getElementById('texto-hora-inicio').textContent = "Jornada detenida por el administrador.";
                             document.querySelectorAll('.state-btn').forEach(b => b.classList.remove('active-work','active-break','active-pause','active-off'));
-                            document.getElementById('btn-logout').classList.add('active-off');
+                            document.getElementById('btn-off').classList.add('active-off');
                             
-                            // Guardar en local storage para consistencia
                             localStorage.setItem('tt_estado', 'Desconectado');
-                            
                             alert("⚠️ El administrador ha cerrado tu sesión remotamente.");
+                        }
+                    })
+                    .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'maestro', filter: 'usuario=eq.' + usuarioActivo }, payload => {
+                        const row = payload.new;
+                        if (row && (row.estado === 'SOLICITUD_APROBADA' || row.estado === 'SOLICITUD_RECHAZADA')) {
+                            showToast(row.estado === 'SOLICITUD_APROBADA' ? "✅ Tu solicitud de corrección fue aprobada." : "❌ Tu solicitud de corrección fue rechazada.");
+                            refrescarDatosBackend();
+                            cargarDatosMensualesAgente();
                         }
                     })
                     .subscribe();
@@ -366,7 +769,6 @@
                             parseInt(timeParts[2])
                         );
                     } else if (parts.length === 1) {
-                        // Caso donde solo llega la hora "HH:mm:ss"
                         const timeParts = parts[0].split(":");
                         horaInicioGlobal = getHoraActualMadridAsLocal();
                         horaInicioGlobal.setHours(parseInt(timeParts[0]), parseInt(timeParts[1]), parseInt(timeParts[2] || 0), 0);
@@ -395,15 +797,10 @@
                 }
 
                 let totalSegundosDelDia = baseSegundosDiarios + segundosSesionActual;
-
-                let h = Math.floor(totalSegundosDelDia / 3600);
-                let m = Math.floor((totalSegundosDelDia % 3600) / 60);
-                let s = totalSegundosDelDia % 60;
-                const timeStr = (h<10?"0"+h:h) + ":" + (m<10?"0"+m:m) + ":" + (s<10?"0"+s:s);
+                const timeStr = formatoHMS(totalSegundosDelDia);
                 
                 document.getElementById('tiempo-real-txt').textContent = timeStr;
 
-                // Prevenir divisiones por cero o nulos
                 let objetivoSeguro = (objetivoSegundos && objetivoSegundos > 0) ? objetivoSegundos : (8*3600);
                 let porcentaje = Math.min((totalSegundosDelDia / objetivoSeguro) * 100, 100);
                 
@@ -433,7 +830,6 @@
                     }
                 }
             } catch (error) {
-                // Si algo falla al renderizar (por culpa del navegador), no rompemos todo.
                 console.error("Error en renderizado visual:", error);
             }
         }
