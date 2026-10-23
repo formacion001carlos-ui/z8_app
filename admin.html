@@ -43,13 +43,16 @@
             </div>
         </header>
 
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
             <div class="bento-panel md:col-span-2 flex flex-col justify-center bg-slate-900 text-white border-none shadow-xl">
                 <h2 class="text-xl font-bold mb-1">Centro de Control Operativo</h2>
                 <p class="text-slate-400 text-sm mb-5">Exportación de registros crudos y auditoría completa.</p>
-                <div>
+                <div class="flex flex-wrap gap-2.5">
                     <button onclick="descargarCSV()" id="btn-csv" class="bg-blue-600 hover:bg-blue-500 text-white px-5 py-2.5 rounded-lg font-bold text-sm transition flex items-center gap-2 shadow-lg shadow-blue-900/50">
                         Descargar Historial Maestro (CSV)
+                    </button>
+                    <button onclick="avisarNuevaVersion()" class="bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 px-4 py-2.5 rounded-lg font-semibold text-xs transition flex items-center gap-1.5" title="Envía un aviso en pantalla a todos los agentes conectados para que recarguen la última versión">
+                        🚀 Pedir Actualizar Versión a Todos
                     </button>
                 </div>
             </div>
@@ -57,16 +60,25 @@
                 <div class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Agentes Activos (Hoy)</div>
                 <div class="text-5xl font-black text-blue-600 tracking-tighter" id="contador-agentes">-</div>
             </div>
+            <div onclick="cambiarTab('solicitudes')" class="bento-panel flex flex-col justify-center text-center cursor-pointer hover:border-amber-300 transition group">
+                <div class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 group-hover:text-amber-600">Solicitudes Pendientes</div>
+                <div class="text-5xl font-black text-amber-500 tracking-tighter" id="contador-solicitudes-kpi">0</div>
+                <div class="text-[10px] font-semibold text-blue-600 mt-1 group-hover:underline">Revisar solicitudes →</div>
+            </div>
         </div>
 
         <div class="bento-panel overflow-hidden !p-0">
             <!-- Menú de Pestañas -->
-            <div class="flex border-b border-slate-200 bg-slate-50">
+            <div class="flex flex-wrap border-b border-slate-200 bg-slate-50">
                 <button onclick="cambiarTab('monitor')" id="tab-btn-monitor" class="tab-btn active flex items-center gap-2">
                     <span class="relative flex h-2.5 w-2.5"><span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span><span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-green-500"></span></span>
                     Monitor en Vivo
                 </button>
                 <button onclick="cambiarTab('matriz')" id="tab-btn-matriz" class="tab-btn">Resumen Mensual (WFM)</button>
+                <button onclick="cambiarTab('solicitudes')" id="tab-btn-solicitudes" class="tab-btn flex items-center gap-2">
+                    Solicitudes de Corrección
+                    <span id="badge-solicitudes-tab" class="hidden px-2 py-0.5 text-[10px] font-extrabold rounded-full bg-amber-500 text-white">0</span>
+                </button>
             </div>
 
             <!-- VISTA 1: MONITOR EN VIVO -->
@@ -108,6 +120,37 @@
                     </table>
                 </div>
             </div>
+
+            <!-- VISTA 3: SOLICITUDES DE CORRECCIÓN -->
+            <div id="vista-solicitudes" class="hidden">
+                <div class="p-4 bg-amber-50/40 flex flex-wrap justify-between items-center gap-3 border-b border-amber-100">
+                    <div class="flex items-center gap-2">
+                        <h3 class="text-xs font-bold text-slate-800 uppercase tracking-widest mr-2">Bandeja de Correcciones de Horas</h3>
+                        <button onclick="filtrarSolicitudesAdmin('PENDIENTES')" id="flt-sol-pendientes" class="px-3 py-1 rounded-lg text-xs font-bold bg-amber-500 text-white transition">Pendientes</button>
+                        <button onclick="filtrarSolicitudesAdmin('RESUELTAS')" id="flt-sol-resueltas" class="px-3 py-1 rounded-lg text-xs font-bold bg-white text-slate-600 border border-slate-200 hover:bg-slate-100 transition">Historial Resueltas</button>
+                        <button onclick="filtrarSolicitudesAdmin('TODAS')" id="flt-sol-todas" class="px-3 py-1 rounded-lg text-xs font-bold bg-white text-slate-600 border border-slate-200 hover:bg-slate-100 transition">Todas</button>
+                    </div>
+                    <button onclick="cargarSolicitudesAdmin()" class="text-xs text-blue-600 font-bold hover:underline">⟳ Refrescar Solicitudes</button>
+                </div>
+                <div class="overflow-x-auto">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Agente</th>
+                                <th>Día Afectado</th>
+                                <th>Ajuste Solicitado</th>
+                                <th>Impacto en el Día</th>
+                                <th>Motivo del Agente</th>
+                                <th>Nota Supervisión</th>
+                                <th>Estado / Acción</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tabla-solicitudes-admin">
+                            <tr><td colspan="7" class="text-center py-8 text-slate-400">Cargando solicitudes...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -117,6 +160,9 @@
         let rolActivo = localStorage.getItem('tt_rol');
         if (rolActivo !== 'admin') window.location.href = 'index.html';
 
+        let solicitudesAdminData = [];
+        let filtroSolicitudesActual = 'PENDIENTES';
+
         window.onload = () => {
             const today = new Date();
             const yyyy = today.getFullYear();
@@ -125,8 +171,18 @@
             
             cargarMonitor();
             cargarMatrizMensual();
-            setInterval(cargarMonitor, 60000); // Refresco automático monitor
+            cargarSolicitudesAdmin();
+            if (typeof iniciarDetectorVersion === 'function') iniciarDetectorVersion();
+            setInterval(cargarMonitor, 60000);
+            setInterval(cargarSolicitudesAdmin, 30000);
         };
+
+        async function avisarNuevaVersion() {
+            if (typeof emitirAvisoNuevaVersionATodos === 'function') {
+                await emitirAvisoNuevaVersionATodos();
+                alert("Se ha enviado la notificación de actualización a todos los paneles conectados.");
+            }
+        }
 
         function cerrarSesion() { localStorage.clear(); window.location.href = 'index.html'; }
 
@@ -134,8 +190,10 @@
         function cambiarTab(tab) {
             document.getElementById('vista-monitor').classList.toggle('hidden', tab !== 'monitor');
             document.getElementById('vista-matriz').classList.toggle('hidden', tab !== 'matriz');
+            document.getElementById('vista-solicitudes').classList.toggle('hidden', tab !== 'solicitudes');
             document.getElementById('tab-btn-monitor').classList.toggle('active', tab === 'monitor');
             document.getElementById('tab-btn-matriz').classList.toggle('active', tab === 'matriz');
+            document.getElementById('tab-btn-solicitudes').classList.toggle('active', tab === 'solicitudes');
         }
 
         let agentesData = [];
@@ -150,7 +208,6 @@
                 const agentes = await fetchGoogleAPI("getAdminData", {});
                 document.getElementById('txt-actualizacion').textContent = "Últ. act: " + new Date().toLocaleTimeString();
                 
-                // Filtrar solo los que están en sistema hoy o activos
                 agentesData = agentes.filter(a => a.estado !== "Desconectado" || a.horasHoy !== "00:00:00");
                 document.getElementById('contador-agentes').textContent = agentesData.length;
 
@@ -161,7 +218,6 @@
 
                 renderTablaMonitor();
                 
-                // Iniciar el cronómetro en vivo si no está corriendo
                 if (!adminTimer) adminTimer = setInterval(tickMonitor, 1000);
 
             } catch (error) {
@@ -200,7 +256,6 @@
             tbody.innerHTML = html;
         }
 
-        // Método robusto para obtener hora local alineada a Madrid
         function getHoraActualMadridAsLocalAdmin() {
             try {
                 const now = new Date();
@@ -222,7 +277,6 @@
                 let cell = document.getElementById(`live-time-${index}`);
                 if (!cell) return;
                 
-                // Parsear base segundos
                 let baseParts = a.horasHoy.split(":");
                 let baseSecs = 0;
                 if(baseParts.length === 3) {
@@ -230,7 +284,6 @@
                 }
                 
                 let extraSecs = 0;
-                // Sumar el tiempo de la sesión actual si está conectado
                 if (a.estado === 'Conectado' && a.inicio !== '-') {
                     let p = a.inicio.split(" ");
                     if (p.length === 2) {
@@ -256,13 +309,145 @@
             });
         }
 
-        // Lógica: Botón de Desconexión Remota
         async function forzarDesconexion(usuario) {
             if(!confirm(`¿Estás seguro de desconectar a ${usuario}? Esto cerrará su tiempo de trabajo.`)) return;
             try {
                 await fetchGoogleAPI("forceDisconnect", { usuario: usuario });
-                cargarMonitor(); // Refrescar vista
+                cargarMonitor();
             } catch(e) { alert("Error al desconectar."); }
+        }
+
+        // --- LÓGICA DE SOLICITUDES DE CORRECCIÓN (SUPERVISIÓN) ---
+        async function cargarSolicitudesAdmin() {
+            try {
+                const lista = await fetchGoogleAPI("getSolicitudesAdmin", {});
+                solicitudesAdminData = lista || [];
+
+                const pendientesCount = solicitudesAdminData.filter(s => s.estado === 'SOLICITUD_PENDIENTE').length;
+                document.getElementById('contador-solicitudes-kpi').textContent = pendientesCount;
+
+                const badgeTab = document.getElementById('badge-solicitudes-tab');
+                if (pendientesCount > 0) {
+                    badgeTab.textContent = pendientesCount;
+                    badgeTab.classList.remove('hidden');
+                } else {
+                    badgeTab.classList.add('hidden');
+                }
+
+                renderTablaSolicitudesAdmin();
+            } catch (e) {
+                console.error("Error al cargar solicitudes:", e);
+            }
+        }
+
+        function filtrarSolicitudesAdmin(filtro) {
+            filtroSolicitudesActual = filtro;
+            const mapBtns = {
+                'PENDIENTES': document.getElementById('flt-sol-pendientes'),
+                'RESUELTAS': document.getElementById('flt-sol-resueltas'),
+                'TODAS': document.getElementById('flt-sol-todas')
+            };
+            Object.keys(mapBtns).forEach(k => {
+                if (k === filtro) {
+                    mapBtns[k].className = "px-3 py-1 rounded-lg text-xs font-bold bg-amber-500 text-white transition";
+                } else {
+                    mapBtns[k].className = "px-3 py-1 rounded-lg text-xs font-bold bg-white text-slate-600 border border-slate-200 hover:bg-slate-100 transition";
+                }
+            });
+            renderTablaSolicitudesAdmin();
+        }
+
+        function renderTablaSolicitudesAdmin() {
+            const tbody = document.getElementById('tabla-solicitudes-admin');
+            let filtradas = solicitudesAdminData;
+            if (filtroSolicitudesActual === 'PENDIENTES') {
+                filtradas = solicitudesAdminData.filter(s => s.estado === 'SOLICITUD_PENDIENTE');
+            } else if (filtroSolicitudesActual === 'RESUELTAS') {
+                filtradas = solicitudesAdminData.filter(s => s.estado !== 'SOLICITUD_PENDIENTE');
+            }
+
+            if (filtradas.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="7" class="text-center py-8 text-slate-400 text-sm">No hay solicitudes en esta vista.</td></tr>`;
+                return;
+            }
+
+            let html = "";
+            filtradas.forEach(s => {
+                const fechaBonita = s.fecha ? s.fecha.split('-').reverse().join('/') : '-';
+                const signo = s.ajusteSegs >= 0 ? "+" : "-";
+                const deltaStr = `${signo}${formatoSegundos(Math.abs(s.ajusteSegs))}`;
+                const colorDelta = s.ajusteSegs >= 0 ? "text-green-600 bg-green-50 border-green-200" : "text-amber-700 bg-amber-50 border-amber-200";
+
+                let tipoDesc = "Sumar tiempo";
+                if (s.tipo === 'restar') tipoDesc = "Restar tiempo";
+                if (s.tipo === 'fijar') tipoDesc = `Fijar total en ${formatoSegundos(s.tiempoSolicitadoSegs)}`;
+
+                const antesStr = formatoSegundos(Math.max(0, s.horasActualesDiaSegs || 0));
+                const despuesStr = formatoSegundos(Math.max(0, (s.horasActualesDiaSegs || 0) + s.ajusteSegs));
+
+                let notaHtml = "";
+                let accionesHtml = "";
+
+                if (s.estado === 'SOLICITUD_PENDIENTE') {
+                    notaHtml = `<input type="text" id="nota-admin-${s.id}" class="px-2.5 py-1.5 text-xs border border-slate-200 rounded-lg w-44 focus:outline-none focus:border-blue-500" placeholder="Nota opcional...">`;
+                    accionesHtml = `
+                        <div class="flex items-center gap-2">
+                            <button onclick="resolverSolicitud('${s.id}', 'APROBAR')" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-green-600 hover:bg-green-700 text-white shadow-sm transition">✓ Aprobar</button>
+                            <button onclick="resolverSolicitud('${s.id}', 'RECHAZAR')" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-red-50 hover:bg-red-600 text-red-600 hover:text-white border border-red-200 transition">✕ Rechazar</button>
+                        </div>
+                    `;
+                } else {
+                    notaHtml = `<span class="text-xs text-slate-500">${s.comentarioAdmin || '—'}</span>`;
+                    const badge = s.estado === 'SOLICITUD_APROBADA'
+                        ? `<span class="px-2.5 py-1 rounded-full text-[10px] font-bold bg-green-100 text-green-800">✅ Aprobada</span>`
+                        : `<span class="px-2.5 py-1 rounded-full text-[10px] font-bold bg-red-100 text-red-700">❌ Rechazada</span>`;
+                    accionesHtml = `
+                        <div class="flex items-center gap-2">
+                            ${badge}
+                            <button onclick="resolverSolicitud('${s.id}', 'ELIMINAR')" class="text-[11px] font-bold text-slate-400 hover:text-red-600 ml-1" title="Eliminar registro de solicitud">🗑️</button>
+                        </div>
+                    `;
+                }
+
+                html += `<tr>
+                    <td class="font-bold text-slate-800">${s.usuario}</td>
+                    <td class="font-mono font-bold text-slate-700">${fechaBonita}</td>
+                    <td>
+                        <span class="px-2.5 py-1 rounded-md border font-mono text-xs font-bold ${colorDelta}">${deltaStr}</span>
+                        <div class="text-[10px] text-slate-400 mt-1">${tipoDesc}</div>
+                    </td>
+                    <td class="font-mono text-xs text-slate-600">
+                        ${antesStr} <span class="text-slate-400">→</span> <b class="text-blue-700">${despuesStr}</b>
+                    </td>
+                    <td class="text-xs text-slate-700 max-w-xs whitespace-normal">${s.motivo || '—'}</td>
+                    <td>${notaHtml}</td>
+                    <td>${accionesHtml}</td>
+                </tr>`;
+            });
+
+            tbody.innerHTML = html;
+        }
+
+        async function resolverSolicitud(id, decision) {
+            if (decision === 'ELIMINAR' && !confirm("¿Eliminar esta solicitud? Si estaba aprobada, se revertirá su ajuste de horas.")) return;
+
+            let comentario = "";
+            const inputNota = document.getElementById(`nota-admin-${id}`);
+            if (inputNota) comentario = inputNota.value.trim();
+
+            try {
+                await fetchGoogleAPI("resolverSolicitudAdmin", {
+                    id: id,
+                    decision: decision,
+                    comentarioAdmin: comentario
+                });
+                await cargarSolicitudesAdmin();
+                await cargarMatrizMensual();
+                await cargarMonitor();
+            } catch (e) {
+                alert("Error al procesar la solicitud.");
+                console.error(e);
+            }
         }
 
         let matrizGlobal = null;
@@ -329,8 +514,14 @@
                         let bgCell = isFinde ? "bg-amber-50/30 border-amber-100" : "border-slate-50";
                         
                         let segsDia = agentData.dias[d];
+                        let ajusteDia = agentData.ajustesAprobados && agentData.ajustesAprobados[d];
+                        let titleAttr = ajusteDia
+                            ? `title="Incluye corrección aprobada (${ajusteDia >= 0 ? '+' : '-'}${formatoSegundos(Math.abs(ajusteDia))})"`
+                            : "";
+                        let badgeAjuste = ajusteDia ? `<span class="text-blue-600 font-bold ml-0.5">*</span>` : "";
+
                         if(segsDia) {
-                            tbody += `<td class="text-center font-mono text-[10px] text-slate-600 px-2 border-r ${bgCell}">${formatoSegundos(segsDia)}</td>`;
+                            tbody += `<td ${titleAttr} class="text-center font-mono text-[10px] ${ajusteDia ? 'text-blue-700 font-bold bg-blue-50/40' : 'text-slate-600'} px-2 border-r ${bgCell}">${formatoSegundos(segsDia)}${badgeAjuste}</td>`;
                         } else {
                             tbody += `<td class="text-center text-[10px] text-slate-300 border-r ${bgCell}">-</td>`;
                         }
