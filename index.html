@@ -44,8 +44,21 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script>if (typeof window.supabase === 'undefined') { document.write('<script src="https://unpkg.com/@supabase/supabase-js@2"><\/script>'); }</script>
     <script src="api.js"></script>
     <script>
+        async function loginDirectoRestFallback(usr, pass) {
+            const url = `https://owjddgjnqhwvyoafhakm.supabase.co/rest/v1/usuarios?select=rol&nombre=eq.${encodeURIComponent(usr)}&clave=eq.${encodeURIComponent(pass.trim())}&limit=1`;
+            const key = "sb_publishable_1o-mFgTMNbTvQiXuQ8JIJg_9O7u8inj";
+            const resp = await fetch(url, {
+                headers: { 'apikey': key, 'Authorization': `Bearer ${key}` }
+            });
+            if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+            const rows = await resp.json();
+            if (!rows || rows.length === 0) return { valido: false };
+            return { valido: true, rol: rows[0].rol };
+        }
+
         async function iniciarSesion(e) {
             e.preventDefault();
             const usr = document.getElementById('usuario').value.trim().toUpperCase();
@@ -58,9 +71,18 @@
             errorMsg.classList.add('hidden');
 
             try {
-                const data = await fetchGoogleAPI("login", { usuario: usr, password: pass });
+                let data;
+                if (typeof fetchGoogleAPI === 'function') {
+                    try {
+                        data = await fetchGoogleAPI("login", { usuario: usr, password: pass });
+                    } catch (e1) {
+                        data = await loginDirectoRestFallback(usr, pass);
+                    }
+                } else {
+                    data = await loginDirectoRestFallback(usr, pass);
+                }
                 
-                if (data.valido) {
+                if (data && data.valido) {
                     localStorage.setItem('tt_usuario', usr);
                     localStorage.setItem('tt_rol', data.rol);
                     
@@ -76,7 +98,7 @@
                     btn.disabled = false;
                 }
             } catch (err) {
-                errorMsg.textContent = "Error de conexión con el servidor.";
+                errorMsg.textContent = "Error de conexión con el servidor (" + (err.message || "Red") + ").";
                 errorMsg.classList.remove('hidden');
                 btn.innerHTML = 'Acceder al Sistema';
                 btn.disabled = false;
