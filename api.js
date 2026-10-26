@@ -5,60 +5,10 @@ const SUPABASE_ANON_KEY = "sb_publishable_1o-mFgTMNbTvQiXuQ8JIJg_9O7u8inj";
 
 const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-const HEARTBEAT_TIMEOUT_MS = 3 * 60 * 1000; // 3 minutos sin latido = ventana cerrada
+// Cache local de perfiles para avatares rápidos
+window._cachePerfilesZ8 = {};
 
-async function verificarYCerrarSesionInactiva(vivo) {
-    if (!vivo || vivo.estado === "Desconectado" || !vivo.inicio) return { cerrado: false, vivo };
-
-    const refTimeStr = vivo.actualizado_en || vivo.inicio;
-    const ultimoLatidoMs = new Date(refTimeStr).getTime();
-    const inicioMs = new Date(vivo.inicio).getTime();
-    const ahoraMs = Date.now();
-
-    if (isNaN(ultimoLatidoMs) || (ahoraMs - ultimoLatidoMs) <= HEARTBEAT_TIMEOUT_MS) {
-        return { cerrado: false, vivo };
-    }
-
-    // Si pasaron más de 3 minutos sin latido, cerramos la sesión exactamente en el último latido registrado
-    const finEfectivoMs = Math.max(inicioMs, ultimoLatidoMs);
-    const finEfectivoISO = new Date(finEfectivoMs).toISOString();
-
-    await supabaseClient.from('maestro').insert({
-        usuario: vivo.usuario,
-        estado: vivo.estado,
-        actividad: vivo.actividad || "",
-        inicio: vivo.inicio,
-        fin: finEfectivoISO
-    });
-
-    await supabaseClient.from('estado_vivo').upsert({
-        usuario: vivo.usuario,
-        estado: "Desconectado",
-        actividad: "",
-        inicio: null,
-        actualizado_en: finEfectivoISO
-    });
-
-    vivo.estado = "Desconectado";
-    vivo.actividad = "";
-    vivo.inicio = null;
-    vivo.autoCerradoPorHeartbeat = true;
-    return { cerrado: true, vivo };
-}
-
-async function barrerSesionesInactivasGlobal() {
-    const { data: vivos } = await supabaseClient
-        .from('estado_vivo')
-        .select('*')
-        .neq('estado', 'Desconectado');
-    if (vivos && vivos.length > 0) {
-        for (let v of vivos) {
-            await verificarYCerrarSesionInactiva(v);
-        }
-    }
-}
-
-async function fetchGoogleAPI(action, payload) {
+async function fetchGoogleAPI(action, payload = {}) {
     if (action === "login") {
         const usr = (payload.usuario || "").trim().toUpperCase();
         const pwd = (payload.password || "").trim();
@@ -89,17 +39,13 @@ async function fetchGoogleAPI(action, payload) {
             .single();
             
         if (vivo && vivo.estado !== "Desconectado") {
-            // Si la sesión previa estaba inactiva por cierre de ventana, se corta en su último latido
-            const check = await verificarYCerrarSesionInactiva(vivo);
-            if (!check.cerrado) {
-                await supabaseClient.from('maestro').insert({
-                    usuario: usr,
-                    estado: vivo.estado,
-                    actividad: vivo.actividad,
-                    inicio: vivo.inicio,
-                    fin: new Date().toISOString()
-                });
-            }
+            await supabaseClient.from('maestro').insert({
+                usuario: usr,
+                estado: vivo.estado,
+                actividad: vivo.actividad,
+                inicio: vivo.inicio,
+                fin: new Date().toISOString()
+            });
         }
         
         if (payload.estado === "Desconectado") {
@@ -129,20 +75,7 @@ async function fetchGoogleAPI(action, payload) {
             .select('*')
             .eq('usuario', usr)
             .single();
-
-        let autoCerrado = false;
-        if (vivo && vivo.estado !== 'Desconectado') {
-            const check = await verificarYCerrarSesionInactiva(vivo);
-            autoCerrado = check.cerrado;
-            // Si sigue activo, renovamos su latido al consultar estado
-            if (!autoCerrado) {
-                await supabaseClient.from('estado_vivo')
-                    .update({ actualizado_en: new Date().toISOString() })
-                    .eq('usuario', usr);
-            }
-        }
             
-        // Get user target hours
         const { data: userData } = await supabaseClient
             .from('usuarios')
             .select('horas_objetivo')
@@ -150,7 +83,6 @@ async function fetchGoogleAPI(action, payload) {
             .single();
         let target = userData ? userData.horas_objetivo : 8;
             
-        // Calcular segundos acumulados hoy
         const ahora = new Date();
         const hoyStr = ahora.toISOString().split('T')[0];
         const inicioDia = new Date(hoyStr + "T00:00:00Z").toISOString();
@@ -170,8 +102,7 @@ async function fetchGoogleAPI(action, payload) {
                 actividad: '',
                 inicio: '-',
                 segundosAcumuladosHoy: segundosHoy,
-                horasObjetivo: target,
-                autoCerradoPorHeartbeat: autoCerrado
+                horasObjetivo: target
             };
         }
         
@@ -192,8 +123,7 @@ async function fetchGoogleAPI(action, payload) {
             inicio: inicioStr,
             horaInicio: inicioStr,
             segundosAcumuladosHoy: segundosHoy,
-            horasObjetivo: target,
-            autoCerradoPorHeartbeat: false
+            horasObjetivo: target
         };
     }
     
@@ -206,7 +136,6 @@ async function fetchGoogleAPI(action, payload) {
         let dIni = new Date(strIni).toISOString();
         let dFin = new Date(strFin).toISOString();
         
-        // Evitar duplicados: comprobar si ya hay un registro que se cruce
         const { data: exist } = await supabaseClient.from('maestro')
             .select('*')
             .eq('usuario', usr)
@@ -214,13 +143,13 @@ async function fetchGoogleAPI(action, payload) {
             .lte('inicio', dIni.substring(0, 10) + 'T23:59:59Z');
             
         let overlap = false;
-        if(exist) {
-            for(let r of exist) {
-                if(r.inicio === dIni && r.fin === dFin) overlap = true;
+        if (exist) {
+            for (let r of exist) {
+                if (r.inicio === dIni && r.fin === dFin) overlap = true;
             }
         }
         
-        if(!overlap) {
+        if (!overlap) {
             await supabaseClient.from('maestro').insert({
                 usuario: usr,
                 estado: "Carga Manual",
@@ -233,18 +162,16 @@ async function fetchGoogleAPI(action, payload) {
     }
     
     if (action === "getAdminData") {
-        await barrerSesionesInactivasGlobal();
-
         const ahora = new Date();
         const hoyStr = ahora.toISOString().split('T')[0];
         const inicioDia = new Date(hoyStr + "T00:00:00Z").toISOString();
         const finDia = new Date(hoyStr + "T23:59:59Z").toISOString();
         
-        const { data: vivos } = await supabaseClient.from('estado_vivo').select('*');
-        const { data: fichajesHoy } = await supabaseClient.from('maestro')
-            .select('*')
-            .gte('inicio', inicioDia)
-            .lte('inicio', finDia);
+        const [{ data: vivos }, { data: fichajesHoy }, mapaPerfiles] = await Promise.all([
+            supabaseClient.from('estado_vivo').select('*'),
+            supabaseClient.from('maestro').select('*').gte('inicio', inicioDia).lte('inicio', finDia),
+            fetchGoogleAPI("getPerfilesUsuarios", {})
+        ]);
             
         let arr = [];
         if (vivos) {
@@ -276,13 +203,15 @@ async function fetchGoogleAPI(action, payload) {
                     inicioStr = `${dia}/${mes}/${ano} ${hh}:${mm}:${ss}`;
                 }
                 
+                const p = (mapaPerfiles && mapaPerfiles[v.usuario]) ? mapaPerfiles[v.usuario] : {};
                 arr.push({
                     usuario: v.usuario,
                     estado: v.estado,
                     actividad: v.actividad || "-",
                     inicio: inicioStr,
                     horaInicio: inicioStr,
-                    horasHoy: horasHoyStr
+                    horasHoy: horasHoyStr,
+                    perfil: p
                 });
             }
         }
@@ -290,12 +219,11 @@ async function fetchGoogleAPI(action, payload) {
     }
     
     if (action === "getMonthlySummary") {
-        await barrerSesionesInactivasGlobal();
         let ano, mes;
         if (payload.month) {
             const parts = payload.month.split('-');
             ano = parseInt(parts[0], 10);
-            mes = parseInt(parts[1], 10) - 1; // 0-indexed
+            mes = parseInt(parts[1], 10) - 1;
         } else {
             const ahora = new Date();
             ano = ahora.getFullYear();
@@ -316,8 +244,8 @@ async function fetchGoogleAPI(action, payload) {
             .select('*');
             
         let metas = {};
-        if(usuarios) {
-            for(let u of usuarios) {
+        if (usuarios) {
+            for (let u of usuarios) {
                 metas[u.nombre] = u.horas_objetivo || 8;
             }
         }
@@ -343,11 +271,11 @@ async function fetchGoogleAPI(action, payload) {
             };
         }
         
-        if(fichajes) {
+        if (fichajes) {
             for (let f of fichajes) {
                 let usr = f.usuario;
-                if(!matriz[usr]) continue;
-                if (esSolicitudNoAprobada(f.estado)) continue;
+                if (!matriz[usr]) continue;
+                if (esFilaSistemaNoComputable(f.estado)) continue;
                 
                 let segs = obtenerSegundosDeFilaMaestro(f);
                 if (segs === 0) continue;
@@ -362,7 +290,6 @@ async function fetchGoogleAPI(action, payload) {
             }
         }
         
-        // Consolidar totales por usuario asegurando que ningún día quede en negativo
         for (let u in matriz) {
             let totalM = 0;
             let labM = 0;
@@ -408,7 +335,6 @@ async function fetchGoogleAPI(action, payload) {
             horasFinde: 0
         };
 
-        // Obtener todas las solicitudes de este agente
         const { data: rowsSol } = await supabaseClient
             .from('maestro')
             .select('*')
@@ -427,8 +353,8 @@ async function fetchGoogleAPI(action, payload) {
 
     if (action === "crearSolicitudCorreccion") {
         const usr = (payload.usuario || "").trim().toUpperCase();
-        const fecha = payload.fecha; // YYYY-MM-DD
-        const tipo = payload.tipo;   // 'sumar' | 'restar' | 'fijar'
+        const fecha = payload.fecha;
+        const tipo = payload.tipo;
         const tiempoSolicitadoSegs = Math.max(0, parseInt(payload.segundos || 0, 10));
         const motivo = (payload.motivo || "").trim();
 
@@ -436,7 +362,6 @@ async function fetchGoogleAPI(action, payload) {
             throw new Error("Datos incompletos para la solicitud.");
         }
 
-        // Consultar las horas actuales del agente en esa fecha
         const inicioDia = `${fecha}T00:00:00.000Z`;
         const finDia = `${fecha}T23:59:59.999Z`;
         const { data: fichajesDia } = await supabaseClient
@@ -507,7 +432,6 @@ async function fetchGoogleAPI(action, payload) {
 
         if (error) throw error;
         const solicitudes = (rowsSol || []).map(formatearFilaSolicitud);
-        // Ordenar: primero pendientes, luego por fecha de creación descendente
         solicitudes.sort((a, b) => {
             if (a.estado === 'SOLICITUD_PENDIENTE' && b.estado !== 'SOLICITUD_PENDIENTE') return -1;
             if (a.estado !== 'SOLICITUD_PENDIENTE' && b.estado === 'SOLICITUD_PENDIENTE') return 1;
@@ -518,7 +442,7 @@ async function fetchGoogleAPI(action, payload) {
 
     if (action === "resolverSolicitudAdmin") {
         const id = payload.id;
-        const decision = payload.decision; // 'APROBAR' | 'RECHAZAR' | 'ELIMINAR'
+        const decision = payload.decision;
         const comentarioAdmin = (payload.comentarioAdmin || "").trim();
 
         if (decision === 'ELIMINAR') {
@@ -538,7 +462,6 @@ async function fetchGoogleAPI(action, payload) {
         const sol = formatearFilaSolicitud(row);
         const fecha = sol.fecha;
 
-        // Recalcular las horas actuales del día (excluyendo esta misma solicitud)
         const inicioDia = `${fecha}T00:00:00.000Z`;
         const finDia = `${fecha}T23:59:59.999Z`;
         const { data: fichajesDia } = await supabaseClient
@@ -592,179 +515,256 @@ async function fetchGoogleAPI(action, payload) {
             .eq('usuario', (payload.usuario || "").trim().toUpperCase());
         return { success: true };
     }
-}
 
-function esSolicitudNoAprobada(estado) {
-    return estado === 'SOLICITUD_PENDIENTE' || estado === 'SOLICITUD_RECHAZADA';
-}
+    // =========================================================================
+    // NUEVOS MÓDULOS: PERFILES, NOTIFICACIONES/ALARMAS, CHAT Y NOTAS DE REUNIÓN
+    // =========================================================================
 
-function obtenerSegundosDeFilaMaestro(f) {
-    if (!f) return 0;
-    if (esSolicitudNoAprobada(f.estado)) return 0;
-    if (f.estado === 'SOLICITUD_APROBADA') {
-        if (typeof f.duracion_segundos === 'number' && !isNaN(f.duracion_segundos)) {
-            return f.duracion_segundos;
+    if (action === "getPerfilesUsuarios") {
+        const [{ data: usuariosRows }, { data: perfilesRows }, { data: vivosRows }] = await Promise.all([
+            supabaseClient.from('usuarios').select('nombre, rol, horas_objetivo, mattermost, UTC'),
+            supabaseClient.from('maestro').select('*').eq('estado', 'PERFIL_USUARIO'),
+            supabaseClient.from('estado_vivo').select('usuario, estado')
+        ]);
+
+        const estadoVivoMap = {};
+        if (vivosRows) {
+            for (const v of vivosRows) estadoVivoMap[v.usuario] = v.estado || 'Desconectado';
         }
-        try {
-            const meta = JSON.parse(f.actividad || '{}');
-            return Number(meta.ajusteSegs || 0);
-        } catch (e) {
-            return 0;
+
+        const coloresDefault = ['#2563eb', '#059669', '#7c3aed', '#db2777', '#d97706', '#0891b2', '#4f46e5', '#dc2626'];
+        const mapa = {};
+
+        if (usuariosRows) {
+            usuariosRows.forEach((u, idx) => {
+                const usr = (u.nombre || "").trim().toUpperCase();
+                if (!usr) return;
+                mapa[usr] = {
+                    usuario: usr,
+                    rol: u.rol || 'agente',
+                    horasObjetivo: u.horas_objetivo || 8,
+                    mattermost: u.mattermost || '',
+                    utc: u.UTC || 'Europe/Madrid',
+                    estadoActual: estadoVivoMap[usr] || 'Desconectado',
+                    nombreMostrar: usr,
+                    correo: '',
+                    movil: '',
+                    whatsapp: '',
+                    servicio: u.rol === 'admin' ? 'Supervisión' : 'General',
+                    colorAvatar: coloresDefault[idx % coloresDefault.length],
+                    fotoDataUrl: '',
+                    temaPreferido: 'auto',
+                    setupCompletado: false,
+                    rowId: null
+                };
+            });
         }
-    }
-    if (f.fin) {
-        let dIni = new Date(f.inicio);
-        let dFin = new Date(f.fin);
-        let diffSegundos = Math.floor((dFin.getTime() - dIni.getTime()) / 1000);
-        if (diffSegundos < 0) diffSegundos += 86400;
-        return diffSegundos;
-    }
-    return 0;
-}
 
-function calcularSegundosListaFichajes(lista) {
-    if (!lista || !Array.isArray(lista)) return 0;
-    let total = 0;
-    for (let f of lista) {
-        total += obtenerSegundosDeFilaMaestro(f);
-    }
-    return Math.max(0, total);
-}
-
-function formatearFilaSolicitud(row) {
-    let meta = {};
-    try {
-        meta = JSON.parse(row.actividad || '{}');
-    } catch (e) {
-        meta = { motivo: row.actividad || '' };
-    }
-    const fecha = meta.fecha || (row.inicio ? row.inicio.substring(0, 10) : '');
-    const tipo = meta.tipo || ((row.duracion_segundos || 0) >= 0 ? 'sumar' : 'restar');
-    const ajusteSegs = (typeof row.duracion_segundos === 'number') ? row.duracion_segundos : Number(meta.ajusteSegs || 0);
-    const tiempoSolicitadoSegs = (typeof meta.tiempoSolicitadoSegs === 'number') ? meta.tiempoSolicitadoSegs : Math.abs(ajusteSegs);
-
-    return {
-        id: row.id,
-        usuario: row.usuario,
-        estado: row.estado,
-        fecha: fecha,
-        tipo: tipo,
-        tiempoSolicitadoSegs: tiempoSolicitadoSegs,
-        horasActualesDiaSegs: Number(meta.horasActualesDiaSegs || 0),
-        ajusteSegs: ajusteSegs,
-        motivo: meta.motivo || '',
-        creadoEn: meta.creadoEn || row.inicio,
-        resueltoEn: meta.resueltoEn || null,
-        comentarioAdmin: meta.comentarioAdmin || ''
-    };
-}
-
-// Envía el último latido justo al cerrar la pestaña usando fetch keepalive
-function enviarUltimoLatidoKeepalive(usuario) {
-    if (!usuario) return;
-    const usr = usuario.trim().toUpperCase();
-    try {
-        fetch(`${SUPABASE_URL}/rest/v1/estado_vivo?usuario=eq.${encodeURIComponent(usr)}`, {
-            method: 'PATCH',
-            keepalive: true,
-            headers: {
-                'apikey': SUPABASE_ANON_KEY,
-                'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ actualizado_en: new Date().toISOString() })
-        }).catch(() => {});
-    } catch (e) {}
-}
-
-// --- SISTEMA DE DETECCIÓN DE NUEVAS VERSIONES ---
-let _firmaVersionInicial = null;
-let _canalVersionGlobal = null;
-
-async function obtenerFirmaArchivosActuales() {
-    const Partes = [];
-    const urls = ['version.json', 'api.js', window.location.pathname.split('/').pop() || 'index.html'];
-    for (let u of urls) {
-        try {
-            const resp = await fetch(`${u}?_t=${Date.now()}`, { cache: 'no-store' });
-            if (resp.ok) {
-                const txt = await resp.text();
-                Partes.push(`${u}:${txt.length}:${simpleHashStr(txt)}`);
+        if (perfilesRows) {
+            for (const row of perfilesRows) {
+                const usr = (row.usuario || "").trim().toUpperCase();
+                if (!usr) continue;
+                let meta = {};
+                try { meta = JSON.parse(row.actividad || '{}'); } catch (e) {}
+                if (!mapa[usr]) {
+                    mapa[usr] = {
+                        usuario: usr,
+                        rol: 'agente',
+                        horasObjetivo: 8,
+                        mattermost: '',
+                        estadoActual: estadoVivoMap[usr] || 'Desconectado'
+                    };
+                }
+                mapa[usr] = {
+                    ...mapa[usr],
+                    nombreMostrar: meta.nombreMostrar || usr,
+                    correo: meta.correo || '',
+                    movil: meta.movil || '',
+                    whatsapp: meta.whatsapp || '',
+                    servicio: meta.servicio || mapa[usr].servicio || 'General',
+                    mattermost: meta.mattermost || mapa[usr].mattermost || '',
+                    colorAvatar: meta.colorAvatar || mapa[usr].colorAvatar || '#2563eb',
+                    fotoDataUrl: meta.fotoDataUrl || '',
+                    temaPreferido: meta.temaPreferido || 'auto',
+                    setupCompletado: Boolean(meta.setupCompletado || (meta.correo && (meta.movil || meta.whatsapp))),
+                    rowId: row.id
+                };
             }
-        } catch (e) {}
-    }
-    return Partes.join('|');
-}
-
-function simpleHashStr(str) {
-    let h = 0;
-    for (let i = 0; i < str.length; i++) {
-        h = ((h << 5) - h) + str.charCodeAt(i);
-        h |= 0;
-    }
-    return h;
-}
-
-function mostrarBannerNuevaVersion(mensajeExtra) {
-    if (document.getElementById('banner-nueva-version-z8')) return;
-    const banner = document.createElement('div');
-    banner.id = 'banner-nueva-version-z8';
-    banner.style.cssText = 'position:fixed;top:16px;left:50%;transform:translateX(-50%);z-index:9999;background:#1e293b;color:#fff;padding:12px 20px;border-radius:12px;box-shadow:0 20px 25px -5px rgba(0,0,0,0.25);display:flex;align-items:center;gap:14px;border:2px solid #3b82f6;font-family:Inter,sans-serif;max-width:92vw;';
-    banner.innerHTML = `
-        <div style="display:flex;align-items:center;gap:10px;">
-            <span style="font-size:18px;">🚀</span>
-            <div>
-                <div style="font-weight:700;font-size:13px;color:#fff;">Nueva versión disponible</div>
-                <div style="font-size:11px;color:#94a3b8;">${mensajeExtra || 'Se ha publicado una actualización del sistema. Actualiza para estar al día.'}</div>
-            </div>
-        </div>
-        <button onclick="recargarConUltimaVersion()" style="background:#2563eb;color:#fff;border:none;padding:8px 14px;border-radius:8px;font-weight:700;font-size:12px;cursor:pointer;white-space:nowrap;">
-            Actualizar ahora
-        </button>
-    `;
-    document.body.appendChild(banner);
-}
-
-function recargarConUltimaVersion() {
-    const url = new URL(window.location.href);
-    url.searchParams.set('v', Date.now());
-    window.location.replace(url.toString());
-}
-
-async function iniciarDetectorVersion() {
-    _firmaVersionInicial = await obtenerFirmaArchivosActuales();
-
-    // Comprobar automáticamente cada 60 segundos si cambiaron los archivos en el servidor / GitHub Pages
-    setInterval(async () => {
-        const nuevaFirma = await obtenerFirmaArchivosActuales();
-        if (_firmaVersionInicial && nuevaFirma && nuevaFirma !== _firmaVersionInicial) {
-            mostrarBannerNuevaVersion();
         }
-    }, 60000);
 
-    // Canal en tiempo real para recibir aviso instantáneo si el supervisor pulsa "Notificar actualización"
-    if (typeof supabaseClient !== 'undefined') {
-        _canalVersionGlobal = supabaseClient
-            .channel('sistema_version_z8')
-            .on('broadcast', { event: 'nueva_version' }, payload => {
-                const msg = (payload && payload.payload && payload.payload.mensaje) || null;
-                mostrarBannerNuevaVersion(msg);
+        window._cachePerfilesZ8 = mapa;
+        if (payload.usuario) {
+            const u = payload.usuario.trim().toUpperCase();
+            return mapa[u] || null;
+        }
+        return mapa;
+    }
+
+    if (action === "guardarPerfilUsuario") {
+        const usr = await resolverUsuarioFKMaestro(payload.usuario);
+        if (!usr) throw new Error("Usuario inválido.");
+        const datos = payload.perfil || {};
+
+        const { data: existentes } = await supabaseClient
+            .from('maestro')
+            .select('*')
+            .eq('usuario', usr)
+            .eq('estado', 'PERFIL_USUARIO');
+
+        let prevMeta = {};
+        let rowId = null;
+        if (existentes && existentes.length > 0) {
+            rowId = existentes[0].id;
+            try { prevMeta = JSON.parse(existentes[0].actividad || '{}'); } catch (e) {}
+            if (existentes.length > 1) {
+                for (let i = 1; i < existentes.length; i++) {
+                    await supabaseClient.from('maestro').delete().eq('id', existentes[i].id);
+                }
+            }
+        }
+
+        const nuevaMeta = {
+            ...prevMeta,
+            nombreMostrar: (datos.nombreMostrar || usr).trim(),
+            correo: (datos.correo || "").trim(),
+            movil: (datos.movil || "").trim(),
+            whatsapp: (datos.whatsapp || "").trim(),
+            servicio: (datos.servicio || prevMeta.servicio || "General").trim(),
+            mattermost: (datos.mattermost || "").trim(),
+            colorAvatar: datos.colorAvatar || prevMeta.colorAvatar || "#2563eb",
+            fotoDataUrl: typeof datos.fotoDataUrl === 'string' ? datos.fotoDataUrl : (prevMeta.fotoDataUrl || ""),
+            temaPreferido: datos.temaPreferido || prevMeta.temaPreferido || "auto",
+            setupCompletado: true,
+            actualizadoEn: new Date().toISOString()
+        };
+
+        if (rowId) {
+            await supabaseClient
+                .from('maestro')
+                .update({
+                    actividad: JSON.stringify(nuevaMeta),
+                    duracion_segundos: 0
+                })
+                .eq('id', rowId);
+        } else {
+            await supabaseClient
+                .from('maestro')
+                .insert({
+                    usuario: usr,
+                    estado: 'PERFIL_USUARIO',
+                    actividad: JSON.stringify(nuevaMeta),
+                    inicio: '2000-01-01T00:00:00.000Z',
+                    fin: null,
+                    duracion_segundos: 0
+                });
+        }
+
+        const updateUsuarioTabla = {};
+        if (datos.mattermost !== undefined) updateUsuarioTabla.mattermost = datos.mattermost.trim();
+        if (payload.nuevaClave && payload.nuevaClave.trim().length >= 3) {
+            updateUsuarioTabla.clave = payload.nuevaClave.trim();
+        }
+        if (Object.keys(updateUsuarioTabla).length > 0) {
+            await supabaseClient.from('usuarios').update(updateUsuarioTabla).eq('nombre', usr);
+        }
+
+        emitirEventoOperativoZ8('perfil_actualizado', { usuario: usr });
+        return { success: true, perfil: nuevaMeta };
+    }
+
+    if (action === "enviarAlertaSupervision") {
+        const emisor = (payload.emisor || "SUPERVISIÓN").trim().toUpperCase();
+        const destino = (payload.destino || "TODOS").trim().toUpperCase();
+        const tipoAlerta = payload.tipoAlerta || "NOTIFICACION"; // 'ALARMA_ATENCION' | 'NOTIFICACION'
+        const prioridad = payload.prioridad || (tipoAlerta === 'ALARMA_ATENCION' ? 'URGENTE' : 'NORMAL');
+        const titulo = (payload.titulo || (tipoAlerta === 'ALARMA_ATENCION' ? '🚨 ¡ALARMA DE ATENCIÓN!' : '📢 Aviso de Supervisión')).trim();
+        const mensaje = (payload.mensaje || (tipoAlerta === 'ALARMA_ATENCION' ? 'Supervisión solicita tu atención inmediata. Pulsa el botón para confirmar que estás en tu puesto.' : '')).trim();
+
+        const meta = {
+            emisor,
+            destino,
+            tipoAlerta,
+            prioridad,
+            titulo,
+            mensaje,
+            creadoEn: new Date().toISOString(),
+            acuses: {}
+        };
+
+        const usuarioFK = await resolverUsuarioFKMaestro(destino !== 'TODOS' ? destino : emisor);
+        const { data: inserted, error } = await supabaseClient
+            .from('maestro')
+            .insert({
+                usuario: usuarioFK,
+                estado: 'ALERTA_SUPERVISION',
+                actividad: JSON.stringify(meta),
+                inicio: '2000-01-04T00:00:00.000Z',
+                fin: null,
+                duracion_segundos: 0
             })
-            .subscribe();
-    }
-}
+            .select();
 
-async function emitirAvisoNuevaVersionATodos() {
-    if (!_canalVersionGlobal && typeof supabaseClient !== 'undefined') {
-        _canalVersionGlobal = supabaseClient.channel('sistema_version_z8');
-        await _canalVersionGlobal.subscribe();
+        if (error) throw error;
+        const row = inserted && inserted[0] ? formatearFilaAlerta(inserted[0]) : null;
+        if (row) {
+            await emitirEventoOperativoZ8('nueva_alerta_supervision', row);
+        }
+        return { success: true, alerta: row };
     }
-    if (_canalVersionGlobal) {
-        await _canalVersionGlobal.send({
-            type: 'broadcast',
-            event: 'nueva_version',
-            payload: { mensaje: 'El supervisor ha desplegado una nueva versión. Pulsa en Actualizar.' }
-        });
-    }
-}
 
+    if (action === "confirmarAlertaSupervision") {
+        const id = payload.alertaId;
+        const usr = (payload.usuario || "").trim().toUpperCase();
+        const segsResp = Math.max(1, parseInt(payload.segundosRespuesta || 1, 10));
+
+        const { data: row } = await supabaseClient
+            .from('maestro')
+            .select('*')
+            .eq('id', id)
+            .single();
+
+        if (row) {
+            let meta = {};
+            try { meta = JSON.parse(row.actividad || '{}'); } catch (e) {}
+            if (!meta.acuses) meta.acuses = {};
+            meta.acuses[usr] = {
+                leidoEn: new Date().toISOString(),
+                segundosRespuesta: segsResp
+            };
+            await supabaseClient
+                .from('maestro')
+                .update({ actividad: JSON.stringify(meta) })
+                .eq('id', id);
+
+            await emitirEventoOperativoZ8('acuse_alerta_supervision', {
+                alertaId: id,
+                usuario: usr,
+                leidoEn: meta.acuses[usr].leidoEn,
+                segundosRespuesta: segsResp
+            });
+        }
+        return { success: true };
+    }
+
+    if (action === "getAlertasSupervision") {
+        const { data: rows, error } = await supabaseClient
+            .from('maestro')
+            .select('*')
+            .eq('estado', 'ALERTA_SUPERVISION');
+
+        if (error) throw error;
+        const lista = (rows || []).map(formatearFilaAlerta);
+        lista.sort((a, b) => (b.creadoEn || '').localeCompare(a.creadoEn || ''));
+        return lista.slice(0, 60);
+    }
+
+    if (action === "eliminarAlertaSupervision") {
+        await supabaseClient.from('maestro').delete().eq('id', payload.id).eq('estado', 'ALERTA_SUPERVISION');
+        return { success: true };
+    }
+
+    if (action === "getMensajesChat") {
+        const { data: rows, error } = await supabaseClient
+            .from('maestro')
+            .select('*')
+            .eq('estado', 'CHAT_MSG');
