@@ -24,10 +24,11 @@
         .tab-btn:hover { color: #2563eb; }
         .tab-btn.active { color: #2563eb; border-bottom-color: #2563eb; }
 
-        .btn-kick { background-color: #fee2e2; color: #ef4444; border: 1px solid #fca5a5; padding: 4px 9px; border-radius: 6px; font-size: 10px; font-weight: bold; text-transform: uppercase; transition: all 0.2s; cursor: pointer; }
-        .btn-kick:hover { background-color: #ef4444; color: white; }
+        .btn-kick { width: 30px; height: 30px; border-radius: 8px; background-color: rgba(239, 68, 68, 0.14); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.35); font-size: 13px; font-weight: bold; transition: all 0.15s; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
+        .btn-kick:hover { background-color: #ef4444; color: white; transform: translateY(-1px); }
 
-        .btn-action-mini { padding: 4px 8px; border-radius: 6px; font-size: 11px; font-weight: 700; transition: all 0.15s; cursor: pointer; display: inline-flex; align-items: center; gap: 3px; }
+        .btn-action-mini { width: 30px; height: 30px; border-radius: 8px; font-size: 14px; transition: all 0.15s; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
+        .btn-action-mini:hover { transform: translateY(-1px); }
     </style>
 </head>
 <body>
@@ -124,7 +125,7 @@
                                 <th>Total Hoy</th>
                                 <th>Desde</th>
                                 <th>Tarea Actual</th>
-                                <th>Contacto & Acciones de Supervisión</th>
+                                <th class="text-right">Acciones</th>
                             </tr>
                         </thead>
                         <tbody id="tabla-monitor">
@@ -301,6 +302,7 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script>if (typeof window.supabase === 'undefined') { document.write('<script src="https://unpkg.com/@supabase/supabase-js@2"><\/script>'); }</script>
     <script src="api.js"></script>
     <script>
         let usuarioAdminActivo = (localStorage.getItem('tt_usuario') || 'SUPERVISOR').trim().toUpperCase();
@@ -444,7 +446,7 @@
                 if (a.estado === 'Pausado') dot = 'bg-amber-500';
 
                 if (a.estado !== 'Desconectado') {
-                    btnDesconectar = `<button onclick="forzarDesconexion('${a.usuario}')" class="btn-kick" title="Cerrar sesión remotamente">Desconectar</button>`;
+                    btnDesconectar = `<button onclick="forzarDesconexion('${a.usuario}')" class="btn-kick" title="Desconectar remotamente a ${a.usuario}">⏻</button>`;
                 }
 
                 const p = a.perfil || (window._cachePerfilesZ8 && window._cachePerfilesZ8[a.usuario]) || {};
@@ -454,7 +456,7 @@
 
                 const numWa = (p.whatsapp || p.movil || '').replace(/[^\d+]/g, '');
                 const btnWa = numWa
-                    ? `<a href="https://wa.me/${numWa.replace(/^\+/, '')}" target="_blank" class="btn-action-mini bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-600 hover:text-white" title="Abrir WhatsApp de ${a.usuario}">📱 WA</a>`
+                    ? `<a href="https://wa.me/${numWa.replace(/^\+/, '')}" target="_blank" class="btn-action-mini bg-emerald-500/15 text-emerald-500 border border-emerald-500/30 hover:bg-emerald-600 hover:text-white" title="Abrir WhatsApp de ${a.usuario} (${numWa})">📱</a>`
                     : '';
 
                 html += `<tr>
@@ -476,14 +478,14 @@
                     </td>
                     <td class="font-mono text-blue-700 font-bold" id="live-time-${index}">${a.horasHoy}</td>
                     <td class="text-xs text-slate-500">${a.inicio}</td>
-                    <td class="text-xs max-w-[180px] truncate text-slate-600" title="${escaparHTMLZ8(a.actividad)}">${escaparHTMLZ8(a.actividad)}</td>
+                    <td class="text-xs max-w-[160px] truncate text-slate-600" title="${escaparHTMLZ8(a.actividad)}">${escaparHTMLZ8(a.actividad)}</td>
                     <td>
-                        <div class="flex flex-wrap items-center gap-1.5">
-                            <button onclick="enviarAlarmaRapidaAgente('${a.usuario}')" class="btn-action-mini bg-red-50 text-red-600 border border-red-200 hover:bg-red-600 hover:text-white" title="Hacer sonar Alarma de Atención en bucle a ${a.usuario}">🚨 Alarma</button>
-                            <button onclick="abrirEnvioIndividualAgente('${a.usuario}')" class="btn-action-mini bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-500 hover:text-white" title="Enviar notificación sonora con confirmación">🔔 Aviso</button>
-                            <button onclick="abrirChatPrivadoConAgente('${a.usuario}')" class="btn-action-mini bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-600 hover:text-white" title="Abrir chat privado 1 a 1 con ${a.usuario}">💬 Chat</button>
+                        <div class="flex items-center justify-end gap-1.5 flex-nowrap">
+                            <button onclick="enviarAlarmaRapidaAgente('${a.usuario}')" class="btn-action-mini bg-red-500/15 text-red-500 border border-red-500/30 hover:bg-red-600 hover:text-white" title="🚨 Hacer sonar Alarma de Atención en bucle a ${a.usuario}">🚨</button>
+                            <button onclick="abrirEnvioIndividualAgente('${a.usuario}')" class="btn-action-mini bg-amber-500/15 text-amber-500 border border-amber-500/30 hover:bg-amber-500 hover:text-white" title="🔔 Enviar aviso / notificación sonora a ${a.usuario}">🔔</button>
+                            <button onclick="abrirChatPrivadoConAgente('${a.usuario}')" class="btn-action-mini bg-blue-500/15 text-blue-400 border border-blue-500/30 hover:bg-blue-600 hover:text-white" title="💬 Abrir chat privado 1 a 1 con ${a.usuario}">💬</button>
                             ${btnWa}
-                            <button onclick="abrirModalPerfilZ8('${a.usuario}')" class="btn-action-mini bg-slate-100 text-slate-700 border border-slate-200 hover:bg-slate-200" title="Ver o editar ficha completa del agente">👤 Ficha</button>
+                            <button onclick="abrirModalPerfilZ8('${a.usuario}')" class="btn-action-mini bg-slate-500/15 text-slate-400 border border-slate-500/30 hover:bg-slate-600 hover:text-white" title="👤 Ver o editar ficha completa de ${a.usuario}">👤</button>
                             ${btnDesconectar}
                         </div>
                     </td>
