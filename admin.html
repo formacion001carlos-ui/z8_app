@@ -20,65 +20,77 @@
         tr:hover td { background-color: #f8fafc; }
 
         /* Estilos de las Pestañas (Tabs) */
-        .tab-btn { padding: 12px 20px; font-weight: 600; font-size: 13px; border-bottom: 3px solid transparent; color: #64748b; transition: all 0.2s; cursor: pointer; white-space: nowrap; }
+        .tab-btn { padding: 10px 14px; font-weight: 600; font-size: 12px; border-bottom: 3px solid transparent; color: #64748b; transition: all 0.2s; cursor: pointer; white-space: nowrap; }
         .tab-btn:hover { color: #2563eb; }
         .tab-btn.active { color: #2563eb; border-bottom-color: #2563eb; }
 
-        .btn-kick { width: 30px; height: 30px; border-radius: 8px; background-color: rgba(239, 68, 68, 0.14); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.35); font-size: 13px; font-weight: bold; transition: all 0.15s; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
+        .btn-kick { width: 28px; height: 28px; border-radius: 8px; background-color: rgba(239, 68, 68, 0.14); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.35); font-size: 13px; font-weight: bold; transition: all 0.15s; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
         .btn-kick:hover { background-color: #ef4444; color: white; transform: translateY(-1px); }
 
-        .btn-action-mini { width: 30px; height: 30px; border-radius: 8px; font-size: 14px; transition: all 0.15s; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
+        .btn-action-mini { width: 28px; height: 28px; border-radius: 8px; font-size: 13px; transition: all 0.15s; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
         .btn-action-mini:hover { transform: translateY(-1px); }
+
+        .kpi-pill-admin { display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px; border-radius: 10px; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12); cursor: pointer; transition: all 0.15s; user-select: none; }
+        .kpi-pill-admin:hover { background: rgba(255,255,255,0.13); transform: translateY(-1px); }
     </style>
 </head>
 <body>
 
-    <div class="max-w-[1640px] mx-auto pt-5 pb-16 px-4">
+    <div class="max-w-[1640px] mx-auto pt-4 pb-16 px-4">
         
-        <header class="flex flex-wrap justify-between items-center gap-3 mb-5">
-            <div>
-                <h1 class="text-2xl font-bold tracking-tight text-slate-800">TimeTrack<span class="text-blue-600">.</span></h1>
-                <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Módulo WFM & Supervisión</p>
+        <header class="flex flex-wrap justify-between items-center gap-3 mb-3">
+            <div class="flex items-center gap-3">
+                <h1 class="text-xl font-bold tracking-tight text-slate-800">TimeTrack<span class="text-blue-600">.</span></h1>
+                <span class="text-[11px] font-bold text-slate-400 uppercase tracking-wider border-l border-slate-300 pl-3">Módulo WFM & Supervisión</span>
             </div>
-            <div class="flex flex-wrap gap-2.5 items-center">
-                <button type="button" id="btn-tema-z8" onclick="ciclarTemaZ8()" class="btn-calc">🌓 Auto</button>
-                <button type="button" onclick="abrirModalPerfilZ8()" class="btn-calc flex items-center gap-1.5">👤 Mi Perfil</button>
-                <a href="calculadora.html" class="btn-calc flex items-center gap-2 shadow-sm">Ir a Calculadora</a>
-                <a href="calculadora_dev.html" id="btn-dev" class="btn-calc flex items-center gap-2 shadow-sm" style="display: none; background: linear-gradient(135deg, #10b981 0%, #059669 100%);">Modo DEV</a>
+            <div class="flex flex-wrap gap-2 items-center">
+                <button type="button" id="btn-tema-z8" onclick="ciclarTemaZ8()" class="btn-calc !py-1.5 !px-3">🌓 Auto</button>
+                <button type="button" onclick="abrirModalPerfilZ8()" class="btn-calc !py-1.5 !px-3 flex items-center gap-1.5">👤 Mi Perfil</button>
+                <a href="calculadora.html" class="btn-calc !py-1.5 !px-3 flex items-center gap-1.5 shadow-sm">Ir a Calculadora</a>
+                <a href="calculadora_dev.html" id="btn-dev" class="btn-calc !py-1.5 !px-3 flex items-center gap-1.5 shadow-sm" style="display: none; background: linear-gradient(135deg, #10b981 0%, #059669 100%);">Modo DEV</a>
                 <button onclick="cerrarSesion()" class="text-xs font-bold text-slate-400 hover:text-slate-800 transition ml-1">Cerrar sesión</button>
             </div>
         </header>
 
-        <div class="grid grid-cols-1 md:grid-cols-5 gap-4 mb-5">
-            <div class="bento-panel md:col-span-2 flex flex-col justify-center bg-slate-900 text-white border-none shadow-xl">
-                <h2 class="text-xl font-bold mb-1 text-white">Centro de Control Operativo</h2>
-                <p class="text-slate-400 text-xs mb-4">Exportación, avisos masivos, alarmas y control de versiones.</p>
-                <div class="flex flex-wrap gap-2">
-                    <button onclick="descargarCSV()" id="btn-csv" class="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg font-bold text-xs transition flex items-center gap-1.5 shadow-lg shadow-blue-900/50">
-                        📥 Descargar CSV
-                    </button>
-                    <button onclick="cambiarTab('notificaciones')" class="bg-red-600 hover:bg-red-500 text-white px-3.5 py-2 rounded-lg font-bold text-xs transition flex items-center gap-1.5 shadow">
-                        🚨 Enviar Alerta / Broadcast
-                    </button>
-                    <button onclick="avisarNuevaVersion()" class="bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 px-3 py-2 rounded-lg font-semibold text-xs transition flex items-center gap-1" title="Envía un aviso en pantalla a todos los agentes conectados para que recarguen la última versión">
-                        🚀 Notificar Nueva Versión
-                    </button>
+        <!-- BARRA COMPACTA DE CONTROL OPERATIVO Y KPIS EN VIVO -->
+        <div class="bento-panel !py-3 !px-4 mb-4 bg-slate-900 text-white border-none shadow-lg flex flex-wrap items-center justify-between gap-3">
+            <div class="flex flex-wrap items-center gap-2">
+                <span class="text-xs font-extrabold uppercase tracking-wider text-slate-300 mr-1">⚡ Control:</span>
+                <button onclick="descargarCSV()" id="btn-csv" class="bg-blue-600 hover:bg-blue-500 text-white px-3 py-1.5 rounded-lg font-bold text-xs transition flex items-center gap-1.5 shadow">
+                    📥 Descargar CSV
+                </button>
+                <button onclick="cambiarTab('notificaciones')" class="bg-red-600 hover:bg-red-500 text-white px-3 py-1.5 rounded-lg font-bold text-xs transition flex items-center gap-1.5 shadow">
+                    🚨 Enviar Alerta
+                </button>
+                <button onclick="cambiarTab('incidencias')" class="bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-1.5 rounded-lg font-bold text-xs transition flex items-center gap-1.5 shadow">
+                    📅 + Permiso / Incidencia
+                </button>
+                <button onclick="avisarNuevaVersion()" class="bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 px-2.5 py-1.5 rounded-lg font-semibold text-xs transition flex items-center gap-1" title="Envía un aviso en pantalla a todos los agentes conectados para que recarguen la última versión">
+                    🚀 Aviso Versión
+                </button>
+            </div>
+
+            <div class="flex flex-wrap items-center gap-2">
+                <div onclick="cambiarTab('monitor')" class="kpi-pill-admin" title="Ver Monitor en Vivo">
+                    <span class="text-[10px] font-bold uppercase text-slate-400">Activos Hoy</span>
+                    <span class="text-base font-black text-blue-400 font-mono" id="contador-agentes">-</span>
                 </div>
-            </div>
-            <div onclick="cambiarTab('monitor')" class="bento-panel flex flex-col justify-center text-center cursor-pointer hover:border-blue-300 transition">
-                <div class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Agentes Activos (Hoy)</div>
-                <div class="text-4xl font-black text-blue-600 tracking-tighter" id="contador-agentes">-</div>
-                <div class="text-[10px] font-semibold text-slate-400 mt-1">En monitor en vivo</div>
-            </div>
-            <div onclick="cambiarTab('solicitudes')" class="bento-panel flex flex-col justify-center text-center cursor-pointer hover:border-amber-300 transition group">
-                <div class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1 group-hover:text-amber-600">Correcciones Horas</div>
-                <div class="text-4xl font-black text-amber-500 tracking-tighter" id="contador-solicitudes-kpi">0</div>
-                <div class="text-[10px] font-semibold text-blue-600 mt-1 group-hover:underline">Revisar solicitudes →</div>
-            </div>
-            <div onclick="cambiarTab('reunion')" class="bento-panel flex flex-col justify-center text-center cursor-pointer hover:border-emerald-300 transition group">
-                <div class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1 group-hover:text-emerald-600">Temas de Reunión</div>
-                <div class="text-4xl font-black text-emerald-600 tracking-tighter" id="contador-reunion-kpi">0</div>
-                <div class="text-[10px] font-semibold text-blue-600 mt-1 group-hover:underline">Ver orden del día →</div>
+                <div onclick="cambiarTab('incidencias')" class="kpi-pill-admin" title="Ver Incidencias, Ausencias y Permisos de Hoy">
+                    <span class="text-[10px] font-bold uppercase text-slate-400">Incidencias Hoy</span>
+                    <span class="text-base font-black text-indigo-400 font-mono" id="contador-incidencias-kpi">0</span>
+                </div>
+                <div onclick="cambiarTab('solicitudes')" class="kpi-pill-admin" title="Revisar Solicitudes de Corrección de Horas">
+                    <span class="text-[10px] font-bold uppercase text-slate-400">Correcciones</span>
+                    <span class="text-base font-black text-amber-400 font-mono" id="contador-solicitudes-kpi">0</span>
+                </div>
+                <div onclick="cambiarTab('reunion')" class="kpi-pill-admin" title="Ver Temas Pendientes de Reunión">
+                    <span class="text-[10px] font-bold uppercase text-slate-400">Reunión</span>
+                    <span class="text-base font-black text-emerald-400 font-mono" id="contador-reunion-kpi">0</span>
+                </div>
+                <div onclick="cambiarTab('equipo')" class="kpi-pill-admin" title="Gestión de Altas, Bajas y Jornada de Agentes">
+                    <span class="text-[10px] font-bold uppercase text-slate-400">👥 Equipo</span>
+                    <span class="text-xs font-extrabold text-slate-200" id="contador-equipo-kpi">Gestionar</span>
+                </div>
             </div>
         </div>
 
@@ -87,44 +99,86 @@
         <div class="xl:col-span-7 bento-panel overflow-hidden !p-0">
             <!-- Menú de Pestañas -->
             <div class="flex flex-wrap border-b border-slate-200 bg-slate-50 overflow-x-auto">
-                <button onclick="cambiarTab('monitor')" id="tab-btn-monitor" class="tab-btn active flex items-center gap-2">
-                    <span class="relative flex h-2.5 w-2.5"><span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span><span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-green-500"></span></span>
+                <button onclick="cambiarTab('monitor')" id="tab-btn-monitor" class="tab-btn active flex items-center gap-1.5">
+                    <span class="relative flex h-2 w-2"><span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span><span class="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span></span>
                     Monitor en Vivo
                 </button>
-                <button onclick="cambiarTab('matriz')" id="tab-btn-matriz" class="tab-btn">📊 Resumen Mensual (WFM)</button>
-                <button onclick="cambiarTab('solicitudes')" id="tab-btn-solicitudes" class="tab-btn flex items-center gap-2">
-                    ⏱️ Solicitudes de Corrección
-                    <span id="badge-solicitudes-tab" class="hidden px-2 py-0.5 text-[10px] font-extrabold rounded-full bg-amber-500 text-white">0</span>
+                <button onclick="cambiarTab('matriz')" id="tab-btn-matriz" class="tab-btn">📊 Resumen WFM</button>
+                <button onclick="cambiarTab('incidencias')" id="tab-btn-incidencias" class="tab-btn flex items-center gap-1.5">
+                    📅 Incidencias / Permisos
+                    <span id="badge-incidencias-tab" class="hidden px-1.5 py-0.5 text-[10px] font-extrabold rounded-full bg-indigo-600 text-white">0</span>
                 </button>
-                <button onclick="cambiarTab('notificaciones')" id="tab-btn-notificaciones" class="tab-btn flex items-center gap-2">
-                    🚨 Notificaciones y Alarmas
+                <button onclick="cambiarTab('solicitudes')" id="tab-btn-solicitudes" class="tab-btn flex items-center gap-1.5">
+                    ⏱️ Correcciones
+                    <span id="badge-solicitudes-tab" class="hidden px-1.5 py-0.5 text-[10px] font-extrabold rounded-full bg-amber-500 text-white">0</span>
                 </button>
-                <button onclick="cambiarTab('reunion')" id="tab-btn-reunion" class="tab-btn flex items-center gap-2">
-                    📋 Notas de Reunión
-                    <span id="badge-reunion-tab" class="hidden px-2 py-0.5 text-[10px] font-extrabold rounded-full bg-emerald-600 text-white">0</span>
+                <button onclick="cambiarTab('notificaciones')" id="tab-btn-notificaciones" class="tab-btn flex items-center gap-1.5">
+                    🚨 Alertas
+                </button>
+                <button onclick="cambiarTab('reunion')" id="tab-btn-reunion" class="tab-btn flex items-center gap-1.5">
+                    📋 Reunión
+                    <span id="badge-reunion-tab" class="hidden px-1.5 py-0.5 text-[10px] font-extrabold rounded-full bg-emerald-600 text-white">0</span>
+                </button>
+                <button onclick="cambiarTab('equipo')" id="tab-btn-equipo" class="tab-btn flex items-center gap-1.5">
+                    👥 Equipo (Altas/Bajas)
                 </button>
             </div>
 
             <!-- VISTA 1: MONITOR EN VIVO -->
             <div id="vista-monitor" class="block">
-                <div class="p-3 bg-white flex flex-wrap justify-between items-center gap-2 border-b border-slate-100">
-                    <div class="flex items-center gap-2 text-xs text-slate-500">
+                <!-- Barra de Filtros Rápidos y Gestor de Etiquetas -->
+                <div class="p-3 bg-white border-b border-slate-100 space-y-2">
+                    <div class="flex flex-wrap justify-between items-center gap-2">
+                        <div class="flex flex-wrap items-center gap-1.5" id="barra-filtros-monitor">
+                            <button type="button" onclick="setFiltroMonitorAdmin('TODOS')" id="flt-mon-TODOS" class="px-2.5 py-1 rounded-lg text-[11px] font-bold bg-blue-600 text-white transition">Todos</button>
+                            <button type="button" onclick="setFiltroMonitorAdmin('CONECTADOS')" id="flt-mon-CONECTADOS" class="px-2.5 py-1 rounded-lg text-[11px] font-bold bg-slate-100 text-slate-600 hover:bg-slate-200 transition">🟢 Conectados</button>
+                            <button type="button" onclick="setFiltroMonitorAdmin('PAUSA')" id="flt-mon-PAUSA" class="px-2.5 py-1 rounded-lg text-[11px] font-bold bg-slate-100 text-slate-600 hover:bg-slate-200 transition">⏸️ Pausa / Descanso</button>
+                            <button type="button" onclick="setFiltroMonitorAdmin('INCIDENCIA')" id="flt-mon-INCIDENCIA" class="px-2.5 py-1 rounded-lg text-[11px] font-bold bg-slate-100 text-slate-600 hover:bg-slate-200 transition">📅 Con Aviso Hoy</button>
+                            <span class="text-slate-300 mx-0.5">|</span>
+                            <div id="contenedor-filtros-tags-monitor" class="flex flex-wrap items-center gap-1"></div>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <button type="button" onclick="toggleGestorEtiquetasAdmin()" class="px-2.5 py-1 rounded-lg text-[11px] font-bold bg-slate-100 hover:bg-blue-50 text-slate-700 hover:text-blue-700 border border-slate-200 transition flex items-center gap-1" title="Añadir o quitar botones rápidos de tarea para todos los agentes">
+                                ⚙️ Botones Rápidos
+                            </button>
+                            <span id="txt-actualizacion" class="text-[10px] font-semibold text-slate-400">Actualizando...</span>
+                        </div>
+                    </div>
+
+                    <div class="flex flex-wrap justify-between items-center gap-2 pt-1 border-t border-slate-100 text-xs text-slate-500">
                         <label class="flex items-center gap-1.5 cursor-pointer select-none">
                             <input type="checkbox" id="chk-ver-desconectados" onchange="renderTablaMonitor()" class="rounded text-blue-600">
-                            <span>Mostrar también agentes desconectados (Directorio completo)</span>
+                            <span>Mostrar también agentes desconectados (Directorio activo)</span>
                         </label>
+                        <span class="text-[10px] text-slate-400">⏳ Semáforo descanso: <b class="text-amber-600">+20m ámbar</b> · <b class="text-red-600">+30m alerta roja</b></span>
                     </div>
-                    <span id="txt-actualizacion" class="text-[10px] font-semibold text-slate-400">Actualizando...</span>
+
+                    <!-- Panel Desplegable: Gestor de Botones Rápidos de Tarea -->
+                    <div id="box-gestor-etiquetas-admin" class="hidden p-3 rounded-xl bg-slate-50 border border-slate-200 mt-2">
+                        <div class="flex flex-wrap justify-between items-center gap-2 mb-2">
+                            <div>
+                                <div class="text-xs font-extrabold text-slate-800">⚙️ Configurar Botones Rápidos de Tarea (En vivo para todos los agentes)</div>
+                                <div class="text-[11px] text-slate-500">Los agentes pueden marcar una o varias etiquetas a la vez. Haz clic en ✕ para quitar una opción o añade una nueva.</div>
+                            </div>
+                            <button type="button" onclick="restaurarEtiquetasPorDefectoAdmin()" class="text-[11px] font-bold text-blue-600 hover:underline">↺ Restaurar por defecto</button>
+                        </div>
+                        <div id="lista-etiquetas-config-admin" class="flex flex-wrap gap-1.5 mb-2.5"></div>
+                        <div class="flex items-center gap-2 max-w-md">
+                            <input type="text" id="input-nueva-etiqueta-admin" placeholder="Nueva etiqueta rápida (ej. FORMACION, IT, BACKOFFICE)..." class="flex-1 px-3 py-1.5 rounded-lg border border-slate-200 text-xs uppercase font-bold bg-white" onkeydown="if(event.key==='Enter'){event.preventDefault();agregarEtiquetaRapidaAdmin();}">
+                            <button type="button" onclick="agregarEtiquetaRapidaAdmin()" class="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-sm transition">+ Añadir Opción</button>
+                        </div>
+                    </div>
                 </div>
+
                 <div class="overflow-x-auto">
                     <table>
                         <thead>
                             <tr>
                                 <th>Agente / Perfil</th>
-                                <th>Estado</th>
+                                <th>Estado / Pausa</th>
                                 <th>Total Hoy</th>
                                 <th>Desde</th>
-                                <th>Tarea Actual</th>
+                                <th>Tarea Actual / Incidencia Hoy</th>
                                 <th class="text-right">Acciones</th>
                             </tr>
                         </thead>
@@ -137,13 +191,28 @@
 
             <!-- VISTA 2: MATRIZ MENSUAL -->
             <div id="vista-matriz" class="hidden">
-                <div class="p-4 bg-blue-50/50 flex justify-between items-center border-b border-blue-100">
-                    <div class="flex items-center gap-4">
+                <div class="p-4 bg-blue-50/50 flex flex-wrap justify-between items-center gap-3 border-b border-blue-100">
+                    <div class="flex flex-wrap items-center gap-3">
                         <h3 class="text-xs font-bold text-blue-800 uppercase tracking-widest" id="titulo-mes">MATRIZ DEL MES: -</h3>
-                        <input type="month" id="mes-selector" class="px-2 py-1 text-sm border border-blue-200 rounded-md bg-white text-blue-900 focus:outline-none focus:ring-1 focus:ring-blue-500 shadow-sm" onchange="cargarMatrizMensual()">
+                        <input type="month" id="mes-selector" class="px-2.5 py-1 text-xs font-bold border border-blue-200 rounded-lg bg-white text-blue-900 focus:outline-none focus:ring-1 focus:ring-blue-500 shadow-sm" onchange="cargarMatrizMensual(); cargarIncidenciasAdmin();">
                     </div>
-                    <button onclick="cargarMatrizMensual()" class="text-[10px] text-blue-600 font-bold hover:underline">⟳ Refrescar Matriz</button>
+                    <div class="flex items-center gap-3">
+                        <button type="button" onclick="cambiarTab('incidencias')" class="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-sm transition">
+                            + 📅 Registrar Permiso / Incidencia
+                        </button>
+                        <button onclick="cargarMatrizMensual()" class="text-xs text-blue-600 font-bold hover:underline">⟳ Refrescar Matriz</button>
+                    </div>
                 </div>
+
+                <!-- Desglose Global de Horas por Etiqueta en el Mes -->
+                <div id="box-desglose-etiquetas-wfm" class="hidden px-4 py-2.5 bg-slate-50 border-b border-slate-200">
+                    <div class="flex flex-wrap items-center justify-between gap-2 mb-1.5">
+                        <span class="text-[10px] font-extrabold uppercase tracking-wider text-slate-500">🏷️ Tiempo Total del Equipo por Etiqueta este Mes:</span>
+                        <span class="text-[10px] text-slate-400">Haz clic en cualquier celda con 📅/🏥/🏖️/⚡/📌 para ver el detalle de la incidencia</span>
+                    </div>
+                    <div id="contenedor-desglose-etiquetas-wfm" class="flex flex-wrap gap-1.5"></div>
+                </div>
+
                 <div class="overflow-x-auto pb-4">
                     <table id="tabla-matriz-wfm" class="min-w-max">
                         <!-- Se llena con Javascript -->
@@ -151,7 +220,88 @@
                 </div>
             </div>
 
-            <!-- VISTA 3: SOLICITUDES DE CORRECCIÓN -->
+            <!-- VISTA 3: INCIDENCIAS, AUSENCIAS, PERMISOS Y RECORDATORIOS WFM -->
+            <div id="vista-incidencias" class="hidden">
+                <div class="p-4 bg-indigo-50/40 border-b border-indigo-100">
+                    <div class="flex flex-wrap justify-between items-center gap-2 mb-3">
+                        <div>
+                            <h3 class="text-xs font-bold text-slate-800 uppercase tracking-widest">📅 Registro de Incidencias, Ausencias, Permisos y Recordatorios WFM</h3>
+                            <p class="text-[11px] text-slate-500">Aparecen automáticamente como notificación en el Resumen Mensual WFM y en el Monitor en Vivo del día correspondiente.</p>
+                        </div>
+                        <button onclick="cargarIncidenciasAdmin()" class="text-xs text-indigo-600 font-bold hover:underline">⟳ Refrescar Lista</button>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-12 gap-2.5 items-end bg-white p-3.5 rounded-xl border border-indigo-100 shadow-sm">
+                        <div class="md:col-span-3">
+                            <label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">Agente</label>
+                            <select id="inc-admin-usuario" class="w-full px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs font-bold bg-white"></select>
+                        </div>
+                        <div class="md:col-span-3">
+                            <label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">Tipo de Incidencia / Aviso</label>
+                            <select id="inc-admin-tipo" onchange="alCambiarTipoIncidenciaAdmin()" class="w-full px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs font-bold bg-white">
+                                <option value="PERMISO">📅 Permiso / Día Libre</option>
+                                <option value="VACACIONES">🏖️ Vacaciones</option>
+                                <option value="BAJA_MEDICA">🏥 Baja Médica / Reposo</option>
+                                <option value="INCIDENCIA_TECNICA">⚡ Incidencia Técnica / Sin Luz-Red</option>
+                                <option value="RECORDATORIO">📌 Recordatorio / Aviso WFM</option>
+                            </select>
+                        </div>
+                        <div class="md:col-span-2">
+                            <label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">Desde Fecha</label>
+                            <input type="date" id="inc-admin-fecha" class="w-full px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs font-semibold bg-white" onchange="const f2=document.getElementById('inc-admin-fecha-fin'); if(f2 && (!f2.value || f2.value < this.value)) f2.value = this.value;">
+                        </div>
+                        <div class="md:col-span-2">
+                            <label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">Hasta Fecha</label>
+                            <input type="date" id="inc-admin-fecha-fin" class="w-full px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs font-semibold bg-white">
+                        </div>
+                        <div class="md:col-span-2">
+                            <button type="button" onclick="guardarIncidenciaDesdeAdmin()" class="w-full py-2 px-3 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow transition">
+                                + Guardar Aviso
+                            </button>
+                        </div>
+                        <div class="md:col-span-7">
+                            <input type="text" id="inc-admin-motivo" placeholder="Motivo o nota recordatorio (ej. Pidió permiso para no conectar el viernes / Cita médica / Corte de fibra)..." class="w-full px-3 py-1.5 rounded-lg border border-slate-200 text-xs bg-white">
+                        </div>
+                        <div class="md:col-span-5 flex items-center">
+                            <label class="flex items-center gap-2 text-xs font-semibold text-slate-700 cursor-pointer select-none">
+                                <input type="checkbox" id="inc-admin-justificada" checked class="w-4 h-4 rounded text-indigo-600">
+                                <span>Justificar ausencia (descontar día de las horas previstas del mes)</span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="p-3 bg-white flex flex-wrap justify-between items-center gap-2 border-b border-slate-100">
+                    <div class="flex items-center gap-2">
+                        <span class="text-xs font-bold text-slate-700">Filtrar por Agente:</span>
+                        <select id="flt-inc-usuario" onchange="renderTablaIncidenciasAdmin()" class="px-2.5 py-1 rounded-lg border border-slate-200 text-xs font-bold bg-white">
+                            <option value="TODOS">Todos los agentes</option>
+                        </select>
+                    </div>
+                    <span class="text-[11px] text-slate-400">Mostrando incidencias del mes seleccionado en el Resumen WFM</span>
+                </div>
+
+                <div class="overflow-x-auto">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Fecha</th>
+                                <th>Agente</th>
+                                <th>Tipo</th>
+                                <th>Impacto en Previstas WFM</th>
+                                <th>Motivo / Nota Recordatorio</th>
+                                <th>Registrado por</th>
+                                <th class="text-right">Acción</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tabla-incidencias-admin">
+                            <tr><td colspan="7" class="text-center py-8 text-slate-400">Cargando incidencias y permisos...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- VISTA 4: SOLICITUDES DE CORRECCIÓN -->
             <div id="vista-solicitudes" class="hidden">
                 <div class="p-4 bg-amber-50/40 flex flex-wrap justify-between items-center gap-3 border-b border-amber-100">
                     <div class="flex items-center gap-2">
@@ -182,7 +332,7 @@
                 </div>
             </div>
 
-            <!-- VISTA 4: MONITOR DE NOTIFICACIONES, BROADCAST Y ALARMAS DE ATENCIÓN -->
+            <!-- VISTA 5: MONITOR DE NOTIFICACIONES, BROADCAST Y ALARMAS DE ATENCIÓN -->
             <div id="vista-notificaciones" class="hidden">
                 <div class="p-5 bg-slate-50 border-b border-slate-200">
                     <h3 class="text-xs font-bold text-slate-800 uppercase tracking-widest mb-3">📢 Enviar Notificación o Alarma de Atención con Audio</h3>
@@ -238,7 +388,7 @@
                 </div>
             </div>
 
-            <!-- VISTA 5: NOTAS Y TEMAS DE REUNIÓN -->
+            <!-- VISTA 6: NOTAS Y TEMAS DE REUNIÓN -->
             <div id="vista-reunion" class="hidden">
                 <div class="p-5 bg-emerald-50/40 border-b border-emerald-100">
                     <div class="flex flex-wrap justify-between items-center gap-3 mb-3">
@@ -293,6 +443,80 @@
                 </div>
             </div>
 
+            <!-- VISTA 7: GESTIÓN DE EQUIPO (ALTAS, BAJAS Y JORNADA) -->
+            <div id="vista-equipo" class="hidden">
+                <div class="p-4 bg-slate-50 border-b border-slate-200">
+                    <div class="flex flex-wrap justify-between items-center gap-2 mb-3">
+                        <div>
+                            <h3 class="text-xs font-bold text-slate-800 uppercase tracking-widest">👥 Gestión de Equipo: Altas, Jornada Diaria y Bajas</h3>
+                            <p class="text-[11px] text-slate-500">Crea nuevos agentes, ajusta sus horas objetivo por día o tramita su <b>Baja (Inactivación)</b> conservando intacto su historial mensual.</p>
+                        </div>
+                        <button onclick="cargarEquipoAdmin()" class="text-xs text-blue-600 font-bold hover:underline">⟳ Refrescar Equipo</button>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-12 gap-2.5 items-end bg-white p-3.5 rounded-xl border border-slate-200 shadow-sm">
+                        <div class="md:col-span-3">
+                            <label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">Nombre Usuario (Login)</label>
+                            <input type="text" id="eq-nombre" placeholder="Ej. CARLOS" class="w-full px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs font-bold uppercase bg-white">
+                        </div>
+                        <div class="md:col-span-2">
+                            <label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">Contraseña</label>
+                            <input type="text" id="eq-clave" placeholder="Clave acceso" class="w-full px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs font-mono bg-white">
+                        </div>
+                        <div class="md:col-span-2">
+                            <label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">Rol / Estado</label>
+                            <select id="eq-rol" class="w-full px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs font-bold bg-white">
+                                <option value="agente">🟢 Agente Activo</option>
+                                <option value="admin">🛡️ Supervisión / Admin</option>
+                                <option value="BAJA">🚫 De Baja (Inactivo)</option>
+                            </select>
+                        </div>
+                        <div class="md:col-span-2">
+                            <label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">Jornada (Horas/Día)</label>
+                            <input type="number" id="eq-horas" step="0.5" min="1" max="12" value="8" class="w-full px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs font-bold bg-white">
+                        </div>
+                        <div class="md:col-span-3">
+                            <label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">Servicio / Campaña</label>
+                            <input type="text" id="eq-servicio" placeholder="Ej. GER / UK / SOPORTE" class="w-full px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs font-bold uppercase bg-white">
+                        </div>
+                        <div class="md:col-span-8 flex items-center gap-2 pt-1">
+                            <span id="txt-modo-form-equipo" class="text-[11px] font-semibold text-slate-500">✨ Modo: Crear nuevo usuario o actualizar existente por nombre</span>
+                        </div>
+                        <div class="md:col-span-4 flex justify-end gap-2 pt-1">
+                            <button type="button" onclick="limpiarFormularioEquipoAdmin()" class="px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-100">Limpiar</button>
+                            <button type="button" onclick="guardarUsuarioDesdeEquipoAdmin()" class="px-4 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow transition">💾 Guardar Usuario</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="p-3 bg-white flex flex-wrap justify-between items-center gap-2 border-b border-slate-100">
+                    <div class="flex items-center gap-1.5">
+                        <button type="button" onclick="filtrarEquipoAdmin('ACTIVOS')" id="flt-eq-ACTIVOS" class="px-3 py-1 rounded-lg text-xs font-bold bg-blue-600 text-white transition">Activos</button>
+                        <button type="button" onclick="filtrarEquipoAdmin('BAJAS')" id="flt-eq-BAJAS" class="px-3 py-1 rounded-lg text-xs font-bold bg-white text-slate-600 border border-slate-200 hover:bg-slate-100 transition">🚫 Bajas / Inactivos</button>
+                        <button type="button" onclick="filtrarEquipoAdmin('TODOS')" id="flt-eq-TODOS" class="px-3 py-1 rounded-lg text-xs font-bold bg-white text-slate-600 border border-slate-200 hover:bg-slate-100 transition">Todos</button>
+                    </div>
+                    <span class="text-[11px] text-slate-400">La opción "Dar de Baja" bloquea el acceso y oculta al agente del monitor sin borrar sus horas trabajadas</span>
+                </div>
+
+                <div class="overflow-x-auto">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Usuario</th>
+                                <th>Estado / Rol</th>
+                                <th>Jornada Diaria</th>
+                                <th>Servicio</th>
+                                <th>Contraseña</th>
+                                <th class="text-right">Acciones (Editar / Baja / Reactivar)</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tabla-equipo-admin">
+                            <tr><td colspan="6" class="text-center py-8 text-slate-400">Cargando directorio de usuarios...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
         </div>
 
         <!-- COLUMNA DERECHA SIEMPRE EN VISTA: MÓDULO DE CHAT Y CANALES DE EQUIPO -->
@@ -312,6 +536,10 @@
         let todosAgentesRaw = [];
         let agentesData = [];
         let adminTimer = null;
+        let filtroMonitorActual = 'TODOS';
+        let catalogoEtiquetasAdmin = Array.isArray(window.TAREAS_RAPIDAS_DEFAULT_Z8)
+            ? [...window.TAREAS_RAPIDAS_DEFAULT_Z8]
+            : ['ENTREVISTAS', 'COORDINACION', 'DEV', 'RRHH', 'SOPORTE', 'FINDE', 'GER', 'UK'];
 
         let solicitudesAdminData = [];
         let filtroSolicitudesActual = 'PENDIENTES';
@@ -320,17 +548,31 @@
         let notasReunionAdminData = [];
         let filtroNotasReunionActual = 'PENDIENTES';
 
+        let incidenciasAdminData = [];
+        let equipoAdminData = [];
+        let filtroEquipoActual = 'ACTIVOS';
+
         window.onload = async () => {
             const today = new Date();
             const yyyy = today.getFullYear();
             const mm = String(today.getMonth() + 1).padStart(2, '0');
+            const dd = String(today.getDate()).padStart(2, '0');
+            const hoyIso = `${yyyy}-${mm}-${dd}`;
+
             document.getElementById('mes-selector').value = `${yyyy}-${mm}`;
-            
+            const inpIncFecha = document.getElementById('inc-admin-fecha');
+            const inpIncFechaFin = document.getElementById('inc-admin-fecha-fin');
+            if (inpIncFecha) inpIncFecha.value = hoyIso;
+            if (inpIncFechaFin) inpIncFechaFin.value = hoyIso;
+
+            await cargarCatalogoEtiquetasAdmin();
             await cargarMonitor();
             cargarMatrizMensual();
+            cargarIncidenciasAdmin();
             cargarSolicitudesAdmin();
             cargarHistorialAlertasAdmin();
             cargarNotasReunionAdmin();
+            cargarEquipoAdmin();
 
             if (typeof iniciarSuiteInteractivaZ8 === 'function') {
                 await iniciarSuiteInteractivaZ8({ usuario: usuarioAdminActivo, rol: 'admin' });
@@ -350,6 +592,20 @@
         };
         window.onPerfilesActualizadosZ8 = () => {
             cargarMonitor();
+            cargarEquipoAdmin();
+        };
+        window.onTareasRapidasActualizadasZ8 = (nuevasTags) => {
+            if (Array.isArray(nuevasTags) && nuevasTags.length > 0) {
+                catalogoEtiquetasAdmin = nuevasTags;
+                renderizarFiltrosTagsMonitor();
+                renderizarGestorEtiquetasAdmin();
+                renderTablaMonitor();
+            }
+        };
+        window.onIncidenciasActualizadasZ8 = () => {
+            cargarIncidenciasAdmin();
+            cargarMatrizMensual();
+            cargarMonitor();
         };
 
         async function avisarNuevaVersion() {
@@ -362,13 +618,137 @@
         function cerrarSesion() { localStorage.clear(); window.location.href = 'index.html'; }
 
         function cambiarTab(tab) {
-            const tabs = ['monitor', 'matriz', 'solicitudes', 'notificaciones', 'reunion'];
+            const tabs = ['monitor', 'matriz', 'incidencias', 'solicitudes', 'notificaciones', 'reunion', 'equipo'];
             tabs.forEach(t => {
                 const vista = document.getElementById(`vista-${t}`);
                 const btn = document.getElementById(`tab-btn-${t}`);
                 if (vista) vista.classList.toggle('hidden', t !== tab);
                 if (btn) btn.classList.toggle('active', t === tab);
             });
+            if (tab === 'equipo') cargarEquipoAdmin();
+            if (tab === 'incidencias') cargarIncidenciasAdmin();
+        }
+
+        // --- GESTIÓN DE ETIQUETAS RÁPIDAS Y FILTROS DEL MONITOR ---
+        async function cargarCatalogoEtiquetasAdmin() {
+            try {
+                const res = await fetchGoogleAPI("getTareasRapidas", {});
+                const arr = Array.isArray(res) ? res : (res && Array.isArray(res.tareas) ? res.tareas : null);
+                if (arr && arr.length > 0) {
+                    catalogoEtiquetasAdmin = arr;
+                }
+            } catch (e) {}
+            renderizarFiltrosTagsMonitor();
+            renderizarGestorEtiquetasAdmin();
+        }
+
+        function toggleGestorEtiquetasAdmin() {
+            const box = document.getElementById('box-gestor-etiquetas-admin');
+            if (box) box.classList.toggle('hidden');
+        }
+
+        function renderizarFiltrosTagsMonitor() {
+            const cont = document.getElementById('contenedor-filtros-tags-monitor');
+            if (!cont) return;
+            cont.innerHTML = catalogoEtiquetasAdmin.map(tag => {
+                const key = `TAG:${tag}`;
+                const activo = filtroMonitorActual === key;
+                const st = typeof obtenerEstiloBadgeEtiquetaZ8 === 'function'
+                    ? obtenerEstiloBadgeEtiquetaZ8(tag)
+                    : { bg: '#eff6ff', text: '#1d4ed8', border: '#bfdbfe' };
+                const styleStr = activo
+                    ? `background:#2563eb;color:#ffffff;border:1px solid #1d4ed8;`
+                    : `background:${st.bg};color:${st.text};border:1px solid ${st.border};`;
+                return `<button type="button" onclick="setFiltroMonitorAdmin('${escaparHTMLZ8(key)}')" class="px-2 py-0.5 rounded-md text-[10px] font-extrabold uppercase transition hover:opacity-90" style="${styleStr}">${escaparHTMLZ8(tag)}</button>`;
+            }).join('');
+
+            ['TODOS', 'CONECTADOS', 'PAUSA', 'INCIDENCIA'].forEach(k => {
+                const btn = document.getElementById(`flt-mon-${k}`);
+                if (!btn) return;
+                if (filtroMonitorActual === k) {
+                    btn.className = "px-2.5 py-1 rounded-lg text-[11px] font-bold bg-blue-600 text-white transition";
+                } else {
+                    btn.className = "px-2.5 py-1 rounded-lg text-[11px] font-bold bg-slate-100 text-slate-600 hover:bg-slate-200 transition";
+                }
+            });
+        }
+
+        function setFiltroMonitorAdmin(filtro) {
+            filtroMonitorActual = filtro;
+            renderizarFiltrosTagsMonitor();
+            renderTablaMonitor();
+        }
+
+        function renderizarGestorEtiquetasAdmin() {
+            const cont = document.getElementById('lista-etiquetas-config-admin');
+            if (!cont) return;
+            cont.innerHTML = catalogoEtiquetasAdmin.map(tag => {
+                const st = typeof obtenerEstiloBadgeEtiquetaZ8 === 'function'
+                    ? obtenerEstiloBadgeEtiquetaZ8(tag)
+                    : { bg: '#eff6ff', text: '#1d4ed8', border: '#bfdbfe' };
+                return `<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-extrabold uppercase" style="background:${st.bg};color:${st.text};border:1px solid ${st.border};">
+                    <span>${escaparHTMLZ8(tag)}</span>
+                    <button type="button" onclick="quitarEtiquetaRapidaAdmin('${escaparHTMLZ8(tag)}')" class="hover:text-red-600 font-black ml-0.5" title="Quitar botón rápido ${escaparHTMLZ8(tag)}">✕</button>
+                </span>`;
+            }).join('');
+        }
+
+        async function agregarEtiquetaRapidaAdmin() {
+            const inp = document.getElementById('input-nueva-etiqueta-admin');
+            if (!inp) return;
+            const val = inp.value.trim().toUpperCase().replace(/[,;|]/g, '');
+            if (!val) return;
+            if (catalogoEtiquetasAdmin.includes(val)) {
+                inp.value = '';
+                return;
+            }
+            const nuevaLista = [...catalogoEtiquetasAdmin, val];
+            try {
+                const res = await fetchGoogleAPI("guardarTareasRapidas", {
+                    tareas: nuevaLista,
+                    usuarioAdmin: usuarioAdminActivo
+                });
+                if (res && Array.isArray(res.tareas)) catalogoEtiquetasAdmin = res.tareas;
+                inp.value = '';
+                renderizarFiltrosTagsMonitor();
+                renderizarGestorEtiquetasAdmin();
+            } catch (e) {
+                alert("Error al guardar la nueva etiqueta rápida.");
+            }
+        }
+
+        async function quitarEtiquetaRapidaAdmin(tag) {
+            if (catalogoEtiquetasAdmin.length <= 1) {
+                alert("Debe quedar al menos una opción rápida activa.");
+                return;
+            }
+            const nuevaLista = catalogoEtiquetasAdmin.filter(t => t !== tag);
+            try {
+                const res = await fetchGoogleAPI("guardarTareasRapidas", {
+                    tareas: nuevaLista,
+                    usuarioAdmin: usuarioAdminActivo
+                });
+                if (res && Array.isArray(res.tareas)) catalogoEtiquetasAdmin = res.tareas;
+                if (filtroMonitorActual === `TAG:${tag}`) filtroMonitorActual = 'TODOS';
+                renderizarFiltrosTagsMonitor();
+                renderizarGestorEtiquetasAdmin();
+                renderTablaMonitor();
+            } catch (e) {}
+        }
+
+        async function restaurarEtiquetasPorDefectoAdmin() {
+            const defaults = Array.isArray(window.TAREAS_RAPIDAS_DEFAULT_Z8)
+                ? [...window.TAREAS_RAPIDAS_DEFAULT_Z8]
+                : ['ENTREVISTAS', 'COORDINACION', 'DEV', 'RRHH', 'SOPORTE', 'FINDE', 'GER', 'UK'];
+            try {
+                const res = await fetchGoogleAPI("guardarTareasRapidas", {
+                    tareas: defaults,
+                    usuarioAdmin: usuarioAdminActivo
+                });
+                if (res && Array.isArray(res.tareas)) catalogoEtiquetasAdmin = res.tareas;
+                renderizarFiltrosTagsMonitor();
+                renderizarGestorEtiquetasAdmin();
+            } catch (e) {}
         }
 
         // --- LÓGICA: MONITOR EN VIVO Y DIRECTORIO ---
@@ -384,7 +764,21 @@
                 const activosHoy = todosAgentesRaw.filter(a => a.estado !== "Desconectado" || a.horasHoy !== "00:00:00");
                 document.getElementById('contador-agentes').textContent = activosHoy.length;
 
+                const conIncidenciaHoy = todosAgentesRaw.filter(a => a.incidenciaHoy).length;
+                const elKpiInc = document.getElementById('contador-incidencias-kpi');
+                if (elKpiInc) elKpiInc.textContent = conIncidenciaHoy;
+                const badgeInc = document.getElementById('badge-incidencias-tab');
+                if (badgeInc) {
+                    if (conIncidenciaHoy > 0) {
+                        badgeInc.textContent = conIncidenciaHoy;
+                        badgeInc.classList.remove('hidden');
+                    } else {
+                        badgeInc.classList.add('hidden');
+                    }
+                }
+
                 poblarSelectDestinatariosNotif();
+                poblarSelectoresAgentesIncidencias();
                 renderTablaMonitor();
                 
                 if (!adminTimer) adminTimer = setInterval(tickMonitor, 1000);
@@ -415,24 +809,66 @@
             if ([...nombres, 'TODOS'].includes(valorPrevio)) sel.value = valorPrevio;
         }
 
+        function poblarSelectoresAgentesIncidencias() {
+            const selForm = document.getElementById('inc-admin-usuario');
+            const selFiltro = document.getElementById('flt-inc-usuario');
+            const perfiles = window._cachePerfilesZ8 || {};
+            const nombres = new Set([
+                ...todosAgentesRaw.map(a => a.usuario),
+                ...Object.keys(perfiles)
+            ]);
+            const ordenados = [...nombres].filter(Boolean).sort();
+
+            if (selForm) {
+                const prev = selForm.value;
+                selForm.innerHTML = ordenados.map(u => `<option value="${u}">${u}</option>`).join('');
+                if (prev && ordenados.includes(prev)) selForm.value = prev;
+            }
+            if (selFiltro) {
+                const prevF = selFiltro.value || 'TODOS';
+                selFiltro.innerHTML = `<option value="TODOS">Todos los agentes</option>` + ordenados.map(u => `<option value="${u}">${u}</option>`).join('');
+                if (prevF === 'TODOS' || ordenados.includes(prevF)) selFiltro.value = prevF;
+            }
+        }
+
         function renderTablaMonitor() {
             const tbody = document.getElementById('tabla-monitor');
             const verTodos = document.getElementById('chk-ver-desconectados') && document.getElementById('chk-ver-desconectados').checked;
 
-            agentesData = verTodos
+            let baseList = verTodos
                 ? [...todosAgentesRaw]
-                : todosAgentesRaw.filter(a => a.estado !== "Desconectado" || a.horasHoy !== "00:00:00");
+                : todosAgentesRaw.filter(a => a.estado !== "Desconectado" || a.horasHoy !== "00:00:00" || Boolean(a.incidenciaHoy));
 
-            // Ordenar: primero conectados/descanso/pausa, luego desconectados
+            if (filtroMonitorActual === 'CONECTADOS') {
+                baseList = baseList.filter(a => a.estado === 'Conectado');
+            } else if (filtroMonitorActual === 'PAUSA') {
+                baseList = baseList.filter(a => a.estado === 'Descanso' || a.estado === 'Pausado');
+            } else if (filtroMonitorActual === 'INCIDENCIA') {
+                baseList = baseList.filter(a => Boolean(a.incidenciaHoy));
+            } else if (filtroMonitorActual.startsWith('TAG:')) {
+                const tagBuscado = filtroMonitorActual.slice(4).toUpperCase();
+                baseList = baseList.filter(a => {
+                    const parsed = typeof parsearActividadEtiquetasZ8 === 'function'
+                        ? parsearActividadEtiquetasZ8(a.actividad)
+                        : { tags: [] };
+                    const p = a.perfil || (window._cachePerfilesZ8 && window._cachePerfilesZ8[a.usuario]) || {};
+                    const srv = String(p.servicio || '').toUpperCase();
+                    return parsed.tags.includes(tagBuscado) || srv === tagBuscado;
+                });
+            }
+
+            agentesData = baseList;
+
+            // Ordenar: primero conectados/descanso/pausa, luego con incidencia hoy, luego desconectados
             agentesData.sort((a, b) => {
-                const actA = a.estado !== 'Desconectado' ? 0 : 1;
-                const actB = b.estado !== 'Desconectado' ? 0 : 1;
+                const actA = a.estado !== 'Desconectado' ? 0 : (a.incidenciaHoy ? 1 : 2);
+                const actB = b.estado !== 'Desconectado' ? 0 : (b.incidenciaHoy ? 1 : 2);
                 if (actA !== actB) return actA - actB;
                 return a.usuario.localeCompare(b.usuario);
             });
 
             if (agentesData.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="6" class="text-center py-8 text-slate-400 text-sm">Sin actividad registrada hoy. Marca la casilla superior si deseas ver el directorio completo.</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="6" class="text-center py-8 text-slate-400 text-sm">No hay agentes que coincidan con el filtro seleccionado.</td></tr>`;
                 return;
             }
 
@@ -459,6 +895,25 @@
                     ? `<a href="https://wa.me/${numWa.replace(/^\+/, '')}" target="_blank" class="btn-action-mini bg-emerald-500/15 text-emerald-500 border border-emerald-500/30 hover:bg-emerald-600 hover:text-white" title="Abrir WhatsApp de ${a.usuario} (${numWa})">📱</a>`
                     : '';
 
+                const chipsTareaHtml = typeof renderizarChipsActividadZ8 === 'function'
+                    ? renderizarChipsActividadZ8(a.actividad)
+                    : `<span class="text-xs text-slate-600">${escaparHTMLZ8(a.actividad)}</span>`;
+
+                let badgeIncidenciaHoy = '';
+                if (a.incidenciaHoy) {
+                    const cfg = typeof obtenerConfigTipoIncidenciaZ8 === 'function'
+                        ? obtenerConfigTipoIncidenciaZ8(a.incidenciaHoy.tipo)
+                        : { icono: '📅', label: a.incidenciaHoy.tipo, bg: '#eef2ff', text: '#4338ca', border: '#c7d2fe' };
+                    badgeIncidenciaHoy = `<div onclick="cambiarTab('incidencias')" class="mt-1 inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold cursor-pointer" style="background:${cfg.bg};color:${cfg.text};border:1px solid ${cfg.border};" title="Incidencia/Permiso registrado hoy para ${a.usuario}">
+                        <span>${cfg.icono} HOY: ${escaparHTMLZ8(cfg.label)}</span>
+                        ${a.incidenciaHoy.motivo ? `<span class="font-normal opacity-90">— ${escaparHTMLZ8(a.incidenciaHoy.motivo)}</span>` : ''}
+                    </div>`;
+                }
+
+                const badgeBreakLive = (a.estado === 'Descanso' || a.estado === 'Pausado')
+                    ? `<span id="live-break-${index}" class="ml-1.5 px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-blue-50 text-blue-700 border border-blue-200">⏳ 00:00</span>`
+                    : '';
+
                 html += `<tr>
                     <td>
                         <div class="flex items-center gap-2.5">
@@ -473,17 +928,24 @@
                         </div>
                     </td>
                     <td>
-                        <div class="flex items-center"><div class="w-2 h-2 rounded-full ${dot} mr-2"></div>
-                        <span class="text-[10px] uppercase font-bold text-slate-500">${a.estado}</span></div>
+                        <div class="flex items-center flex-wrap gap-y-1">
+                            <div class="w-2 h-2 rounded-full ${dot} mr-2"></div>
+                            <span class="text-[10px] uppercase font-bold text-slate-600">${a.estado}</span>
+                            ${badgeBreakLive}
+                        </div>
                     </td>
                     <td class="font-mono text-blue-700 font-bold" id="live-time-${index}">${a.horasHoy}</td>
-                    <td class="text-xs text-slate-500">${a.inicio}</td>
-                    <td class="text-xs max-w-[160px] truncate text-slate-600" title="${escaparHTMLZ8(a.actividad)}">${escaparHTMLZ8(a.actividad)}</td>
+                    <td class="text-xs font-mono text-slate-500" title="Inicio exacto: ${escaparHTMLZ8(a.inicio || '-')}">${escaparHTMLZ8(a.inicioCorto || a.inicio || '-')}</td>
+                    <td class="text-xs max-w-[260px] whitespace-normal">
+                        <div>${chipsTareaHtml}</div>
+                        ${badgeIncidenciaHoy}
+                    </td>
                     <td>
-                        <div class="flex items-center justify-end gap-1.5 flex-nowrap">
+                        <div class="flex items-center justify-end gap-1 flex-nowrap">
                             <button onclick="enviarAlarmaRapidaAgente('${a.usuario}')" class="btn-action-mini bg-red-500/15 text-red-500 border border-red-500/30 hover:bg-red-600 hover:text-white" title="🚨 Hacer sonar Alarma de Atención en bucle a ${a.usuario}">🚨</button>
                             <button onclick="abrirEnvioIndividualAgente('${a.usuario}')" class="btn-action-mini bg-amber-500/15 text-amber-500 border border-amber-500/30 hover:bg-amber-500 hover:text-white" title="🔔 Enviar aviso / notificación sonora a ${a.usuario}">🔔</button>
                             <button onclick="abrirChatPrivadoConAgente('${a.usuario}')" class="btn-action-mini bg-blue-500/15 text-blue-400 border border-blue-500/30 hover:bg-blue-600 hover:text-white" title="💬 Abrir chat privado 1 a 1 con ${a.usuario}">💬</button>
+                            <button onclick="abrirIncidenciaRapidaAgente('${a.usuario}')" class="btn-action-mini bg-indigo-500/15 text-indigo-500 border border-indigo-500/30 hover:bg-indigo-600 hover:text-white" title="📅 Registrar permiso, ausencia o incidencia para ${a.usuario}">📅</button>
                             ${btnWa}
                             <button onclick="abrirModalPerfilZ8('${a.usuario}')" class="btn-action-mini bg-slate-500/15 text-slate-400 border border-slate-500/30 hover:bg-slate-600 hover:text-white" title="👤 Ver o editar ficha completa de ${a.usuario}">👤</button>
                             ${btnDesconectar}
@@ -494,7 +956,18 @@
             tbody.innerHTML = html;
         }
 
+        function abrirIncidenciaRapidaAgente(usuario) {
+            cambiarTab('incidencias');
+            const sel = document.getElementById('inc-admin-usuario');
+            if (sel) sel.value = usuario;
+            const inp = document.getElementById('inc-admin-motivo');
+            if (inp) inp.focus();
+        }
+
         function abrirChatPrivadoConAgente(usuario) {
+            if (typeof toggleMinimizarModuloChatZ8 === 'function') {
+                toggleMinimizarModuloChatZ8(false);
+            }
             seleccionarConversacionChatZ8(usuario);
             const win = document.getElementById('chat-window-z8');
             if (win && window.innerWidth < 1280) {
@@ -527,7 +1000,7 @@
                     mensaje: motivo.trim() || "Por favor, confirma inmediatamente que estás en tu puesto."
                 });
                 await cargarHistorialAlertasAdmin();
-                alert(`🚨 Alarma enviada a ${usuario}. En la pestaña "Notificaciones y Alarmas" verás cuántos segundos tarda en apagarla.`);
+                alert(`🚨 Alarma enviada a ${usuario}. En la pestaña "Alertas" verás cuántos segundos tarda en apagarla.`);
             } catch (e) {
                 alert("Error al enviar la alarma.");
             }
@@ -548,41 +1021,69 @@
             }
         }
 
+        function calcularSegundosDesdeInicioAgente(a, ahoraMadrid) {
+            if (a.inicioIso) {
+                const t = new Date(a.inicioIso).getTime();
+                if (!isNaN(t)) {
+                    return Math.max(0, Math.floor((Date.now() - t) / 1000));
+                }
+            }
+            if (!a.inicio || a.inicio === '-') return 0;
+            let p = a.inicio.split(" ");
+            if (p.length === 2) {
+                let dp = p[0].split("/");
+                let tp = p[1].split(":");
+                let dInicio = new Date(dp[2], dp[1]-1, dp[0], tp[0], tp[1], tp[2]);
+                let diffMs = ahoraMadrid.getTime() - dInicio.getTime();
+                if (diffMs > 0) return Math.floor(diffMs / 1000);
+            } else if (p.length === 1) {
+                let tp = p[0].split(":");
+                let dInicio = new Date(ahoraMadrid.getTime());
+                dInicio.setHours(parseInt(tp[0]), parseInt(tp[1]), parseInt(tp[2] || 0), 0);
+                let diffMs = ahoraMadrid.getTime() - dInicio.getTime();
+                if (diffMs > 0) return Math.floor(diffMs / 1000);
+            }
+            return 0;
+        }
+
         function tickMonitor() {
             const ahora = getHoraActualMadridAsLocalAdmin();
             agentesData.forEach((a, index) => {
                 let cell = document.getElementById(`live-time-${index}`);
-                if (!cell) return;
-                
-                let baseParts = a.horasHoy.split(":");
-                let baseSecs = 0;
-                if(baseParts.length === 3) {
-                    baseSecs = (parseInt(baseParts[0])*3600) + (parseInt(baseParts[1])*60) + parseInt(baseParts[2]);
+                if (cell) {
+                    let baseParts = a.horasHoy.split(":");
+                    let baseSecs = 0;
+                    if (baseParts.length === 3) {
+                        baseSecs = (parseInt(baseParts[0])*3600) + (parseInt(baseParts[1])*60) + parseInt(baseParts[2]);
+                    }
+                    let extraSecs = (a.estado === 'Conectado' && a.inicio !== '-')
+                        ? calcularSegundosDesdeInicioAgente(a, ahora)
+                        : 0;
+                    let totalSecs = baseSecs + extraSecs;
+                    let h = Math.floor(totalSecs / 3600);
+                    let m = Math.floor((totalSecs % 3600) / 60);
+                    let s = totalSecs % 60;
+                    cell.textContent = (h<10?"0"+h:h)+":"+(m<10?"0"+m:m)+":"+(s<10?"0"+s:s);
                 }
-                
-                let extraSecs = 0;
-                if (a.estado === 'Conectado' && a.inicio !== '-') {
-                    let p = a.inicio.split(" ");
-                    if (p.length === 2) {
-                        let dp = p[0].split("/");
-                        let tp = p[1].split(":");
-                        let dInicio = new Date(dp[2], dp[1]-1, dp[0], tp[0], tp[1], tp[2]);
-                        let diffMs = ahora.getTime() - dInicio.getTime();
-                        if (diffMs > 0) extraSecs = Math.floor(diffMs / 1000);
-                    } else if (p.length === 1) {
-                        let tp = p[0].split(":");
-                        let dInicio = getHoraActualMadridAsLocalAdmin();
-                        dInicio.setHours(parseInt(tp[0]), parseInt(tp[1]), parseInt(tp[2] || 0), 0);
-                        let diffMs = ahora.getTime() - dInicio.getTime();
-                        if (diffMs > 0) extraSecs = Math.floor(diffMs / 1000);
+
+                // Semáforo en vivo de Descanso / Pausa
+                let breakEl = document.getElementById(`live-break-${index}`);
+                if (breakEl && (a.estado === 'Descanso' || a.estado === 'Pausado')) {
+                    const segsPausa = calcularSegundosDesdeInicioAgente(a, ahora);
+                    const mins = Math.floor(segsPausa / 60);
+                    const secs = segsPausa % 60;
+                    const mmSs = `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+                    if (mins >= 30) {
+                        breakEl.className = "ml-1.5 px-1.5 py-0.5 rounded text-[10px] font-mono font-extrabold bg-red-600 text-white animate-pulse shadow-sm";
+                        breakEl.textContent = `🚨 ${mmSs}`;
+                    } else if (mins >= 20) {
+                        breakEl.className = "ml-1.5 px-1.5 py-0.5 rounded text-[10px] font-mono font-extrabold bg-amber-100 text-amber-800 border border-amber-300";
+                        breakEl.textContent = `⚠️ ${mmSs}`;
+                    } else {
+                        breakEl.className = "ml-1.5 px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-blue-50 text-blue-700 border border-blue-200";
+                        breakEl.textContent = `⏳ ${mmSs}`;
                     }
                 }
-                
-                let totalSecs = baseSecs + extraSecs;
-                let h = Math.floor(totalSecs / 3600);
-                let m = Math.floor((totalSecs % 3600) / 60);
-                let s = totalSecs % 60;
-                cell.textContent = (h<10?"0"+h:h)+":"+(m<10?"0"+m:m)+":"+(s<10?"0"+s:s);
             });
         }
 
@@ -592,6 +1093,264 @@
                 await fetchGoogleAPI("forceDisconnect", { usuario: usuario });
                 cargarMonitor();
             } catch(e) { alert("Error al desconectar."); }
+        }
+
+        // --- LÓGICA: INCIDENCIAS, AUSENCIAS, PERMISOS Y RECORDATORIOS WFM ---
+        function alCambiarTipoIncidenciaAdmin() {
+            const tipo = document.getElementById('inc-admin-tipo').value;
+            const chk = document.getElementById('inc-admin-justificada');
+            if (!chk) return;
+            if (tipo === 'RECORDATORIO') {
+                chk.checked = false;
+            } else if (tipo === 'PERMISO' || tipo === 'VACACIONES' || tipo === 'BAJA_MEDICA') {
+                chk.checked = true;
+            }
+        }
+
+        async function cargarIncidenciasAdmin() {
+            try {
+                const mesSeleccionado = document.getElementById('mes-selector').value;
+                const lista = await fetchGoogleAPI("getIncidenciasWFM", { month: mesSeleccionado });
+                incidenciasAdminData = lista || [];
+                renderTablaIncidenciasAdmin();
+            } catch (e) {}
+        }
+
+        function renderTablaIncidenciasAdmin() {
+            const tbody = document.getElementById('tabla-incidencias-admin');
+            if (!tbody) return;
+            const filtroU = (document.getElementById('flt-inc-usuario') && document.getElementById('flt-inc-usuario').value) || 'TODOS';
+            const lista = filtroU === 'TODOS'
+                ? incidenciasAdminData
+                : incidenciasAdminData.filter(i => i.usuario === filtroU);
+
+            if (lista.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="7" class="text-center py-8 text-slate-400 text-sm">No hay incidencias, ausencias ni permisos registrados en este mes.</td></tr>`;
+                return;
+            }
+
+            let html = '';
+            lista.forEach(inc => {
+                const fechaBonita = inc.fecha ? inc.fecha.split('-').reverse().join('/') : '-';
+                const cfg = typeof obtenerConfigTipoIncidenciaZ8 === 'function'
+                    ? obtenerConfigTipoIncidenciaZ8(inc.tipo)
+                    : { icono: '📅', label: inc.tipo, bg: '#eef2ff', text: '#4338ca', border: '#c7d2fe' };
+
+                const impactoHtml = inc.justificada
+                    ? `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">✅ Justificada (Descuenta día de Previstas)</span>`
+                    : `<span class="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-slate-100 text-slate-600">📌 Informativa / Recordatorio</span>`;
+
+                html += `<tr>
+                    <td class="font-mono font-bold text-xs text-slate-700">${fechaBonita}</td>
+                    <td class="font-bold text-slate-800">${escaparHTMLZ8(inc.usuario)}</td>
+                    <td>
+                        <span class="px-2.5 py-1 rounded-md text-[11px] font-extrabold inline-flex items-center gap-1" style="background:${cfg.bg};color:${cfg.text};border:1px solid ${cfg.border};">
+                            ${cfg.icono} ${escaparHTMLZ8(cfg.label)}
+                        </span>
+                    </td>
+                    <td>${impactoHtml}</td>
+                    <td class="text-xs text-slate-700 whitespace-normal max-w-xs">${escaparHTMLZ8(inc.motivo || '—')}</td>
+                    <td class="text-xs text-slate-500 font-semibold">${escaparHTMLZ8(inc.creadoPor || 'ADMIN')}</td>
+                    <td class="text-right">
+                        <button onclick="borrarIncidenciaAdmin('${inc.id}')" class="text-xs text-slate-400 hover:text-red-600 font-bold" title="Eliminar incidencia/permiso">🗑️</button>
+                    </td>
+                </tr>`;
+            });
+            tbody.innerHTML = html;
+        }
+
+        async function guardarIncidenciaDesdeAdmin() {
+            const usuario = document.getElementById('inc-admin-usuario').value;
+            const tipo = document.getElementById('inc-admin-tipo').value;
+            const fecha = document.getElementById('inc-admin-fecha').value;
+            const fechaFin = document.getElementById('inc-admin-fecha-fin').value || fecha;
+            const motivo = document.getElementById('inc-admin-motivo').value.trim();
+            const justificada = document.getElementById('inc-admin-justificada').checked;
+
+            if (!usuario || !fecha) {
+                alert("Selecciona el agente y la fecha.");
+                return;
+            }
+            try {
+                await fetchGoogleAPI("crearIncidenciaWFM", {
+                    usuario,
+                    fecha,
+                    fechaFin,
+                    tipo,
+                    motivo: motivo || tipo,
+                    justificada,
+                    creadoPor: usuarioAdminActivo
+                });
+                document.getElementById('inc-admin-motivo').value = '';
+                await cargarIncidenciasAdmin();
+                await cargarMatrizMensual();
+                await cargarMonitor();
+                alert("✅ Incidencia / Permiso registrado y sincronizado con el Resumen WFM.");
+            } catch (e) {
+                alert("Error al registrar la incidencia.");
+            }
+        }
+
+        async function borrarIncidenciaAdmin(id) {
+            if (!confirm("¿Eliminar este registro de incidencia/permiso?")) return;
+            try {
+                await fetchGoogleAPI("eliminarIncidenciaWFM", { id });
+                await cargarIncidenciasAdmin();
+                await cargarMatrizMensual();
+                await cargarMonitor();
+            } catch (e) {}
+        }
+
+        // --- LÓGICA: GESTIÓN DE EQUIPO (ALTAS, BAJAS Y JORNADA) ---
+        async function cargarEquipoAdmin() {
+            try {
+                const lista = await fetchGoogleAPI("getUsuariosEquipoAdmin", {});
+                equipoAdminData = lista || [];
+                const activos = equipoAdminData.filter(u => !u.enBaja).length;
+                const bajas = equipoAdminData.filter(u => u.enBaja).length;
+                const elKpiEq = document.getElementById('contador-equipo-kpi');
+                if (elKpiEq) elKpiEq.textContent = `${activos} act.${bajas > 0 ? ` · ${bajas} baja` : ''}`;
+                renderTablaEquipoAdmin();
+            } catch (e) {}
+        }
+
+        function filtrarEquipoAdmin(filtro) {
+            filtroEquipoActual = filtro;
+            ['ACTIVOS', 'BAJAS', 'TODOS'].forEach(k => {
+                const btn = document.getElementById(`flt-eq-${k}`);
+                if (!btn) return;
+                if (k === filtro) {
+                    btn.className = "px-3 py-1 rounded-lg text-xs font-bold bg-blue-600 text-white transition";
+                } else {
+                    btn.className = "px-3 py-1 rounded-lg text-xs font-bold bg-white text-slate-600 border border-slate-200 hover:bg-slate-100 transition";
+                }
+            });
+            renderTablaEquipoAdmin();
+        }
+
+        function renderTablaEquipoAdmin() {
+            const tbody = document.getElementById('tabla-equipo-admin');
+            if (!tbody) return;
+
+            let lista = equipoAdminData;
+            if (filtroEquipoActual === 'ACTIVOS') {
+                lista = equipoAdminData.filter(u => !u.enBaja);
+            } else if (filtroEquipoActual === 'BAJAS') {
+                lista = equipoAdminData.filter(u => u.enBaja);
+            }
+
+            if (lista.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="6" class="text-center py-8 text-slate-400 text-sm">No hay usuarios en esta vista.</td></tr>`;
+                return;
+            }
+
+            let html = '';
+            lista.forEach(u => {
+                let badgeRol = '';
+                if (u.enBaja) {
+                    badgeRol = `<span class="px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-red-100 text-red-700 border border-red-200">🚫 DE BAJA (INACTIVO)</span>`;
+                } else if (String(u.rol).toLowerCase() === 'admin') {
+                    badgeRol = `<span class="px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-purple-100 text-purple-800 border border-purple-200">🛡️ SUPERVISIÓN / ADMIN</span>`;
+                } else {
+                    badgeRol = `<span class="px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-emerald-100 text-emerald-800 border border-emerald-200">🟢 AGENTE ACTIVO</span>`;
+                }
+
+                const btnBajaReactivar = u.enBaja
+                    ? `<button onclick="cambiarEstadoBajaUsuarioAdmin('${escaparHTMLZ8(u.nombre)}', 'REACTIVAR')" class="px-2.5 py-1 rounded-lg text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white transition shadow-sm">✅ Reactivar Alta</button>`
+                    : `<button onclick="cambiarEstadoBajaUsuarioAdmin('${escaparHTMLZ8(u.nombre)}', 'INACTIVAR')" class="px-2.5 py-1 rounded-lg text-xs font-bold bg-amber-50 hover:bg-amber-600 text-amber-700 hover:text-white border border-amber-300 transition" title="Dar de baja bloqueando su login y ocultándolo del monitor activo sin perder sus horas históricas">🚫 Dar de Baja</button>`;
+
+                html += `<tr class="${u.enBaja ? 'opacity-65' : ''}">
+                    <td>
+                        <div class="flex items-center gap-2.5">
+                            ${typeof renderAvatarHTMLZ8 === 'function' ? renderAvatarHTMLZ8(u.nombre, 30) : ''}
+                            <div>
+                                <div class="font-bold text-slate-800">${escaparHTMLZ8(u.nombre)}</div>
+                                <div class="text-[10px] text-slate-400">${escaparHTMLZ8(u.correo || u.movil || 'Sin contacto')}</div>
+                            </div>
+                        </div>
+                    </td>
+                    <td>${badgeRol}</td>
+                    <td class="font-mono text-xs font-bold text-slate-700">${u.horas_objetivo || 8}h / día</td>
+                    <td><span class="px-2 py-0.5 rounded text-xs font-bold bg-slate-100 text-slate-700">${escaparHTMLZ8(u.servicio || '—')}</span></td>
+                    <td class="font-mono text-xs text-slate-500">${escaparHTMLZ8(u.clave || '••••')}</td>
+                    <td class="text-right">
+                        <div class="flex items-center justify-end gap-1.5">
+                            <button onclick="cargarUsuarioEnFormularioEquipo('${escaparHTMLZ8(u.nombre)}')" class="px-2.5 py-1 rounded-lg text-xs font-bold bg-blue-50 hover:bg-blue-600 text-blue-700 hover:text-white border border-blue-200 transition">✏️ Editar</button>
+                            ${btnBajaReactivar}
+                            <button onclick="cambiarEstadoBajaUsuarioAdmin('${escaparHTMLZ8(u.nombre)}', 'ELIMINAR')" class="px-2 py-1 rounded-lg text-xs font-bold text-slate-400 hover:text-red-600" title="Eliminar definitivamente de la base de datos">🗑️</button>
+                        </div>
+                    </td>
+                </tr>`;
+            });
+            tbody.innerHTML = html;
+        }
+
+        function cargarUsuarioEnFormularioEquipo(nombre) {
+            const u = equipoAdminData.find(item => item.nombre === nombre);
+            if (!u) return;
+            document.getElementById('eq-nombre').value = u.nombre;
+            document.getElementById('eq-clave').value = u.clave || '';
+            document.getElementById('eq-rol').value = u.enBaja ? 'BAJA' : (String(u.rol).toLowerCase() === 'admin' ? 'admin' : 'agente');
+            document.getElementById('eq-horas').value = u.horas_objetivo || 8;
+            document.getElementById('eq-servicio').value = u.servicio || '';
+            const txt = document.getElementById('txt-modo-form-equipo');
+            if (txt) txt.innerHTML = `✏️ Editando usuario: <b class="text-blue-600">${escaparHTMLZ8(u.nombre)}</b>`;
+            document.getElementById('eq-nombre').focus();
+        }
+
+        function limpiarFormularioEquipoAdmin() {
+            document.getElementById('eq-nombre').value = '';
+            document.getElementById('eq-clave').value = '';
+            document.getElementById('eq-rol').value = 'agente';
+            document.getElementById('eq-horas').value = '8';
+            document.getElementById('eq-servicio').value = '';
+            const txt = document.getElementById('txt-modo-form-equipo');
+            if (txt) txt.textContent = '✨ Modo: Crear nuevo usuario o actualizar existente por nombre';
+        }
+
+        async function guardarUsuarioDesdeEquipoAdmin() {
+            const nombre = document.getElementById('eq-nombre').value.trim().toUpperCase();
+            const clave = document.getElementById('eq-clave').value.trim();
+            const rol = document.getElementById('eq-rol').value;
+            const horas_objetivo = parseFloat(document.getElementById('eq-horas').value) || 8;
+            const servicio = document.getElementById('eq-servicio').value.trim().toUpperCase();
+
+            if (!nombre) {
+                alert("Introduce el nombre del usuario.");
+                return;
+            }
+            try {
+                await fetchGoogleAPI("guardarUsuarioEquipoAdmin", {
+                    nombre,
+                    clave,
+                    rol,
+                    horas_objetivo,
+                    servicio
+                });
+                limpiarFormularioEquipoAdmin();
+                await cargarEquipoAdmin();
+                await cargarMonitor();
+                await cargarMatrizMensual();
+                alert(`✅ Usuario ${nombre} guardado correctamente.`);
+            } catch (e) {
+                alert("Error al guardar el usuario: " + (e.message || e));
+            }
+        }
+
+        async function cambiarEstadoBajaUsuarioAdmin(nombre, modo) {
+            if (modo === 'INACTIVAR') {
+                if (!confirm(`¿Dar de BAJA a ${nombre}?\n\n• Se cerrará su sesión si está conectado.\n• No podrá iniciar sesión ni aparecerá en el monitor activo.\n• Se conservarán todas sus horas históricas en el Resumen Mensual WFM.`)) return;
+            } else if (modo === 'ELIMINAR') {
+                if (!confirm(`⚠️ ¿ELIMINAR DEFINITIVAMENTE a ${nombre} y todos sus registros?\n\nSi solo deseas darlo de baja conservando su historial de horas del mes, pulsa Cancelar y usa el botón "🚫 Dar de Baja".`)) return;
+            }
+            try {
+                await fetchGoogleAPI("darBajaUsuarioEquipoAdmin", { nombre, modo });
+                await cargarEquipoAdmin();
+                await cargarMonitor();
+                await cargarMatrizMensual();
+            } catch (e) {
+                alert("Error al actualizar el estado del usuario.");
+            }
         }
 
         // --- LÓGICA: NOTIFICACIONES, BROADCAST Y ALARMAS DE ATENCIÓN ---
@@ -958,6 +1717,28 @@
                 matrizGlobal = response;
                 document.getElementById('titulo-mes').textContent = `Matriz del Mes: ${response.mes}`;
                 
+                // Renderizar desglose global por etiquetas del mes
+                const boxEtiquetasWfm = document.getElementById('box-desglose-etiquetas-wfm');
+                const contEtiquetasWfm = document.getElementById('contenedor-desglose-etiquetas-wfm');
+                if (boxEtiquetasWfm && contEtiquetasWfm) {
+                    const mapaGlobal = response.resumenEtiquetasGlobal || {};
+                    const claves = Object.keys(mapaGlobal).filter(k => mapaGlobal[k] > 0).sort((a, b) => mapaGlobal[b] - mapaGlobal[a]);
+                    if (claves.length > 0) {
+                        boxEtiquetasWfm.classList.remove('hidden');
+                        contEtiquetasWfm.innerHTML = claves.map(tag => {
+                            const st = typeof obtenerEstiloBadgeEtiquetaZ8 === 'function'
+                                ? obtenerEstiloBadgeEtiquetaZ8(tag)
+                                : { bg: '#eff6ff', text: '#1d4ed8', border: '#bfdbfe' };
+                            return `<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-extrabold" style="background:${st.bg};color:${st.text};border:1px solid ${st.border};">
+                                <span>${escaparHTMLZ8(tag)}</span>
+                                <span class="font-mono font-bold opacity-90">${formatoSegundos(mapaGlobal[tag])}</span>
+                            </span>`;
+                        }).join('');
+                    } else {
+                        boxEtiquetasWfm.classList.add('hidden');
+                    }
+                }
+
                 const partes = response.mes.split("/");
                 const diasEnMes = new Date(partes[1], partes[0], 0).getDate();
 
@@ -966,7 +1747,7 @@
                     <th class="bg-blue-50 text-blue-800 border-r border-slate-200" title="Total Acumulado">Total Mes</th>
                     <th class="bg-slate-50 text-slate-600 border-r border-slate-200" title="Total laborables">Laborables</th>
                     <th class="bg-slate-50 text-slate-600 border-r border-slate-200" title="Total fines de semana">Finde</th>
-                    <th class="bg-slate-50 text-slate-600 border-r border-slate-200" title="Horas Laborables del Mes">Previstas</th>
+                    <th class="bg-slate-50 text-slate-600 border-r border-slate-200" title="Horas Laborables del Mes (descontando ausencias justificadas)">Previstas</th>
                     <th class="bg-slate-50 text-slate-600 border-r border-slate-200" title="Diferencia (Positivo = Extra, Negativo = Falta)">Diferencia</th>`;
                 for(let d=1; d<=diasEnMes; d++) {
                     let date = new Date(partes[1], parseInt(partes[0]) - 1, d);
@@ -991,13 +1772,17 @@
                     let diffSegs = agentData.totalMes - (agentData.previstas || 0);
                     let diffFormato = (diffSegs < 0 ? "-" : "+") + formatoSegundos(Math.abs(diffSegs));
                     let diffClass = diffSegs < 0 ? "text-red-500" : "text-green-600";
+
+                    const badgeJustif = agentData.diasJustificados > 0
+                        ? `<span class="ml-1 px-1 py-0.2 rounded text-[9px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200" title="${agentData.diasJustificados} día(s) laborable(s) justificado(s) descontado(s) de Previstas">-${agentData.diasJustificados}d</span>`
+                        : '';
                     
                     tbody += `<tr class="hover:bg-slate-50">
                         <td class="sticky left-0 bg-white font-bold text-xs text-slate-700 border-r border-slate-100 z-10 shadow-[2px_0_5px_rgba(0,0,0,0.02)]">${usr}</td>
                         <td class="font-mono text-xs font-bold text-blue-700 border-r border-slate-100 bg-blue-50/30">${totalMesFormato}</td>
                         <td class="font-mono text-[10px] text-slate-600 border-r border-slate-100 bg-slate-50/50">${labFormato}</td>
                         <td class="font-mono text-[10px] text-amber-600 border-r border-slate-100 bg-amber-50/30">${findeFormato}</td>
-                        <td class="font-mono text-[10px] font-semibold text-slate-500 border-r border-slate-100 bg-slate-50/50">${previstasFormato}</td>
+                        <td class="font-mono text-[10px] font-semibold text-slate-500 border-r border-slate-100 bg-slate-50/50">${previstasFormato}${badgeJustif}</td>
                         <td class="font-mono text-[10px] font-bold ${diffClass} border-r border-slate-100 bg-slate-50/50">${diffFormato}</td>`;
                     
                     for(let d=1; d<=diasEnMes; d++) {
@@ -1007,12 +1792,33 @@
                         
                         let segsDia = agentData.dias[d];
                         let ajusteDia = agentData.ajustesAprobados && agentData.ajustesAprobados[d];
-                        let titleAttr = ajusteDia
-                            ? `title="Incluye corrección aprobada (${ajusteDia >= 0 ? '+' : '-'}${formatoSegundos(Math.abs(ajusteDia))})"`
+                        let incDia = agentData.incidencias && agentData.incidencias[d];
+
+                        let tooltipParts = [];
+                        if (ajusteDia) {
+                            tooltipParts.push(`Corrección aprobada (${ajusteDia >= 0 ? '+' : '-'}${formatoSegundos(Math.abs(ajusteDia))})`);
+                        }
+                        if (incDia) {
+                            const cfgI = typeof obtenerConfigTipoIncidenciaZ8 === 'function'
+                                ? obtenerConfigTipoIncidenciaZ8(incDia.tipo)
+                                : { icono: '📅', label: incDia.tipo };
+                            tooltipParts.push(`${cfgI.icono} ${cfgI.label}: ${incDia.motivo || 'Sin detalle'}${incDia.justificada ? ' (Justificado)' : ''}`);
+                        }
+                        let titleAttr = tooltipParts.length > 0
+                            ? `title="${escaparHTMLZ8(tooltipParts.join(' | '))}"`
                             : "";
                         let badgeAjuste = ajusteDia ? `<span class="text-blue-600 font-bold ml-0.5">*</span>` : "";
 
-                        if(segsDia) {
+                        if (incDia) {
+                            const cfg = typeof obtenerConfigTipoIncidenciaZ8 === 'function'
+                                ? obtenerConfigTipoIncidenciaZ8(incDia.tipo)
+                                : { icono: '📅', corto: 'INC', bg: '#eef2ff', text: '#4338ca', border: '#c7d2fe' };
+                            const subHoras = segsDia ? `<div class="font-mono text-[9px] text-slate-600 mt-0.5">${formatoSegundos(segsDia)}${badgeAjuste}</div>` : '';
+                            tbody += `<td ${titleAttr} onclick="cambiarTab('incidencias')" class="text-center px-1.5 py-1 border-r cursor-pointer" style="background:${cfg.bg};border-color:${cfg.border};">
+                                <span class="inline-flex items-center gap-0.5 text-[9px] font-extrabold leading-none" style="color:${cfg.text};">${cfg.icono} ${cfg.corto}</span>
+                                ${subHoras}
+                            </td>`;
+                        } else if (segsDia) {
                             tbody += `<td ${titleAttr} class="text-center font-mono text-[10px] ${ajusteDia ? 'text-blue-700 font-bold bg-blue-50/40' : 'text-slate-600'} px-2 border-r ${bgCell}">${formatoSegundos(segsDia)}${badgeAjuste}</td>`;
                         } else {
                             tbody += `<td class="text-center text-[10px] text-slate-300 border-r ${bgCell}">-</td>`;
@@ -1064,7 +1870,14 @@
                     
                     for(let d=1; d<=diasEnMes; d++) {
                         let s = agentData.dias[d];
-                        csv += `,"${s ? formatoSegundos(s) : "-"}"`;
+                        let inc = agentData.incidencias && agentData.incidencias[d];
+                        if (s && inc) {
+                            csv += `,"${formatoSegundos(s)} (${inc.tipo})"` ;
+                        } else if (inc) {
+                            csv += `,"${inc.tipo}: ${String(inc.motivo || '').replace(/"/g, "'")}"`;
+                        } else {
+                            csv += `,"${s ? formatoSegundos(s) : "-"}"`;
+                        }
                     }
                     csv += "\n";
                 });
