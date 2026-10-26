@@ -32,9 +32,9 @@
 </head>
 <body>
 
-    <div class="max-w-6xl mx-auto pt-6 pb-20 px-4">
+    <div class="max-w-[1640px] mx-auto pt-5 pb-16 px-4">
         
-        <header class="flex flex-wrap justify-between items-center gap-3 mb-6">
+        <header class="flex flex-wrap justify-between items-center gap-3 mb-5">
             <div>
                 <h1 class="text-2xl font-bold tracking-tight text-slate-800">TimeTrack<span class="text-blue-600">.</span></h1>
                 <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Módulo WFM & Supervisión</p>
@@ -48,7 +48,7 @@
             </div>
         </header>
 
-        <div class="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
+        <div class="grid grid-cols-1 md:grid-cols-5 gap-4 mb-5">
             <div class="bento-panel md:col-span-2 flex flex-col justify-center bg-slate-900 text-white border-none shadow-xl">
                 <h2 class="text-xl font-bold mb-1 text-white">Centro de Control Operativo</h2>
                 <p class="text-slate-400 text-xs mb-4">Exportación, avisos masivos, alarmas y control de versiones.</p>
@@ -81,7 +81,9 @@
             </div>
         </div>
 
-        <div class="bento-panel overflow-hidden !p-0">
+        <!-- LAYOUT PRINCIPAL: IZQUIERDA WFM/MONITOR + DERECHA CHAT SIEMPRE EN VISTA -->
+        <div class="grid grid-cols-1 xl:grid-cols-12 gap-5 items-start">
+        <div class="xl:col-span-7 bento-panel overflow-hidden !p-0">
             <!-- Menú de Pestañas -->
             <div class="flex flex-wrap border-b border-slate-200 bg-slate-50 overflow-x-auto">
                 <button onclick="cambiarTab('monitor')" id="tab-btn-monitor" class="tab-btn active flex items-center gap-2">
@@ -291,6 +293,11 @@
             </div>
 
         </div>
+
+        <!-- COLUMNA DERECHA SIEMPRE EN VISTA: MÓDULO DE CHAT Y CANALES DE EQUIPO -->
+        <div id="chat-embedded-mount-z8" class="xl:col-span-5 xl:sticky xl:top-5"></div>
+
+        </div>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -486,9 +493,17 @@
         }
 
         function abrirChatPrivadoConAgente(usuario) {
-            toggleChatWindowZ8(true);
             seleccionarConversacionChatZ8(usuario);
+            const win = document.getElementById('chat-window-z8');
+            if (win && window.innerWidth < 1280) {
+                win.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+            setTimeout(() => {
+                const inp = document.getElementById('chat-input-txt-z8');
+                if (inp) inp.focus();
+            }, 100);
         }
+        window.dispararAlarmaRapidaAgente = enviarAlarmaRapidaAgente;
 
         function abrirEnvioIndividualAgente(usuario) {
             cambiarTab('notificaciones');
