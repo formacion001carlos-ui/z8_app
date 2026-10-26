@@ -8,11 +8,17 @@
     <link rel="icon" href="https://cdn-icons-png.flaticon.com/512/2088/2088617.png" type="image/png">
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        body { background-color: #f0f4f8; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
-        .bento-box { background: white; border-radius: 16px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05); }
+        body { background-color: #f0f4f8; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; transition: background-color 0.2s, color 0.2s; }
+        .bento-box { background: white; border-radius: 16px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05); border: 1px solid #e2e8f0; }
     </style>
 </head>
-<body class="min-h-screen flex items-center justify-center">
+<body class="min-h-screen flex items-center justify-center relative px-4">
+
+    <div class="fixed top-4 right-4">
+        <button type="button" id="btn-tema-z8" onclick="ciclarTemaZ8()" class="px-3 py-1.5 rounded-lg bg-white border border-slate-200 text-xs font-bold text-slate-600 shadow-sm hover:bg-slate-100 transition">
+            🌓 Auto
+        </button>
+    </div>
 
     <div class="bento-box w-full max-w-md p-8">
         <div class="text-center mb-8">
@@ -42,7 +48,7 @@
     <script>
         async function iniciarSesion(e) {
             e.preventDefault();
-            const usr = document.getElementById('usuario').value;
+            const usr = document.getElementById('usuario').value.trim().toUpperCase();
             const pass = document.getElementById('password').value;
             const btn = document.getElementById('btnSumbit');
             const errorMsg = document.getElementById('errorMsg');
@@ -52,15 +58,12 @@
             errorMsg.classList.add('hidden');
 
             try {
-                // Llamada a la API de Google
                 const data = await fetchGoogleAPI("login", { usuario: usr, password: pass });
                 
                 if (data.valido) {
-                    // Guardar sesión en el navegador
                     localStorage.setItem('tt_usuario', usr);
                     localStorage.setItem('tt_rol', data.rol);
                     
-                    // Routing: Redirigir a la vista correcta
                     if (data.rol === 'admin') {
                         window.location.href = 'admin.html';
                     } else {
