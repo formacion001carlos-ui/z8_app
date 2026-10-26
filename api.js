@@ -54,6 +54,11 @@ function crearClienteSupabaseRESTNativo(baseUrl, apiKey) {
                 state.filters.push(`${encodeURIComponent(col)}=eq.${encodeURIComponent(val)}`);
                 return builder;
             },
+            in(col, vals = []) {
+                const list = vals.map(v => `"${String(v).replace(/"/g, '\\"')}"`).join(',');
+                state.filters.push(`${encodeURIComponent(col)}=in.(${encodeURIComponent(list)})`);
+                return builder;
+            },
             gte(col, val) {
                 state.filters.push(`${encodeURIComponent(col)}=gte.${encodeURIComponent(val)}`);
                 return builder;
@@ -147,8 +152,10 @@ const supabaseClient = (typeof supabase !== 'undefined' && supabase && typeof su
     ? supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
     : crearClienteSupabaseRESTNativo(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-// Cache local de perfiles para avatares rápidos
+// Cache local de perfiles para avatares rápidos y ahorro de peticiones
 window._cachePerfilesZ8 = {};
+window._cachePerfilesTimestampZ8 = 0;
+window._tareasRapidasZ8 = ['ENTREVISTAS', 'COORDINACION', 'DEV', 'RRHH', 'SOPORTE', 'FINDE', 'GER', 'UK'];
 
 async function fetchGoogleAPI(action, payload = {}) {
     if (action === "login") {
@@ -164,6 +171,7 @@ async function fetchGoogleAPI(action, payload = {}) {
                 .single();
 
             if (!error && data) {
+                if (data.rol === 'BAJA' || data.rol === 'NO ROL') return { valido: false, motivo: 'BAJA' };
                 return { valido: true, rol: data.rol };
             }
         } catch (e) {}
@@ -179,6 +187,7 @@ async function fetchGoogleAPI(action, payload = {}) {
         if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
         const rows = await resp.json();
         if (!rows || rows.length === 0) return { valido: false };
+        if (rows[0].rol === 'BAJA' || rows[0].rol === 'NO ROL') return { valido: false, motivo: 'BAJA' };
         return { valido: true, rol: rows[0].rol };
     }
     
@@ -223,6 +232,9 @@ async function fetchGoogleAPI(action, payload = {}) {
                 actualizado_en: new Date().toISOString()
             });
         }
+        if (window._cachePerfilesZ8 && window._cachePerfilesZ8[usr]) {
+            window._cachePerfilesZ8[usr].estadoActual = payload.estado;
+        }
         return { success: true };
     }
     
@@ -259,6 +271,7 @@ async function fetchGoogleAPI(action, payload = {}) {
                 estado: 'Desconectado',
                 actividad: '',
                 inicio: '-',
+                inicioIso: null,
                 segundosAcumuladosHoy: segundosHoy,
                 horasObjetivo: target
             };
@@ -280,6 +293,7 @@ async function fetchGoogleAPI(action, payload = {}) {
             actividad: vivo.actividad || '',
             inicio: inicioStr,
             horaInicio: inicioStr,
+            inicioIso: vivo.inicio,
             segundosAcumuladosHoy: segundosHoy,
             horasObjetivo: target
         };
@@ -328,50 +342,85 @@ async function fetchGoogleAPI(action, payload = {}) {
         const [{ data: vivos }, { data: fichajesHoy }, mapaPerfiles] = await Promise.all([
             supabaseClient.from('estado_vivo').select('*'),
             supabaseClient.from('maestro').select('*').gte('inicio', inicioDia).lte('inicio', finDia),
-            fetchGoogleAPI("getPerfilesUsuarios", {})
+            fetchGoogleAPI("getPerfilesUsuarios", { vivosPreCargados: true })
         ]);
-            
-        let arr = [];
-        if (vivos) {
-            for (let v of vivos) {
-                let userFichajes = fichajesHoy ? fichajesHoy.filter(f => f.usuario === v.usuario) : [];
-                let horasHoySecs = calcularSegundosListaFichajes(userFichajes);
-                
-                let h = Math.floor(horasHoySecs / 3600);
-                let m = Math.floor((horasHoySecs % 3600) / 60);
-                let s = horasHoySecs % 60;
-                let horasHoyStr = `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
-                let inicioStr = "-";
-                if (v.inicio) {
-                    let di = new Date(v.inicio);
-                    let str = di.toLocaleString("en-US", { timeZone: "Europe/Madrid", hour12: false });
-                    let parts = str.split(", ");
-                    let dateParts = parts[0].split("/");
-                    let timeParts = parts[1].trim().split(":");
-                    
-                    let h = parseInt(timeParts[0]);
-                    if (h === 24) h = 0;
-                    
-                    let dia = String(dateParts[1]).padStart(2, '0');
-                    let mes = String(dateParts[0]).padStart(2, '0');
-                    let ano = dateParts[2];
-                    let hh = String(h).padStart(2, '0');
-                    let mm = String(timeParts[1]).padStart(2, '0');
-                    let ss = String(timeParts[2]).padStart(2, '0');
-                    inicioStr = `${dia}/${mes}/${ano} ${hh}:${mm}:${ss}`;
+
+        // Mapear incidencias/permisos registrados para el día de hoy
+        const incidenciasHoyMap = {};
+        if (fichajesHoy) {
+            for (const f of fichajesHoy) {
+                if (f.estado === 'INCIDENCIA_AUSENCIA') {
+                    const inc = formatearFilaIncidenciaWFM(f);
+                    if (inc && inc.agente) incidenciasHoyMap[inc.agente] = inc;
                 }
-                
-                const p = (mapaPerfiles && mapaPerfiles[v.usuario]) ? mapaPerfiles[v.usuario] : {};
-                arr.push({
-                    usuario: v.usuario,
-                    estado: v.estado,
-                    actividad: v.actividad || "-",
-                    inicio: inicioStr,
-                    horaInicio: inicioStr,
-                    horasHoy: horasHoyStr,
-                    perfil: p
-                });
             }
+        }
+
+        // Asegurar que todos los usuarios activos en perfiles aparezcan aunque no tengan fila aún en estado_vivo
+        const vivosMap = {};
+        if (vivos) {
+            for (const v of vivos) {
+                vivosMap[(v.usuario || '').trim().toUpperCase()] = v;
+                if (mapaPerfiles && mapaPerfiles[v.usuario]) {
+                    mapaPerfiles[v.usuario].estadoActual = v.estado || 'Desconectado';
+                }
+            }
+        }
+
+        const hoyMadridStr = ahora.toLocaleDateString('es-ES', { timeZone: 'Europe/Madrid', day: '2-digit', month: '2-digit', year: 'numeric' });
+        const todosUsuarios = new Set([
+            ...Object.keys(vivosMap),
+            ...Object.keys(mapaPerfiles || {})
+        ]);
+
+        let arr = [];
+        for (let usr of todosUsuarios) {
+            const p = (mapaPerfiles && mapaPerfiles[usr]) ? mapaPerfiles[usr] : {};
+            if (p.rol === 'BAJA' || p.rol === 'NO ROL' || p.rol === 'admin') continue;
+
+            const v = vivosMap[usr] || { usuario: usr, estado: 'Desconectado', actividad: '', inicio: null };
+            let userFichajes = fichajesHoy ? fichajesHoy.filter(f => f.usuario === usr) : [];
+            let horasHoySecs = calcularSegundosListaFichajes(userFichajes);
+            
+            let h = Math.floor(horasHoySecs / 3600);
+            let m = Math.floor((horasHoySecs % 3600) / 60);
+            let s = horasHoySecs % 60;
+            let horasHoyStr = `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+            let inicioStr = "-";
+            let inicioCorto = "-";
+            if (v.inicio) {
+                let di = new Date(v.inicio);
+                let str = di.toLocaleString("en-US", { timeZone: "Europe/Madrid", hour12: false });
+                let parts = str.split(", ");
+                let dateParts = parts[0].split("/");
+                let timeParts = parts[1].trim().split(":");
+                
+                let hIni = parseInt(timeParts[0]);
+                if (hIni === 24) hIni = 0;
+                
+                let dia = String(dateParts[1]).padStart(2, '0');
+                let mes = String(dateParts[0]).padStart(2, '0');
+                let ano = dateParts[2];
+                let hh = String(hIni).padStart(2, '0');
+                let mm = String(timeParts[1]).padStart(2, '0');
+                let ss = String(timeParts[2]).padStart(2, '0');
+                inicioStr = `${dia}/${mes}/${ano} ${hh}:${mm}:${ss}`;
+                const fechaIniEsp = `${dia}/${mes}/${ano}`;
+                inicioCorto = (fechaIniEsp === hoyMadridStr) ? `${hh}:${mm}` : `${dia}/${mes} ${hh}:${mm}`;
+            }
+            
+            arr.push({
+                usuario: usr,
+                estado: v.estado || 'Desconectado',
+                actividad: v.actividad || "-",
+                inicio: inicioStr,
+                inicioCorto: inicioCorto,
+                inicioIso: v.inicio || null,
+                horaInicio: inicioStr,
+                horasHoy: horasHoyStr,
+                perfil: p,
+                incidenciaHoy: incidenciasHoyMap[usr] || null
+            });
         }
         return arr;
     }
@@ -391,20 +440,20 @@ async function fetchGoogleAPI(action, payload = {}) {
         const primerDia = new Date(Date.UTC(ano, mes, 1, 0, 0, 0)).toISOString();
         const ultimoDia = new Date(Date.UTC(ano, mes + 1, 0, 23, 59, 59)).toISOString();
         
-        const { data: fichajes } = await supabaseClient
-            .from('maestro')
-            .select('*')
-            .gte('inicio', primerDia)
-            .lte('inicio', ultimoDia);
-            
-        const { data: usuarios } = await supabaseClient
-            .from('usuarios')
-            .select('*');
+        const [{ data: fichajes }, { data: usuarios }] = await Promise.all([
+            supabaseClient.from('maestro').select('*').gte('inicio', primerDia).lte('inicio', ultimoDia),
+            supabaseClient.from('usuarios').select('*')
+        ]);
             
         let metas = {};
+        let rolesMap = {};
         if (usuarios) {
             for (let u of usuarios) {
-                metas[u.nombre] = u.horas_objetivo || 8;
+                const nom = (u.nombre || '').trim().toUpperCase();
+                if (!nom) continue;
+                rolesMap[nom] = u.rol || 'agente';
+                if (u.rol === 'admin' || u.rol === 'NO ROL') continue;
+                metas[nom] = u.horas_objetivo || 8;
             }
         }
         
@@ -422,16 +471,31 @@ async function fetchGoogleAPI(action, payload = {}) {
                 totalMes: 0,
                 dias: {},
                 ajustesAprobados: {},
+                incidencias: {},
+                desgloseEtiquetas: {},
                 previstas: metas[u] * diasLaborables * 3600,
                 horasObjetivoDiarias: metas[u],
                 horasLaborables: 0,
-                horasFinde: 0
+                horasFinde: 0,
+                rol: rolesMap[u] || 'agente'
             };
         }
+
+        const resumenEtiquetasGlobal = {};
         
         if (fichajes) {
             for (let f of fichajes) {
-                let usr = f.usuario;
+                if (f.estado === 'INCIDENCIA_AUSENCIA') {
+                    const inc = formatearFilaIncidenciaWFM(f);
+                    if (inc && inc.agente && matriz[inc.agente]) {
+                        const dInc = new Date(inc.fecha + 'T12:00:00Z');
+                        const diaNum = dInc.getUTCDate();
+                        matriz[inc.agente].incidencias[diaNum] = inc;
+                    }
+                    continue;
+                }
+
+                let usr = (f.usuario || '').trim().toUpperCase();
                 if (!matriz[usr]) continue;
                 if (esFilaSistemaNoComputable(f.estado)) continue;
                 
@@ -444,6 +508,18 @@ async function fetchGoogleAPI(action, payload = {}) {
                 
                 if (f.estado === 'SOLICITUD_APROBADA') {
                     matriz[usr].ajustesAprobados[diaDelMes] = (matriz[usr].ajustesAprobados[diaDelMes] || 0) + segs;
+                }
+
+                // Contabilizar desglose por etiquetas rápidas si existen en f.actividad
+                if (segs > 0 && f.estado !== 'SOLICITUD_APROBADA' && f.actividad) {
+                    const partesTag = String(f.actividad).toUpperCase().split(/[+,/|·-]+/).map(s => s.trim()).filter(Boolean);
+                    for (const pt of partesTag) {
+                        const tagLimpia = pt.split(':')[0].trim();
+                        if (tagLimpia && tagLimpia.length >= 2 && tagLimpia.length <= 18) {
+                            matriz[usr].desgloseEtiquetas[tagLimpia] = (matriz[usr].desgloseEtiquetas[tagLimpia] || 0) + segs;
+                            resumenEtiquetasGlobal[tagLimpia] = (resumenEtiquetasGlobal[tagLimpia] || 0) + segs;
+                        }
+                    }
                 }
             }
         }
@@ -469,14 +545,37 @@ async function fetchGoogleAPI(action, payload = {}) {
                     labM += segsDia;
                 }
             }
+
+            // Descontar de las horas previstas los días laborables justificados por incidencia/permiso
+            let diasJustificadosLab = 0;
+            for (let diaIncStr in matriz[u].incidencias) {
+                const inc = matriz[u].incidencias[diaIncStr];
+                if (inc && inc.descontarMeta !== false) {
+                    const dNum = parseInt(diaIncStr, 10);
+                    const fDia = new Date(Date.UTC(ano, mes, dNum));
+                    const dSem = fDia.getUTCDay();
+                    if (dSem !== 0 && dSem !== 6) diasJustificadosLab++;
+                }
+            }
+            if (diasJustificadosLab > 0) {
+                const segsDescuento = diasJustificadosLab * (matriz[u].horasObjetivoDiarias || 8) * 3600;
+                matriz[u].previstas = Math.max(0, matriz[u].previstas - segsDescuento);
+            }
+
             matriz[u].totalMes = totalM;
             matriz[u].horasLaborables = labM;
             matriz[u].horasFinde = findeM;
+
+            // Si un usuario está dado de BAJA y no tiene horas ni incidencias en este mes, no mostrarlo en la matriz
+            if (matriz[u].rol === 'BAJA' && totalM === 0 && Object.keys(matriz[u].incidencias).length === 0) {
+                delete matriz[u];
+            }
         }
         
         return {
             mes: `${(mes+1).toString().padStart(2,'0')}/${ano}`,
-            datos: matriz
+            datos: matriz,
+            resumenEtiquetasGlobal: resumenEtiquetasGlobal
         };
     }
 
@@ -487,6 +586,8 @@ async function fetchGoogleAPI(action, payload = {}) {
             totalMes: 0,
             dias: {},
             ajustesAprobados: {},
+            incidencias: {},
+            desgloseEtiquetas: {},
             previstas: 8 * 22 * 3600,
             horasObjetivoDiarias: 8,
             horasLaborables: 0,
@@ -679,6 +780,26 @@ async function fetchGoogleAPI(action, payload = {}) {
     // =========================================================================
 
     if (action === "getPerfilesUsuarios") {
+        const ahoraMs = Date.now();
+        const usarCache = !payload.forzarRefresco && window._cachePerfilesZ8 && window._cachePerfilesTimestampZ8 && (ahoraMs - window._cachePerfilesTimestampZ8 < 90000);
+
+        if (usarCache) {
+            const { data: vivosRows } = await supabaseClient.from('estado_vivo').select('usuario, estado');
+            if (vivosRows) {
+                for (const v of vivosRows) {
+                    const u = (v.usuario || "").trim().toUpperCase();
+                    if (window._cachePerfilesZ8[u]) {
+                        window._cachePerfilesZ8[u].estadoActual = v.estado || 'Desconectado';
+                    }
+                }
+            }
+            if (payload.usuario) {
+                const u = payload.usuario.trim().toUpperCase();
+                return window._cachePerfilesZ8[u] || null;
+            }
+            return window._cachePerfilesZ8;
+        }
+
         const [{ data: usuariosRows }, { data: perfilesRows }, { data: vivosRows }] = await Promise.all([
             supabaseClient.from('usuarios').select('nombre, rol, horas_objetivo, mattermost, UTC'),
             supabaseClient.from('maestro').select('*').eq('estado', 'PERFIL_USUARIO'),
@@ -687,7 +808,7 @@ async function fetchGoogleAPI(action, payload = {}) {
 
         const estadoVivoMap = {};
         if (vivosRows) {
-            for (const v of vivosRows) estadoVivoMap[v.usuario] = v.estado || 'Desconectado';
+            for (const v of vivosRows) estadoVivoMap[(v.usuario || '').trim().toUpperCase()] = v.estado || 'Desconectado';
         }
 
         const coloresDefault = ['#2563eb', '#059669', '#7c3aed', '#db2777', '#d97706', '#0891b2', '#4f46e5', '#dc2626'];
@@ -697,9 +818,13 @@ async function fetchGoogleAPI(action, payload = {}) {
             usuariosRows.forEach((u, idx) => {
                 const usr = (u.nombre || "").trim().toUpperCase();
                 if (!usr) return;
+                const rolRaw = (u.rol || 'agente').trim();
+                if (!payload.incluirBajas && (rolRaw.toUpperCase() === 'BAJA' || rolRaw.toUpperCase() === 'NO ROL')) {
+                    return;
+                }
                 mapa[usr] = {
                     usuario: usr,
-                    rol: u.rol || 'agente',
+                    rol: rolRaw,
                     horasObjetivo: u.horas_objetivo || 8,
                     mattermost: u.mattermost || '',
                     utc: u.UTC || 'Europe/Madrid',
@@ -708,7 +833,7 @@ async function fetchGoogleAPI(action, payload = {}) {
                     correo: '',
                     movil: '',
                     whatsapp: '',
-                    servicio: u.rol === 'admin' ? 'Supervisión' : 'General',
+                    servicio: rolRaw === 'admin' ? 'Supervisión' : 'General',
                     colorAvatar: coloresDefault[idx % coloresDefault.length],
                     fotoDataUrl: '',
                     temaPreferido: 'auto',
@@ -721,18 +846,9 @@ async function fetchGoogleAPI(action, payload = {}) {
         if (perfilesRows) {
             for (const row of perfilesRows) {
                 const usr = (row.usuario || "").trim().toUpperCase();
-                if (!usr) continue;
+                if (!usr || !mapa[usr]) continue;
                 let meta = {};
                 try { meta = JSON.parse(row.actividad || '{}'); } catch (e) {}
-                if (!mapa[usr]) {
-                    mapa[usr] = {
-                        usuario: usr,
-                        rol: 'agente',
-                        horasObjetivo: 8,
-                        mattermost: '',
-                        estadoActual: estadoVivoMap[usr] || 'Desconectado'
-                    };
-                }
                 mapa[usr] = {
                     ...mapa[usr],
                     nombreMostrar: meta.nombreMostrar || usr,
@@ -751,6 +867,7 @@ async function fetchGoogleAPI(action, payload = {}) {
         }
 
         window._cachePerfilesZ8 = mapa;
+        window._cachePerfilesTimestampZ8 = Date.now();
         if (payload.usuario) {
             const u = payload.usuario.trim().toUpperCase();
             return mapa[u] || null;
@@ -826,6 +943,7 @@ async function fetchGoogleAPI(action, payload = {}) {
             await supabaseClient.from('usuarios').update(updateUsuarioTabla).eq('nombre', usr);
         }
 
+        window._cachePerfilesTimestampZ8 = 0;
         emitirEventoOperativoZ8('perfil_actualizado', { usuario: usr });
         return { success: true, perfil: nuevaMeta };
     }
@@ -979,6 +1097,351 @@ async function fetchGoogleAPI(action, payload = {}) {
         return { success: true, mensaje: msg };
     }
 
+    if (action === "eliminarMensajeChat") {
+        const id = payload.id;
+        if (!id) throw new Error("ID de mensaje requerido.");
+        const { error } = await supabaseClient.from('maestro').delete().eq('id', id).eq('estado', 'CHAT_MSG');
+        if (error) throw error;
+        await emitirEventoOperativoZ8('eliminar_mensaje_chat', { id });
+        return { success: true };
+    }
+
+    if (action === "getPinChat") {
+        const { data: rows } = await supabaseClient
+            .from('maestro')
+            .select('*')
+            .eq('estado', 'PIN_CHAT_Z8')
+            .order('id', { ascending: false })
+            .limit(1);
+        if (rows && rows[0]) {
+            try {
+                const meta = JSON.parse(rows[0].actividad || '{}');
+                return { id: rows[0].id, texto: meta.texto || '', autor: meta.autor || 'SUPERVISIÓN', actualizadoEn: meta.actualizadoEn || '' };
+            } catch (e) {}
+        }
+        return { id: null, texto: '', autor: '', actualizadoEn: '' };
+    }
+
+    if (action === "guardarPinChat") {
+        const texto = (payload.texto || "").trim();
+        const autor = (payload.autor || "SUPERVISIÓN").trim().toUpperCase();
+        await supabaseClient.from('maestro').delete().eq('estado', 'PIN_CHAT_Z8');
+        if (texto) {
+            const usuarioFK = await resolverUsuarioFKMaestro(autor);
+            const meta = { texto, autor, actualizadoEn: new Date().toISOString() };
+            await supabaseClient.from('maestro').insert({
+                usuario: usuarioFK,
+                estado: 'PIN_CHAT_Z8',
+                actividad: JSON.stringify(meta),
+                inicio: '2000-01-05T00:00:00.000Z',
+                fin: null,
+                duracion_segundos: 0
+            });
+        }
+        const pinPayload = { texto, autor, actualizadoEn: new Date().toISOString() };
+        await emitirEventoOperativoZ8('cambio_pin_chat', pinPayload);
+        return { success: true, pin: pinPayload };
+    }
+
+    if (action === "getTareasRapidas") {
+        const { data: rows } = await supabaseClient
+            .from('maestro')
+            .select('*')
+            .eq('estado', 'CONFIG_TAREAS_RAPIDAS')
+            .order('id', { ascending: false })
+            .limit(1);
+        if (rows && rows[0]) {
+            try {
+                const meta = JSON.parse(rows[0].actividad || '{}');
+                if (Array.isArray(meta.tareas) && meta.tareas.length > 0) {
+                    window._cacheTareasRapidasZ8 = meta.tareas;
+                    return meta.tareas;
+                }
+            } catch (e) {}
+        }
+        window._cacheTareasRapidasZ8 = [...TAREAS_RAPIDAS_DEFAULT_Z8];
+        return window._cacheTareasRapidasZ8;
+    }
+
+    if (action === "guardarTareasRapidas") {
+        const listaLimpia = Array.from(new Set(
+            (Array.isArray(payload.tareas) ? payload.tareas : TAREAS_RAPIDAS_DEFAULT_Z8)
+                .map(t => String(t || '').trim().toUpperCase())
+                .filter(Boolean)
+        ));
+        if (listaLimpia.length === 0) throw new Error("Debe haber al menos una etiqueta rápida.");
+
+        await supabaseClient.from('maestro').delete().eq('estado', 'CONFIG_TAREAS_RAPIDAS');
+        const usuarioFK = await resolverUsuarioFKMaestro(payload.usuario || 'SUPERVISOR');
+        await supabaseClient.from('maestro').insert({
+            usuario: usuarioFK,
+            estado: 'CONFIG_TAREAS_RAPIDAS',
+            actividad: JSON.stringify({ tareas: listaLimpia, actualizadoEn: new Date().toISOString() }),
+            inicio: '2000-01-06T00:00:00.000Z',
+            fin: null,
+            duracion_segundos: 0
+        });
+        window._cacheTareasRapidasZ8 = listaLimpia;
+        await emitirEventoOperativoZ8('cambio_tareas_rapidas', { tareas: listaLimpia });
+        return { success: true, tareas: listaLimpia };
+    }
+
+    if (action === "getIncidenciasWFM") {
+        let query = supabaseClient
+            .from('maestro')
+            .select('*')
+            .eq('estado', 'INCIDENCIA_AUSENCIA');
+
+        if (payload.usuario) {
+            query = query.eq('usuario', payload.usuario.trim().toUpperCase());
+        }
+        if (payload.month) {
+            const parts = payload.month.split('-');
+            const ano = parseInt(parts[0], 10);
+            const mes = parseInt(parts[1], 10) - 1;
+            const iniMes = new Date(Date.UTC(ano, mes, 1, 0, 0, 0)).toISOString();
+            const finMes = new Date(Date.UTC(ano, mes + 1, 0, 23, 59, 59)).toISOString();
+            query = query.gte('inicio', iniMes).lte('inicio', finMes);
+        }
+
+        const { data: rows, error } = await query.order('inicio', { ascending: false });
+        if (error) throw error;
+        return (rows || []).map(formatearFilaIncidenciaWFM);
+    }
+
+    if (action === "crearIncidenciaWFM") {
+        const usr = (payload.usuario || "").trim().toUpperCase();
+        const fechaIni = (payload.fecha || "").trim();
+        const fechaFin = (payload.fechaFin || fechaIni).trim();
+        const tipo = (payload.tipo || "PERMISO").trim().toUpperCase();
+        const motivo = (payload.motivo || "").trim();
+        const descontarMeta = payload.descontarMeta !== undefined
+            ? Boolean(payload.descontarMeta)
+            : (payload.justificada !== undefined ? Boolean(payload.justificada) : (tipo !== 'RECORDATORIO'));
+        const creadoPor = (payload.creadoPor || usr).trim().toUpperCase();
+
+        if (!usr || !fechaIni) throw new Error("Selecciona el agente y la fecha de la incidencia/permiso.");
+
+        const d1 = new Date(`${fechaIni}T12:00:00.000Z`);
+        const d2 = new Date(`${fechaFin}T12:00:00.000Z`);
+        if (isNaN(d1.getTime()) || isNaN(d2.getTime()) || d2 < d1) {
+            throw new Error("El rango de fechas no es válido.");
+        }
+        const diffDias = Math.round((d2.getTime() - d1.getTime()) / 86400000) + 1;
+        if (diffDias > 62) {
+            throw new Error("El rango máximo por registro es de 62 días.");
+        }
+
+        const creadas = [];
+        for (let i = 0; i < diffDias; i++) {
+            const cur = new Date(d1.getTime() + i * 86400000);
+            const yyyy = cur.getUTCFullYear();
+            const mm = String(cur.getUTCMonth() + 1).padStart(2, '0');
+            const dd = String(cur.getUTCDate()).padStart(2, '0');
+            const fechaStr = `${yyyy}-${mm}-${dd}`;
+            const inicioDia = `${fechaStr}T00:00:00.000Z`;
+            const finDia = `${fechaStr}T23:59:59.999Z`;
+
+            // Si ya existía una incidencia ese mismo día para ese agente, la reemplazamos
+            const { data: prevRows } = await supabaseClient
+                .from('maestro')
+                .select('id')
+                .eq('usuario', usr)
+                .eq('estado', 'INCIDENCIA_AUSENCIA')
+                .gte('inicio', inicioDia)
+                .lte('inicio', finDia);
+
+            if (prevRows && prevRows.length > 0) {
+                for (const pr of prevRows) {
+                    await supabaseClient.from('maestro').delete().eq('id', pr.id);
+                }
+            }
+
+            const meta = {
+                fecha: fechaStr,
+                tipo,
+                motivo: motivo || obtenerConfigTipoIncidenciaZ8(tipo).etiqueta,
+                descontarMeta,
+                creadoPor,
+                creadoEn: new Date().toISOString()
+            };
+
+            const { data: ins, error } = await supabaseClient
+                .from('maestro')
+                .insert({
+                    usuario: usr,
+                    estado: 'INCIDENCIA_AUSENCIA',
+                    actividad: JSON.stringify(meta),
+                    inicio: `${fechaStr}T12:00:00.000Z`,
+                    fin: null,
+                    duracion_segundos: 0
+                })
+                .select();
+
+            if (error) throw error;
+            if (ins && ins[0]) creadas.push(formatearFilaIncidenciaWFM(ins[0]));
+        }
+
+        await emitirEventoOperativoZ8('cambio_incidencias_wfm', { usuario: usr });
+        return { success: true, creadas };
+    }
+
+    if (action === "eliminarIncidenciaWFM") {
+        const id = payload.id;
+        if (!id) throw new Error("ID de incidencia requerido.");
+        const { error } = await supabaseClient.from('maestro').delete().eq('id', id).eq('estado', 'INCIDENCIA_AUSENCIA');
+        if (error) throw error;
+        await emitirEventoOperativoZ8('cambio_incidencias_wfm', { id });
+        return { success: true };
+    }
+
+    if (action === "getUsuariosEquipoAdmin") {
+        const [{ data: usuariosRows, error }, { data: perfilesRows }, { data: vivosRows }] = await Promise.all([
+            supabaseClient.from('usuarios').select('nombre, clave, rol, horas_objetivo, mattermost, UTC').order('nombre', { ascending: true }),
+            supabaseClient.from('maestro').select('*').eq('estado', 'PERFIL_USUARIO'),
+            supabaseClient.from('estado_vivo').select('usuario, estado')
+        ]);
+        if (error) throw error;
+
+        const perfMap = {};
+        if (perfilesRows) {
+            for (const r of perfilesRows) {
+                const u = (r.usuario || '').trim().toUpperCase();
+                try { perfMap[u] = JSON.parse(r.actividad || '{}'); } catch (e) {}
+            }
+        }
+        const vivoMap = {};
+        if (vivosRows) {
+            for (const v of vivosRows) vivoMap[(v.usuario || '').trim().toUpperCase()] = v.estado || 'Desconectado';
+        }
+
+        return (usuariosRows || []).map(u => {
+            const nombre = (u.nombre || '').trim().toUpperCase();
+            const pf = perfMap[nombre] || {};
+            const rolStr = (u.rol || 'agente').trim();
+            const enBaja = rolStr.toUpperCase() === 'BAJA' || rolStr.toUpperCase() === 'NO ROL';
+            return {
+                nombre,
+                clave: u.clave || '',
+                rol: rolStr,
+                enBaja,
+                horasObjetivo: u.horas_objetivo || 8,
+                horas_objetivo: u.horas_objetivo || 8,
+                mattermost: u.mattermost || pf.mattermost || '',
+                utc: u.UTC || 'Europe/Madrid',
+                servicio: pf.servicio || (rolStr === 'admin' ? 'Supervisión' : 'General'),
+                correo: pf.correo || '',
+                movil: pf.movil || '',
+                estadoActual: vivoMap[nombre] || 'Desconectado'
+            };
+        });
+    }
+
+    if (action === "guardarUsuarioEquipoAdmin") {
+        const nombre = (payload.nombre || "").trim().toUpperCase();
+        const clave = (payload.clave || "").trim();
+        const rol = (payload.rol || "agente").trim();
+        const horasObjetivo = Math.max(1, Math.min(24, Number(payload.horasObjetivo || payload.horas_objetivo || 8)));
+        const mattermost = (payload.mattermost || "").trim();
+        const utc = (payload.utc || "Europe/Madrid").trim();
+        const servicio = (payload.servicio || (rol === 'admin' ? 'Supervisión' : 'General')).trim();
+
+        if (!nombre) throw new Error("El nombre de usuario es obligatorio.");
+
+        const { data: existente } = await supabaseClient
+            .from('usuarios')
+            .select('nombre, clave')
+            .eq('nombre', nombre)
+            .maybeSingle();
+
+        if (existente) {
+            const updateObj = {
+                rol,
+                horas_objetivo: horasObjetivo,
+                mattermost,
+                UTC: utc
+            };
+            if (clave) updateObj.clave = clave;
+            const { error: errUpd } = await supabaseClient.from('usuarios').update(updateObj).eq('nombre', nombre);
+            if (errUpd) throw errUpd;
+        } else {
+            if (!clave) throw new Error("Debes asignar una contraseña para el nuevo usuario.");
+            const { error: errIns } = await supabaseClient.from('usuarios').insert({
+                nombre,
+                clave,
+                rol,
+                horas_objetivo: horasObjetivo,
+                mattermost,
+                UTC: utc
+            });
+            if (errIns) throw errIns;
+
+            // Crear fila inicial en estado_vivo
+            await supabaseClient.from('estado_vivo').upsert({
+                usuario: nombre,
+                estado: 'Desconectado',
+                actividad: 'Sin tarea',
+                inicio: new Date().toISOString(),
+                actualizado_en: new Date().toISOString()
+            });
+        }
+
+        // Actualizar servicio en PERFIL_USUARIO
+        if (servicio) {
+            await fetchGoogleAPI("guardarPerfilUsuario", {
+                usuario: nombre,
+                perfil: {
+                    ...(window._cachePerfilesZ8 && window._cachePerfilesZ8[nombre] ? window._cachePerfilesZ8[nombre] : {}),
+                    nombreMostrar: (window._cachePerfilesZ8 && window._cachePerfilesZ8[nombre] && window._cachePerfilesZ8[nombre].nombreMostrar) || nombre,
+                    servicio,
+                    mattermost
+                }
+            });
+        }
+
+        window._cachePerfilesTimestampZ8 = 0;
+        await emitirEventoOperativoZ8('perfil_actualizado', { usuario: nombre });
+        return { success: true };
+    }
+
+    if (action === "darBajaUsuarioEquipoAdmin") {
+        const nombre = (payload.nombre || "").trim().toUpperCase();
+        const modo = (payload.modo || "INACTIVAR").trim().toUpperCase(); // 'INACTIVAR' | 'REACTIVAR' | 'ELIMINAR'
+        if (!nombre) throw new Error("Usuario requerido.");
+
+        if (modo === "REACTIVAR") {
+            const { error } = await supabaseClient.from('usuarios').update({ rol: 'agente' }).eq('nombre', nombre);
+            if (error) throw error;
+            window._cachePerfilesTimestampZ8 = 0;
+            await emitirEventoOperativoZ8('perfil_actualizado', { usuario: nombre });
+            return { success: true };
+        }
+
+        // Cerrar sesión abierta si la tuviera
+        try {
+            await fetchGoogleAPI("cambiarEstado", {
+                usuario: nombre,
+                nuevoEstado: "Desconectado",
+                tarea: "Baja administrativa"
+            });
+        } catch (e) {}
+
+        if (modo === "INACTIVAR") {
+            const { error } = await supabaseClient.from('usuarios').update({ rol: 'BAJA' }).eq('nombre', nombre);
+            if (error) throw error;
+            await supabaseClient.from('estado_vivo').delete().eq('usuario', nombre);
+        } else if (modo === "ELIMINAR") {
+            await supabaseClient.from('estado_vivo').delete().eq('usuario', nombre);
+            await supabaseClient.from('maestro').delete().eq('usuario', nombre);
+            const { error } = await supabaseClient.from('usuarios').delete().eq('nombre', nombre);
+            if (error) throw error;
+        }
+
+        window._cachePerfilesTimestampZ8 = 0;
+        await emitirEventoOperativoZ8('perfil_actualizado', { usuario: nombre });
+        return { success: true };
+    }
+
     if (action === "getNotasReunion") {
         const { data: rows, error } = await supabaseClient
             .from('maestro')
@@ -1095,8 +1558,151 @@ function esFilaSistemaNoComputable(estado) {
         estado === 'PERFIL_USUARIO' ||
         estado === 'CHAT_MSG' ||
         estado === 'ALERTA_SUPERVISION' ||
-        estado === 'NOTA_REUNION'
+        estado === 'NOTA_REUNION' ||
+        estado === 'INCIDENCIA_AUSENCIA' ||
+        estado === 'CONFIG_TAREAS_RAPIDAS' ||
+        estado === 'PIN_CHAT_Z8'
     );
+}
+
+const TAREAS_RAPIDAS_DEFAULT_Z8 = [
+    'ENTREVISTAS', 'COORDINACION', 'DEV', 'RRHH', 'SOPORTE', 'FINDE', 'GER', 'UK'
+];
+window.TAREAS_RAPIDAS_DEFAULT_Z8 = TAREAS_RAPIDAS_DEFAULT_Z8;
+
+function obtenerEstiloBadgeEtiquetaZ8(tag) {
+    const t = String(tag || '').trim().toUpperCase();
+    const mapa = {
+        'ENTREVISTAS': { bg: '#f3e8ff', text: '#6b21a8', border: '#d8b4fe' },
+        'COORDINACION': { bg: '#fef3c7', text: '#92400e', border: '#fde68a' },
+        'DEV': { bg: '#e0e7ff', text: '#3730a3', border: '#a5b4fc' },
+        'RRHH': { bg: '#fce7f3', text: '#9d174d', border: '#f9a8d4' },
+        'SOPORTE': { bg: '#e0f2fe', text: '#075985', border: '#7dd3fc' },
+        'FINDE': { bg: '#ffedd5', text: '#9a3412', border: '#fdba74' },
+        'GER': { bg: '#dcfce7', text: '#166534', border: '#86efac' },
+        'UK': { bg: '#dbeafe', text: '#1e40af', border: '#93c5fd' }
+    };
+    return mapa[t] || { bg: '#f1f5f9', text: '#334155', border: '#cbd5e1' };
+}
+
+function parsearActividadEtiquetasZ8(actividadStr) {
+    const raw = String(actividadStr || '').trim();
+    if (!raw || raw === 'Sin tarea') return { tags: [], detalle: '' };
+    const partes = raw.split(' · ');
+    const primera = partes[0] || '';
+    const detalle = partes.slice(1).join(' · ').trim();
+    const posiblesTags = primera.split('+').map(s => s.trim().toUpperCase()).filter(Boolean);
+    const catalogo = new Set([...TAREAS_RAPIDAS_DEFAULT_Z8, ...(window._cacheTareasRapidasZ8 || [])].map(x => String(x).toUpperCase()));
+    const sonEtiquetas = posiblesTags.length > 0 && posiblesTags.every(t => catalogo.has(t) || (posiblesTags.length > 1 && t.length <= 16));
+    if (!sonEtiquetas) return { tags: [], detalle: raw };
+    return { tags: posiblesTags, detalle };
+}
+
+function renderizarChipsActividadZ8(actividadStr) {
+    const raw = String(actividadStr || 'Sin tarea').trim();
+    if (!raw || raw === 'Sin tarea') {
+        return `<span class="text-slate-400 text-xs italic">Sin tarea</span>`;
+    }
+    const partes = raw.split(' · ');
+    const primera = partes[0] || '';
+    const detalle = partes.slice(1).join(' · ').trim();
+    const posiblesTags = primera.split('+').map(s => s.trim()).filter(Boolean);
+    const catalogo = new Set([...TAREAS_RAPIDAS_DEFAULT_Z8, ...(window._cacheTareasRapidasZ8 || [])]);
+
+    const sonEtiquetas = posiblesTags.length > 0 && posiblesTags.every(t => catalogo.has(t.toUpperCase()) || (posiblesTags.length > 1 && t.length <= 16));
+    if (!sonEtiquetas) {
+        return `<span class="text-xs font-medium text-slate-600">${escaparHTMLZ8(raw)}</span>`;
+    }
+
+    const chips = posiblesTags.map(tag => {
+        const st = obtenerEstiloBadgeEtiquetaZ8(tag);
+        return `<span style="background:${st.bg};color:${st.text};border:1px solid ${st.border};" class="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-extrabold tracking-wide uppercase mr-1 mb-0.5">${escaparHTMLZ8(tag)}</span>`;
+    }).join('');
+
+    const detHtml = detalle ? `<span class="text-xs text-slate-600 font-medium ml-1">${escaparHTMLZ8(detalle)}</span>` : '';
+    return `<div class="inline-flex flex-wrap items-center">${chips}${detHtml}</div>`;
+}
+
+function obtenerConfigTipoIncidenciaZ8(tipo) {
+    const t = String(tipo || 'PERMISO').trim().toUpperCase();
+    const mapa = {
+        'PERMISO': {
+            codigo: 'PERM',
+            corto: 'PERM',
+            etiqueta: 'Permiso / Día Libre',
+            label: 'Permiso / Día Libre',
+            icono: '📅',
+            bg: '#eff6ff',
+            text: '#1d4ed8',
+            border: '#93c5fd'
+        },
+        'BAJA_MEDICA': {
+            codigo: 'BAJA',
+            corto: 'BAJA',
+            etiqueta: 'Baja Médica',
+            label: 'Baja Médica',
+            icono: '🏥',
+            bg: '#fef2f2',
+            text: '#b91c1c',
+            border: '#fca5a5'
+        },
+        'VACACIONES': {
+            codigo: 'VAC',
+            corto: 'VAC',
+            etiqueta: 'Vacaciones',
+            label: 'Vacaciones',
+            icono: '🏖️',
+            bg: '#ecfdf5',
+            text: '#047857',
+            border: '#6ee7b7'
+        },
+        'INCIDENCIA_TECNICA': {
+            codigo: 'INC',
+            corto: 'INC',
+            etiqueta: 'No pudo conectar / Incidencia',
+            label: 'No pudo conectar / Incidencia',
+            icono: '⚡',
+            bg: '#fffbeb',
+            text: '#b45309',
+            border: '#fcd34d'
+        },
+        'RECORDATORIO': {
+            codigo: 'AVISO',
+            corto: 'AVISO',
+            etiqueta: 'Aviso / Recordatorio WFM',
+            label: 'Aviso / Recordatorio WFM',
+            icono: '📌',
+            bg: '#f5f3ff',
+            text: '#6d28d9',
+            border: '#c4b5fd'
+        }
+    };
+    return mapa[t] || mapa['PERMISO'];
+}
+
+function formatearFilaIncidenciaWFM(row) {
+    let meta = {};
+    try { meta = JSON.parse(row.actividad || '{}'); } catch (e) {}
+    const fecha = meta.fecha || (row.inicio ? row.inicio.substring(0, 10) : '');
+    const tipo = (meta.tipo || 'PERMISO').toUpperCase();
+    const cfg = obtenerConfigTipoIncidenciaZ8(tipo);
+    const descontar = meta.descontarMeta !== undefined ? Boolean(meta.descontarMeta) : (tipo !== 'RECORDATORIO');
+    return {
+        id: row.id,
+        usuario: (row.usuario || '').trim().toUpperCase(),
+        fecha,
+        tipo,
+        codigo: cfg.codigo,
+        corto: cfg.corto,
+        etiquetaTipo: cfg.etiqueta,
+        label: cfg.label,
+        icono: cfg.icono,
+        motivo: meta.motivo || cfg.etiqueta,
+        descontarMeta: descontar,
+        justificada: descontar,
+        creadoPor: meta.creadoPor || row.usuario,
+        creadoEn: meta.creadoEn || row.inicio
+    };
 }
 
 function obtenerSegundosDeFilaMaestro(f) {
@@ -1371,6 +1977,7 @@ function inyectarEstilosGlobalesZ8() {
             min-height: 550px;
             max-height: 780px;
             box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05);
+            transition: all 0.2s ease;
         }
         .z8-chat-sidebar {
             width: 215px;
@@ -1379,6 +1986,29 @@ function inyectarEstilosGlobalesZ8() {
             flex-direction: column;
             background-color: #f8fafc;
             flex-shrink: 0;
+            transition: width 0.2s ease;
+        }
+        .z8-chat-sidebar.collapsed {
+            width: 68px;
+        }
+        .z8-chat-sidebar.collapsed .z8-hide-on-collapse {
+            display: none !important;
+        }
+        .z8-chat-sidebar.collapsed .z8-chat-item {
+            justify-content: center;
+            padding: 8px 4px;
+            margin: 3px 6px;
+            width: calc(100% - 12px);
+        }
+        .z8-chat-search {
+            background-color: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+        }
+        .z8-chat-search input {
+            background-color: transparent !important;
+            border: none !important;
+            box-shadow: none !important;
         }
         .z8-chat-item {
             display: flex;
@@ -1437,6 +2067,11 @@ function inyectarEstilosGlobalesZ8() {
             align-items: center;
             gap: 8px;
         }
+        .z8-chat-input-box input {
+            background-color: transparent !important;
+            border: none !important;
+            box-shadow: none !important;
+        }
 
         /* Modo Oscuro exacto al diseño de referencia */
         html.dark-mode .z8-chat-shell {
@@ -1447,6 +2082,17 @@ function inyectarEstilosGlobalesZ8() {
         html.dark-mode .z8-chat-sidebar {
             background-color: #141416 !important;
             border-right-color: #262629 !important;
+        }
+        html.dark-mode .z8-chat-search {
+            background-color: #1c1c20 !important;
+            border-color: #2e2e34 !important;
+        }
+        html.dark-mode input:-webkit-autofill,
+        html.dark-mode input:-webkit-autofill:hover,
+        html.dark-mode input:-webkit-autofill:focus {
+            -webkit-text-fill-color: #f8fafc !important;
+            -webkit-box-shadow: 0 0 0px 1000px #1c1c20 inset !important;
+            transition: background-color 5000s ease-in-out 0s;
         }
         html.dark-mode .z8-chat-item:hover { background-color: #1f1f23 !important; }
         html.dark-mode .z8-chat-item.active { background-color: #27272c !important; }
@@ -1471,7 +2117,7 @@ function inyectarEstilosGlobalesZ8() {
         }
         @media (max-width: 680px) {
             .z8-chat-shell { flex-direction: column; height: 640px; }
-            .z8-chat-sidebar { width: 100%; height: 210px; border-right: none; border-bottom: 1px solid #27272a; }
+            .z8-chat-sidebar, .z8-chat-sidebar.collapsed { width: 100%; height: 210px; border-right: none; border-bottom: 1px solid #27272a; }
         }
     `;
     document.head.appendChild(st);
@@ -1568,6 +2214,9 @@ const SoundEngineZ8 = {
     },
 
     playChatPing() {
+        try {
+            if (localStorage.getItem('z8_chat_muted') === '1') return;
+        } catch (e) {}
         this.playTone(587.33, 'sine', 0.11, 0, 0.15);
         this.playTone(880, 'sine', 0.16, 0.09, 0.18);
     },
@@ -1642,6 +2291,7 @@ let _alertaActivaModalZ8 = null;
 let _alertaInicioMsZ8 = null;
 let _alertaRelojIntervalZ8 = null;
 let _idsAlertasConfirmadasLocalZ8 = new Set();
+let _pinChatActualZ8 = { texto: '', autor: '' };
 
 async function emitirEventoOperativoZ8(evento, payload) {
     try {
@@ -1713,14 +2363,17 @@ async function iniciarSuiteInteractivaZ8(opciones = {}) {
 
     _contextoUsuarioZ8 = { usuario: usr, rol: rol };
 
-    // 1. Cargar perfiles de todos los usuarios
-    await fetchGoogleAPI("getPerfilesUsuarios", {});
-    const miPerfil = window._cachePerfilesZ8[usr];
+    // 1. Cargar perfiles de todos los usuarios y etiquetas rápidas
+    await Promise.all([
+        fetchGoogleAPI("getPerfilesUsuarios", {}),
+        fetchGoogleAPI("getTareasRapidas", {}).catch(() => {})
+    ]);
+    const miPerfil = window._cachePerfilesZ8 && window._cachePerfilesZ8[usr];
     if (miPerfil && miPerfil.temaPreferido && !localStorage.getItem('tt_theme_manual_override')) {
         aplicarTemaZ8(miPerfil.temaPreferido);
     }
 
-    // 2. Construir Modales de Alarma/Notificación, Perfil y Burbuja de Chat
+    // 2. Construir Modales de Alarma/Notificación, Perfil y Módulo de Chat
     inyectarComponentesInteractivosDOMZ8();
     actualizarCabeceraPerfilAgenteUI();
 
@@ -1741,13 +2394,39 @@ async function iniciarSuiteInteractivaZ8(opciones = {}) {
                 const msg = payload ? payload.payload : null;
                 if (msg) recibirMensajeChatRealtimeZ8(msg);
             })
+            .on('broadcast', { event: 'eliminar_mensaje_chat' }, payload => {
+                const data = payload ? payload.payload : null;
+                if (data && data.id) {
+                    _mensajesChatZ8 = _mensajesChatZ8.filter(m => String(m.id) !== String(data.id));
+                    renderContactosChatZ8();
+                    renderMensajesChatZ8();
+                }
+            })
+            .on('broadcast', { event: 'cambio_pin_chat' }, payload => {
+                const pin = payload ? payload.payload : null;
+                if (pin) renderPinChatBannerZ8(pin);
+            })
+            .on('broadcast', { event: 'cambio_tareas_rapidas' }, payload => {
+                const data = payload ? payload.payload : null;
+                if (data && Array.isArray(data.tareas)) {
+                    window._cacheTareasRapidasZ8 = data.tareas;
+                    if (typeof window.onTareasRapidasActualizadasZ8 === 'function') {
+                        window.onTareasRapidasActualizadasZ8(data.tareas);
+                    }
+                }
+            })
+            .on('broadcast', { event: 'cambio_incidencias_wfm' }, () => {
+                if (typeof window.onIncidenciasActualizadasZ8 === 'function') {
+                    window.onIncidenciasActualizadasZ8();
+                }
+            })
             .on('broadcast', { event: 'cambio_notas_reunion' }, () => {
                 if (typeof window.recargarNotasReunionUI === 'function') {
                     window.recargarNotasReunionUI();
                 }
             })
             .on('broadcast', { event: 'perfil_actualizado' }, async () => {
-                await fetchGoogleAPI("getPerfilesUsuarios", {});
+                await fetchGoogleAPI("getPerfilesUsuarios", { forzarRefresco: true });
                 actualizarCabeceraPerfilAgenteUI();
                 renderContactosChatZ8();
                 renderMensajesChatZ8();
@@ -1758,8 +2437,11 @@ async function iniciarSuiteInteractivaZ8(opciones = {}) {
             .subscribe();
     }
 
-    // 4. Cargar historial de chat y comprobar alertas pendientes para agentes
-    await cargarHistorialChatInicialZ8();
+    // 4. Cargar historial de chat, pin de chat y comprobar alertas pendientes para agentes
+    await Promise.all([
+        cargarHistorialChatInicialZ8(),
+        cargarPinChatZ8()
+    ]);
     if (rol !== 'admin') {
         await verificarAlertasPendientesAgenteZ8();
     }
@@ -1767,6 +2449,7 @@ async function iniciarSuiteInteractivaZ8(opciones = {}) {
 
 function inyectarComponentesInteractivosDOMZ8() {
     if (document.getElementById('suite-interactiva-z8-root')) return;
+    const esAdmin = _contextoUsuarioZ8.rol === 'admin';
     const root = document.createElement('div');
     root.id = 'suite-interactiva-z8-root';
     root.innerHTML = `
@@ -1896,35 +2579,58 @@ function inyectarComponentesInteractivosDOMZ8() {
         <div id="chat-module-wrapper-z8">
             <div id="chat-window-z8" class="z8-chat-shell">
                 <!-- COLUMNA IZQUIERDA: BARRA LATERAL DE NAVEGACIÓN DE CANALES Y AGENTES -->
-                <div class="z8-chat-sidebar">
-                    <div class="p-3.5 pb-2">
-                        <div class="flex items-center justify-between mb-2.5 px-1">
-                            <span class="text-[11px] font-extrabold uppercase tracking-wider text-slate-400">Canales y Mensajes</span>
-                            <span id="badge-sidebar-total-z8" class="hidden px-2 py-0.5 text-[10px] font-black bg-blue-600 text-white rounded-full">0</span>
+                <div id="chat-sidebar-col-z8" class="z8-chat-sidebar">
+                    <div class="p-3 pb-2">
+                        <div class="flex items-center justify-between mb-2 px-1 gap-1">
+                            <span class="z8-hide-on-collapse text-[10px] font-extrabold uppercase tracking-wider text-slate-400 truncate">Canales y Chat</span>
+                            <div class="flex items-center gap-1 ml-auto">
+                                <span id="badge-sidebar-total-z8" class="hidden px-1.5 py-0.5 text-[10px] font-black bg-blue-600 text-white rounded-full">0</span>
+                                <button type="button" id="btn-toggle-sidebar-canales-z8" onclick="toggleSidebarCanalesChatZ8()" class="w-7 h-7 rounded-lg bg-slate-500/15 hover:bg-slate-500/30 text-slate-400 hover:text-white text-xs font-bold flex items-center justify-center transition" title="Contraer / Expandir lista de canales">◀</button>
+                            </div>
                         </div>
-                        <div class="z8-chat-search flex items-center gap-2 px-3 py-2">
+                        <div class="z8-hide-on-collapse z8-chat-search flex items-center gap-2 px-2.5 py-1.5">
                             <span class="text-slate-400 text-xs">🔍</span>
-                            <input type="text" id="chat-sidebar-search-z8" oninput="renderContactosChatZ8()" placeholder="Buscar mensajes o canales..." class="bg-transparent border-none outline-none text-xs w-full">
+                            <input type="search" id="chat-sidebar-search-z8" name="z8_buscar_canal_noautofill" autocomplete="off" spellcheck="false" oninput="renderContactosChatZ8()" placeholder="Buscar canal o agente..." class="bg-transparent border-none outline-none text-xs w-full">
                         </div>
                     </div>
-                    <div id="chat-contactos-bar-z8" class="flex-1 overflow-y-auto px-2 pb-3 space-y-0.5"></div>
+                    <div id="chat-contactos-bar-z8" class="flex-1 overflow-y-auto px-1.5 pb-3 space-y-0.5"></div>
                 </div>
 
                 <!-- COLUMNA DERECHA: CONVERSACIÓN ACTIVA -->
                 <div class="z8-chat-main">
                     <!-- Cabecera de la conversación -->
-                    <div class="px-5 py-3.5 flex items-center justify-between shrink-0">
-                        <div class="flex items-center gap-3 min-w-0">
+                    <div class="px-4 py-2.5 flex items-center justify-between shrink-0 gap-2">
+                        <div class="flex items-center gap-2.5 min-w-0">
                             <div id="chat-header-avatar-z8" class="shrink-0"></div>
                             <div class="min-w-0">
                                 <div class="text-sm font-extrabold truncate" id="chat-header-title-z8">Sala General</div>
-                                <div class="text-[11px] text-emerald-500 font-semibold flex items-center gap-1.5" id="chat-header-sub-z8">
-                                    <span class="w-2 h-2 rounded-full bg-emerald-500 inline-block"></span>
-                                    <span>Activo ahora · Canal general de equipo</span>
+                                <div class="text-[11px] text-emerald-500 font-semibold flex items-center gap-1.5 truncate" id="chat-header-sub-z8">
+                                    <span class="w-2 h-2 rounded-full bg-emerald-500 inline-block shrink-0"></span>
+                                    <span class="truncate">Activo ahora · Canal general de equipo</span>
                                 </div>
                             </div>
                         </div>
-                        <div id="chat-header-actions-z8" class="flex items-center gap-1.5"></div>
+                        <div class="flex items-center gap-1 shrink-0">
+                            <div id="chat-header-actions-z8" class="flex items-center gap-1"></div>
+                            ${esAdmin ? `<button type="button" onclick="editarPinChatZ8()" class="w-8 h-8 rounded-lg bg-amber-500/15 hover:bg-amber-500/30 text-amber-400 text-xs flex items-center justify-center transition" title="📌 Fijar o editar anuncio en la cabecera del chat">📌</button>` : ''}
+                            <button type="button" id="btn-mute-chat-z8" onclick="toggleMuteChatZ8()" class="w-8 h-8 rounded-lg bg-slate-500/15 hover:bg-slate-600 text-slate-300 hover:text-white text-xs flex items-center justify-center transition" title="Silenciar / Activar sonido de mensajes del chat (las alarmas de supervisión siguen activas)">🔔</button>
+                            <button type="button" onclick="toggleMinimizarModuloChatZ8(true)" class="px-2.5 h-8 rounded-lg bg-slate-500/15 hover:bg-slate-600 text-slate-300 hover:text-white text-[11px] font-bold flex items-center gap-1 transition" title="Minimizar panel de chat para ampliar el panel principal a pantalla completa">
+                                <span>⇥</span>
+                                <span class="hidden sm:inline">Minimizar</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Banner de Mensaje Fijado (Pin de Supervisión) -->
+                    <div id="chat-pinned-banner-z8" class="hidden mx-3.5 mb-2 px-3 py-1.5 rounded-lg bg-amber-500/15 border border-amber-500/30 text-[11px] flex items-center justify-between gap-2 shrink-0">
+                        <div class="flex items-center gap-2 min-w-0">
+                            <span class="text-sm shrink-0">📌</span>
+                            <div class="truncate">
+                                <span class="font-extrabold text-amber-400 uppercase mr-1">Aviso fijado:</span>
+                                <span id="chat-pinned-text-z8" class="font-medium text-slate-200"></span>
+                            </div>
+                        </div>
+                        ${esAdmin ? `<button type="button" onclick="quitarPinChatZ8()" class="text-[10px] font-extrabold text-amber-300 hover:text-red-400 shrink-0 px-1" title="Quitar aviso fijado">✕</button>` : ''}
                     </div>
 
                     <!-- Lienzo interior de mensajes -->
@@ -1936,16 +2642,16 @@ function inyectarComponentesInteractivosDOMZ8() {
                     <!-- Panel Buscador de GIFs (Oculto por defecto) -->
                     <div id="chat-gif-picker-z8" class="hidden mx-3.5 mb-2 p-2.5 rounded-xl bg-slate-900/90 border border-slate-700 shrink-0">
                         <div class="flex items-center gap-1.5 mb-2">
-                            <input type="text" id="chat-gif-search-z8" oninput="filtrarCatalogoGifsZ8()" placeholder="Buscar GIF (ej. aplausos, ok, risa, fiesta, café...)" class="flex-1 px-2.5 py-1.5 text-xs rounded-lg border border-slate-700 bg-slate-800 text-white outline-none">
+                            <input type="search" id="chat-gif-search-z8" name="z8_gif_search_noautofill" autocomplete="off" oninput="filtrarCatalogoGifsZ8()" placeholder="Buscar GIF (ej. aplausos, ok, risa, fiesta, café...)" class="flex-1 px-2.5 py-1.5 text-xs rounded-lg border border-slate-700 bg-slate-800 text-white outline-none">
                             <button type="button" onclick="enviarGifPorUrlManualZ8()" class="px-2.5 py-1.5 rounded-lg bg-slate-700 hover:bg-slate-600 text-[10px] font-bold text-slate-200" title="Pegar enlace directo de un GIF">+ URL</button>
                         </div>
                         <div id="chat-gif-grid-z8" class="grid grid-cols-4 sm:grid-cols-6 gap-1.5 max-h-36 overflow-y-auto"></div>
                     </div>
 
                     <!-- Barra inferior redondeada de escritura -->
-                    <form onsubmit="enviarMensajeChatDesdeUIZ8(event)" class="px-3.5 pb-3.5 shrink-0">
+                    <form onsubmit="enviarMensajeChatDesdeUIZ8(event)" autocomplete="off" class="px-3.5 pb-3.5 shrink-0">
                         <div class="z8-chat-input-box flex items-center gap-2 px-3.5 py-2">
-                            <input type="text" id="chat-input-txt-z8" placeholder="Escribe un mensaje..." class="flex-1 bg-transparent border-none text-xs outline-none">
+                            <input type="text" id="chat-input-txt-z8" name="z8_chat_msg_noautofill" autocomplete="off" placeholder="Escribe un mensaje..." class="flex-1 bg-transparent border-none text-xs outline-none">
                             <button type="button" onclick="toggleEmojiPickerZ8()" class="p-1.5 rounded-lg hover:bg-slate-500/20 text-base transition" title="Insertar Emoji">😊</button>
                             <button type="button" onclick="toggleGifPickerZ8()" class="px-2 py-1 rounded-lg hover:bg-slate-500/20 text-[10px] font-black text-blue-400 border border-blue-500/30 transition" title="Enviar GIF animado">GIF</button>
                             <button type="submit" class="w-8 h-8 rounded-lg bg-blue-600 hover:bg-blue-500 text-white flex items-center justify-center shadow-sm transition" title="Enviar mensaje">
@@ -1957,11 +2663,11 @@ function inyectarComponentesInteractivosDOMZ8() {
             </div>
         </div>
 
-        <!-- Botón Flotante de Acceso Rápido / Contador de No Leídos (solo pantallas pequeñas) -->
-        <div id="chat-widget-container-z8" class="xl:hidden fixed bottom-4 right-4 z-[9900] font-sans">
-            <button onclick="irAlModuloChatZ8()" id="btn-burbuja-chat-z8" class="relative flex items-center gap-2 px-4 py-2.5 rounded-full bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs shadow-xl border border-slate-700 transition transform hover:scale-105">
-                <span class="text-sm">💬</span>
-                <span>Canales y Chat</span>
+        <!-- Botón Flotante de Acceso Rápido / Restaurar Chat Minimizado -->
+        <div id="chat-widget-container-z8" class="xl:hidden fixed bottom-5 right-5 z-[9900] font-sans">
+            <button onclick="irAlModuloChatZ8()" id="btn-burbuja-chat-z8" class="relative flex items-center gap-2.5 px-4 py-3 rounded-full bg-blue-600 hover:bg-blue-500 text-white font-extrabold text-xs shadow-2xl border border-blue-400/40 transition transform hover:scale-105">
+                <span class="text-base">💬</span>
+                <span>Abrir Canales y Chat</span>
                 <span id="badge-chat-noleidos-z8" class="hidden px-1.5 py-0.5 text-[10px] font-black bg-red-500 text-white rounded-full min-w-[18px] text-center">0</span>
             </button>
         </div>
@@ -1970,6 +2676,15 @@ function inyectarComponentesInteractivosDOMZ8() {
 
     // Si la página tiene un contenedor embebido (#chat-embedded-mount-z8), montamos ahí el módulo de chat de 2 columnas
     montarChatEnContenedorPaginaZ8();
+
+    // Restaurar preferencias de colapsado y silencio guardadas por el usuario
+    if (localStorage.getItem('z8_chat_sidebar_collapsed') === '1') {
+        toggleSidebarCanalesChatZ8(true);
+    }
+    if (localStorage.getItem('z8_chat_panel_minimized') === '1') {
+        toggleMinimizarModuloChatZ8(true);
+    }
+    actualizarIconoMuteChatZ8();
 
     // Poblar selector de Emojis y GIFs
     const emojiCont = document.getElementById('chat-emoji-picker-z8');
@@ -1980,6 +2695,131 @@ function inyectarComponentesInteractivosDOMZ8() {
     }
     filtrarCatalogoGifsZ8();
     seleccionarConversacionChatZ8(_conversacionActivaZ8 || 'GENERAL');
+}
+
+function toggleMuteChatZ8() {
+    const actual = localStorage.getItem('z8_chat_muted') === '1';
+    try { localStorage.setItem('z8_chat_muted', actual ? '0' : '1'); } catch (e) {}
+    actualizarIconoMuteChatZ8();
+}
+
+function actualizarIconoMuteChatZ8() {
+    const btn = document.getElementById('btn-mute-chat-z8');
+    if (!btn) return;
+    const muteado = localStorage.getItem('z8_chat_muted') === '1';
+    btn.textContent = muteado ? '🔕' : '🔔';
+    btn.title = muteado
+        ? 'Sonido del chat silenciado (clic para activar). Las alarmas de supervisión siguen sonando.'
+        : 'Sonido del chat activo (clic para silenciar el ping del chat).';
+}
+
+async function cargarPinChatZ8() {
+    try {
+        const pin = await fetchGoogleAPI("getPinChat", {});
+        renderPinChatBannerZ8(pin);
+    } catch (e) {}
+}
+
+function renderPinChatBannerZ8(pin) {
+    _pinChatActualZ8 = pin || { texto: '', autor: '' };
+    const banner = document.getElementById('chat-pinned-banner-z8');
+    const txtEl = document.getElementById('chat-pinned-text-z8');
+    if (!banner || !txtEl) return;
+    const texto = (_pinChatActualZ8.texto || '').trim();
+    if (texto) {
+        txtEl.textContent = texto;
+        banner. title = `📌 Fijado por ${_pinChatActualZ8.autor || 'SUPERVISIÓN'}: ${texto}`;
+        banner.classList.remove('hidden');
+    } else {
+        banner.classList.add('hidden');
+    }
+}
+
+async function editarPinChatZ8() {
+    const actual = (_pinChatActualZ8 && _pinChatActualZ8.texto) || '';
+    const nuevo = prompt("📌 Escribe el comunicado o recordatorio para fijar en la parte superior del chat (déjalo vacío para quitarlo):", actual);
+    if (nuevo === null) return;
+    try {
+        const res = await fetchGoogleAPI("guardarPinChat", {
+            texto: nuevo.trim(),
+            autor: _contextoUsuarioZ8.usuario || 'SUPERVISIÓN'
+        });
+        if (res && res.pin) renderPinChatBannerZ8(res.pin);
+    } catch (e) {
+        alert("No se pudo fijar el mensaje: " + (e.message || "Error"));
+    }
+}
+
+async function quitarPinChatZ8() {
+    try {
+        const res = await fetchGoogleAPI("guardarPinChat", {
+            texto: '',
+            autor: _contextoUsuarioZ8.usuario || 'SUPERVISIÓN'
+        });
+        if (res && res.pin) renderPinChatBannerZ8(res.pin);
+    } catch (e) {}
+}
+
+async function eliminarMensajeChatDesdeUIZ8(id) {
+    if (!id) return;
+    try {
+        await fetchGoogleAPI("eliminarMensajeChat", { id });
+        _mensajesChatZ8 = _mensajesChatZ8.filter(m => String(m.id) !== String(id));
+        renderContactosChatZ8();
+        renderMensajesChatZ8();
+    } catch (e) {}
+}
+
+let _chatSidebarColapsadoZ8 = false;
+let _chatPanelMinimizadoZ8 = false;
+
+function toggleSidebarCanalesChatZ8(forzar) {
+    const sb = document.getElementById('chat-sidebar-col-z8');
+    const btn = document.getElementById('btn-toggle-sidebar-canales-z8');
+    if (!sb) return;
+    _chatSidebarColapsadoZ8 = (typeof forzar === 'boolean') ? forzar : !sb.classList.contains('collapsed');
+    sb.classList.toggle('collapsed', _chatSidebarColapsadoZ8);
+    if (btn) {
+        btn.textContent = _chatSidebarColapsadoZ8 ? '▶' : '◀';
+        btn.title = _chatSidebarColapsadoZ8 ? 'Expandir barra de canales' : 'Contraer barra de canales a solo iconos';
+    }
+    try { localStorage.setItem('z8_chat_sidebar_collapsed', _chatSidebarColapsadoZ8 ? '1' : '0'); } catch (e) {}
+    renderContactosChatZ8();
+}
+
+function toggleMinimizarModuloChatZ8(forzarMinimizado) {
+    const mount = document.getElementById('chat-embedded-mount-z8');
+    const floatBtnWrap = document.getElementById('chat-widget-container-z8');
+    if (!mount) return;
+    const panelIzquierdo = mount.previousElementSibling;
+
+    _chatPanelMinimizadoZ8 = (typeof forzarMinimizado === 'boolean') ? forzarMinimizado : !_chatPanelMinimizadoZ8;
+    _chatAbiertoZ8 = !_chatPanelMinimizadoZ8;
+
+    if (_chatPanelMinimizadoZ8) {
+        mount.classList.add('hidden');
+        if (panelIzquierdo) {
+            panelIzquierdo.classList.remove('xl:col-span-7');
+            panelIzquierdo.classList.add('xl:col-span-12');
+        }
+        if (floatBtnWrap) {
+            floatBtnWrap.classList.remove('xl:hidden');
+        }
+    } else {
+        mount.classList.remove('hidden');
+        if (panelIzquierdo) {
+            panelIzquierdo.classList.remove('xl:col-span-12');
+            panelIzquierdo.classList.add('xl:col-span-7');
+        }
+        if (floatBtnWrap) {
+            floatBtnWrap.classList.add('xl:hidden');
+        }
+        _noLeidosChatZ8[_conversacionActivaZ8] = 0;
+        actualizarBadgesNoLeidosChatZ8();
+        renderContactosChatZ8();
+        renderMensajesChatZ8();
+    }
+    try { localStorage.setItem('z8_chat_panel_minimized', _chatPanelMinimizadoZ8 ? '1' : '0'); } catch (e) {}
 }
 
 function montarChatEnContenedorPaginaZ8() {
@@ -1993,16 +2833,18 @@ function montarChatEnContenedorPaginaZ8() {
 
 function irAlModuloChatZ8() {
     montarChatEnContenedorPaginaZ8();
-    if (typeof window.cambiarTab === 'function' && document.getElementById('vista-chat')) {
-        window.cambiarTab('chat');
+    if (_chatPanelMinimizadoZ8) {
+        toggleMinimizarModuloChatZ8(false);
     }
     const win = document.getElementById('chat-window-z8');
     if (win) {
-        win.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        if (window.innerWidth < 1280) {
+            win.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
         setTimeout(() => {
             const inp = document.getElementById('chat-input-txt-z8');
             if (inp) inp.focus();
-        }, 250);
+        }, 180);
     }
 }
 
@@ -2267,7 +3109,7 @@ async function guardarMiPerfilZ8() {
             nuevaClave: nuevaClave || null
         });
 
-        await fetchGoogleAPI("getPerfilesUsuarios", {});
+        await fetchGoogleAPI("getPerfilesUsuarios", { forzarRefresco: true });
         actualizarCabeceraPerfilAgenteUI();
         renderContactosChatZ8();
         if (typeof window.onPerfilesActualizadosZ8 === 'function') window.onPerfilesActualizadosZ8();
@@ -2447,16 +3289,16 @@ function renderContactosChatZ8() {
     if (!bar) return;
     const miUsuario = _contextoUsuarioZ8.usuario;
     const perfiles = window._cachePerfilesZ8 || {};
-    const filtro = ((document.getElementById('chat-sidebar-search-z8') || {}).value || '').trim().toLowerCase();
+    const filtro = _chatSidebarColapsadoZ8 ? '' : (((document.getElementById('chat-sidebar-search-z8') || {}).value || '').trim().toLowerCase());
 
-    const usuarios = Object.keys(perfiles).filter(u => u !== miUsuario).sort((a, b) => {
+    const usuarios = Object.keys(perfiles).filter(u => u !== miUsuario && perfiles[u].rol !== 'BAJA').sort((a, b) => {
         const rolA = perfiles[a].rol === 'admin' ? 0 : 1;
         const rolB = perfiles[b].rol === 'admin' ? 0 : 1;
         if (rolA !== rolB) return rolA - rolB;
         return a.localeCompare(b);
     });
 
-    let html = `<div class="px-2.5 pt-1 pb-1 text-[10px] font-extrabold uppercase tracking-wider text-slate-500">Canales de Equipo</div>`;
+    let html = `<div class="z8-hide-on-collapse px-2.5 pt-1 pb-1 text-[10px] font-extrabold uppercase tracking-wider text-slate-500">Canales de Equipo</div>`;
 
     for (const c of CANALES_EQUIPO_Z8) {
         const ult = obtenerUltimoMensajeConversacionZ8(c.id, miUsuario);
@@ -2470,9 +3312,12 @@ function renderContactosChatZ8() {
         const hora = ult ? formatearHoraCortaSidebarZ8(ult.creadoEn) : '';
 
         html += `
-            <div onclick="seleccionarConversacionChatZ8('${c.id}')" class="z8-chat-item flex items-center gap-3 px-3 py-2.5 ${activo ? 'active' : ''}">
-                ${renderAvatarCanalOAgenteZ8(c.id, 38)}
-                <div class="flex-1 min-w-0">
+            <div onclick="seleccionarConversacionChatZ8('${c.id}')" title="${escaparHTMLZ8(c.nombre + ' — ' + previewTxt)}" class="z8-chat-item relative flex items-center gap-3 px-3 py-2.5 ${activo ? 'active' : ''}">
+                <div class="relative shrink-0">
+                    ${renderAvatarCanalOAgenteZ8(c.id, 38)}
+                    ${(_chatSidebarColapsadoZ8 && unread > 0) ? `<span class="absolute -top-1 -right-1 px-1.5 py-0.2 bg-blue-600 text-white rounded-full text-[9px] font-black">${unread}</span>` : ''}
+                </div>
+                <div class="z8-hide-on-collapse flex-1 min-w-0">
                     <div class="flex items-center justify-between gap-1">
                         <span class="text-xs font-bold truncate">${escaparHTMLZ8(c.nombre)}</span>
                         <span class="text-[10px] text-slate-400 shrink-0">${hora}</span>
@@ -2486,7 +3331,7 @@ function renderContactosChatZ8() {
         `;
     }
 
-    html += `<div class="px-2.5 pt-3 pb-1 text-[10px] font-extrabold uppercase tracking-wider text-slate-500">Mensajes Directos</div>`;
+    html += `<div class="z8-hide-on-collapse px-2.5 pt-3 pb-1 text-[10px] font-extrabold uppercase tracking-wider text-slate-500">Mensajes Directos</div>`;
 
     for (const u of usuarios) {
         const p = perfiles[u] || {};
@@ -2503,9 +3348,12 @@ function renderContactosChatZ8() {
         const hora = ult ? formatearHoraCortaSidebarZ8(ult.creadoEn) : '';
 
         html += `
-            <div onclick="seleccionarConversacionChatZ8('${u}')" class="z8-chat-item flex items-center gap-3 px-3 py-2.5 ${activo ? 'active' : ''}">
-                ${renderAvatarCanalOAgenteZ8(u, 38)}
-                <div class="flex-1 min-w-0">
+            <div onclick="seleccionarConversacionChatZ8('${u}')" title="${escaparHTMLZ8(nombreVisible + ' — ' + previewTxt)}" class="z8-chat-item relative flex items-center gap-3 px-3 py-2.5 ${activo ? 'active' : ''}">
+                <div class="relative shrink-0">
+                    ${renderAvatarCanalOAgenteZ8(u, 38)}
+                    ${(_chatSidebarColapsadoZ8 && unread > 0) ? `<span class="absolute -top-1 -right-1 px-1.5 py-0.2 bg-blue-600 text-white rounded-full text-[9px] font-black">${unread}</span>` : ''}
+                </div>
+                <div class="z8-hide-on-collapse flex-1 min-w-0">
                     <div class="flex items-center justify-between gap-1">
                         <span class="text-xs font-bold truncate">${escaparHTMLZ8(nombreVisible)}</span>
                         <span class="text-[10px] text-slate-400 shrink-0">${hora}</span>
@@ -2525,6 +3373,7 @@ function renderMensajesChatZ8() {
     const feed = document.getElementById('chat-mensajes-feed-z8');
     if (!feed) return;
     const miUsuario = _contextoUsuarioZ8.usuario;
+    const soyAdmin = _contextoUsuarioZ8.rol === 'admin';
     const lista = _mensajesChatZ8.filter(m => esMensajeVisibleEnConversacionZ8(m, _conversacionActivaZ8, miUsuario));
 
     if (lista.length === 0) {
@@ -2547,6 +3396,7 @@ function renderMensajesChatZ8() {
 
     for (const m of lista) {
         const esMio = m.emisor === miUsuario;
+        const puedeBorrar = soyAdmin || esMio;
         let horaStr = '';
         try {
             const d = new Date(m.creadoEn);
@@ -2562,29 +3412,36 @@ function renderMensajesChatZ8() {
         const gifHtml = m.gifUrl
             ? `<div class="mt-1.5"><img src="${escaparHTMLZ8(m.gifUrl)}" alt="GIF" class="rounded-xl max-h-40 object-contain bg-black/20"></div>`
             : '';
+        const btnDel = puedeBorrar
+            ? `<button type="button" onclick="eliminarMensajeChatDesdeUIZ8(${m.id})" class="opacity-0 group-hover:opacity-100 text-[10px] text-slate-400 hover:text-red-400 transition ml-1" title="Eliminar mensaje">🗑️</button>`
+            : '';
 
         if (esMio) {
             html += `
-                <div class="flex items-end justify-end gap-2">
+                <div class="flex items-end justify-end gap-2 group">
                     <div class="max-w-[75%] z8-bubble-out px-3.5 py-2.5 shadow-sm">
                         ${textoSeguro ? `<div class="break-words leading-relaxed text-[12px]">${textoSeguro}</div>` : ''}
                         ${gifHtml}
                         <div class="text-[10px] opacity-60 text-right mt-1 flex items-center justify-end gap-1">
                             <span>${horaStr}</span>
                             <span>✓✓</span>
+                            ${btnDel}
                         </div>
                     </div>
                 </div>
             `;
         } else {
             html += `
-                <div class="flex items-end gap-2.5">
+                <div class="flex items-end gap-2.5 group">
                     ${renderAvatarHTMLZ8(m.emisor, 28)}
                     <div class="max-w-[75%] z8-bubble-in px-3.5 py-2.5 shadow-sm">
                         ${mostrarNombreEmisor ? `<div class="text-[10px] font-extrabold text-blue-400 mb-0.5 flex items-center">${escaparHTMLZ8(m.emisor)}${tagAdmin}</div>` : ''}
                         ${textoSeguro ? `<div class="break-words leading-relaxed text-[12px]">${textoSeguro}</div>` : ''}
                         ${gifHtml}
-                        <div class="text-[10px] opacity-50 mt-1">${horaStr}</div>
+                        <div class="text-[10px] opacity-50 mt-1 flex items-center gap-1">
+                            <span>${horaStr}</span>
+                            ${btnDel}
+                        </div>
                     </div>
                 </div>
             `;
