@@ -8,30 +8,33 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
-        body { background-color: #f8fafc; font-family: 'Inter', sans-serif; color: #334155; }
-        
-        .bento-panel { background: white; border: 1px solid #e2e8f0; border-radius: 16px; padding: 24px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.02); }
-        .btn-calc { background-color: white; color: #2563eb; border: 1px solid #2563eb; padding: 8px 14px; border-radius: 8px; font-weight: 600; font-size: 12px; transition: all 0.2s;}
-        .btn-calc:hover { background-color: #eff6ff; }
-        
+        body { background-color: var(--z8-bg, #f8fafc); font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif; color: var(--z8-text, #334155); font-size: 14px; line-height: 1.5; -webkit-font-smoothing: antialiased; }
+
+        .bento-panel { background: var(--z8-surface, #ffffff); border: 1px solid var(--z8-border, #e2e8f0); border-radius: var(--z8-radius-lg, 16px); padding: var(--z8-space-6, 24px); box-shadow: var(--z8-shadow-sm, 0 1px 2px rgba(15,23,42,0.05)); }
+        .btn-calc { background-color: var(--z8-surface, #ffffff); color: var(--z8-primary, #2563eb); border: 1px solid var(--z8-primary, #2563eb); padding: var(--z8-space-2, 8px) 14px; border-radius: var(--z8-radius-sm, 8px); font-weight: 600; font-size: 12px; }
+        .btn-calc:hover { background-color: var(--z8-primary-soft, #eff6ff); transform: translateY(-1px); box-shadow: var(--z8-shadow-sm, 0 1px 2px rgba(15,23,42,0.05)); }
+
         table { width: 100%; border-collapse: collapse; }
-        th { text-align: left; padding: 12px 14px; border-bottom: 2px solid #e2e8f0; color: #64748b; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; white-space: nowrap; }
-        td { padding: 14px; border-bottom: 1px solid #f1f5f9; font-size: 13px; color: #1e293b; font-weight: 500; white-space: nowrap; }
-        tr:hover td { background-color: #f8fafc; }
+        th { text-align: left; padding: var(--z8-space-3, 12px) 14px; border-bottom: 2px solid var(--z8-border, #e2e8f0); color: #64748b; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; white-space: nowrap; }
+        td { padding: 12px 14px; border-bottom: 1px solid var(--z8-border-soft, #f1f5f9); font-size: 13px; color: var(--z8-text, #1e293b); font-weight: 500; white-space: nowrap; font-variant-numeric: tabular-nums; }
+        tr:hover td { background-color: var(--z8-surface-2, #f8fafc); }
 
-        /* Estilos de las Pestañas (Tabs) */
-        .tab-btn { padding: 10px 14px; font-weight: 600; font-size: 12px; border-bottom: 3px solid transparent; color: #64748b; transition: all 0.2s; cursor: pointer; white-space: nowrap; }
-        .tab-btn:hover { color: #2563eb; }
-        .tab-btn.active { color: #2563eb; border-bottom-color: #2563eb; }
+        /* Pestañas */
+        .tab-btn { padding: 10px 14px; font-weight: 600; font-size: 12px; border-bottom: 3px solid transparent; color: #64748b; cursor: pointer; white-space: nowrap; }
+        .tab-btn:hover { color: var(--z8-primary, #2563eb); background-color: var(--z8-primary-soft, #eff6ff); }
+        .tab-btn.active { color: var(--z8-primary, #2563eb); border-bottom-color: var(--z8-primary, #2563eb); }
 
-        .btn-kick { width: 28px; height: 28px; border-radius: 8px; background-color: rgba(239, 68, 68, 0.14); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.35); font-size: 13px; font-weight: bold; transition: all 0.15s; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
+        /* Botones de acción compactos (misma geometría) */
+        .btn-kick, .btn-action-mini { width: 28px; height: 28px; border-radius: var(--z8-radius-sm, 8px); cursor: pointer; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 13px; }
+        .btn-kick { background-color: rgba(239, 68, 68, 0.14); color: var(--z8-danger, #dc2626); border: 1px solid rgba(239, 68, 68, 0.35); font-weight: bold; }
         .btn-kick:hover { background-color: #ef4444; color: white; transform: translateY(-1px); }
+        .btn-action-mini:hover { transform: translateY(-1px); box-shadow: var(--z8-shadow-sm, 0 1px 2px rgba(15,23,42,0.05)); }
 
-        .btn-action-mini { width: 28px; height: 28px; border-radius: 8px; font-size: 13px; transition: all 0.15s; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
-        .btn-action-mini:hover { transform: translateY(-1px); }
-
-        .kpi-pill-admin { display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px; border-radius: 10px; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12); cursor: pointer; transition: all 0.15s; user-select: none; }
+        .kpi-pill-admin { display: inline-flex; align-items: center; gap: var(--z8-space-2, 8px); padding: 6px var(--z8-space-3, 12px); border-radius: 10px; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12); cursor: pointer; user-select: none; transition: background-color var(--z8-transition, 0.2s ease-in-out), transform 0.12s ease-in-out; }
         .kpi-pill-admin:hover { background: rgba(255,255,255,0.13); transform: translateY(-1px); }
+
+        /* Barras de desplazamiento discretas en tablas anchas */
+        .overflow-x-auto { scrollbar-width: thin; scrollbar-color: #cbd5e1 transparent; }
     </style>
 </head>
 <body>
@@ -304,13 +307,21 @@
             <!-- VISTA 4: SOLICITUDES DE CORRECCIÓN -->
             <div id="vista-solicitudes" class="hidden">
                 <div class="p-4 bg-amber-50/40 flex flex-wrap justify-between items-center gap-3 border-b border-amber-100">
-                    <div class="flex items-center gap-2">
+                    <div class="flex items-center gap-2 flex-wrap">
                         <h3 class="text-xs font-bold text-slate-800 uppercase tracking-widest mr-2">Bandeja de Correcciones de Horas</h3>
                         <button onclick="filtrarSolicitudesAdmin('PENDIENTES')" id="flt-sol-pendientes" class="px-3 py-1 rounded-lg text-xs font-bold bg-amber-500 text-white transition">Pendientes</button>
                         <button onclick="filtrarSolicitudesAdmin('RESUELTAS')" id="flt-sol-resueltas" class="px-3 py-1 rounded-lg text-xs font-bold bg-white text-slate-600 border border-slate-200 hover:bg-slate-100 transition">Historial Resueltas</button>
                         <button onclick="filtrarSolicitudesAdmin('TODAS')" id="flt-sol-todas" class="px-3 py-1 rounded-lg text-xs font-bold bg-white text-slate-600 border border-slate-200 hover:bg-slate-100 transition">Todas</button>
                     </div>
-                    <button onclick="cargarSolicitudesAdmin()" class="text-xs text-blue-600 font-bold hover:underline">⟳ Refrescar Solicitudes</button>
+                    <div class="flex items-center gap-2 flex-wrap">
+                        <div class="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-white border border-amber-200 shadow-sm text-xs" title="Los agentes tienen un máximo de 2 solicitudes al mes. Si necesitan una 3ª solicitud, dales este código de un solo uso (se regenera solo tras usarse).">
+                            <span class="text-[11px] font-bold text-slate-600">🔑 Código desbloqueo (&gt;2/mes):</span>
+                            <span id="txt-codigo-aut-correccion" class="font-mono font-extrabold text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200 tracking-wider">----</span>
+                            <button type="button" onclick="copiarCodigoAutorizacionAdmin()" class="px-2 py-0.5 rounded bg-slate-100 hover:bg-blue-600 hover:text-white text-[10px] font-bold text-slate-700 transition" title="Copiar código para enviarlo al agente">📋 Copiar</button>
+                            <button type="button" onclick="regenerarCodigoAutorizacionAdmin()" class="px-2 py-0.5 rounded bg-slate-100 hover:bg-amber-600 hover:text-white text-[10px] font-bold text-slate-700 transition" title="Generar o elegir un nuevo código de autorización">🔄 Nuevo</button>
+                        </div>
+                        <button onclick="cargarSolicitudesAdmin()" class="text-xs text-blue-600 font-bold hover:underline">⟳ Refrescar</button>
+                    </div>
                 </div>
                 <div class="overflow-x-auto">
                     <table>
@@ -525,13 +536,37 @@
         </div>
     </div>
 
+    <!-- MODAL: PERMISOS DE MÓDULOS POR AGENTE -->
+    <div id="modal-permisos-admin" class="hidden fixed inset-0 z-[9500] flex items-center justify-center p-4 bg-slate-900/60" role="dialog" aria-modal="true" aria-labelledby="titulo-modal-permisos">
+        <div class="bento-panel w-full max-w-md shadow-2xl">
+            <div class="flex items-start justify-between mb-3">
+                <div>
+                    <h3 id="titulo-modal-permisos" class="text-sm font-extrabold text-slate-800">🔐 Permisos de <span id="perm-nombre-agente" class="text-blue-600"></span></h3>
+                    <p class="text-[11px] text-slate-500">Elige un perfil y ajusta módulos sueltos si hace falta. Se aplica en directo.</p>
+                </div>
+                <button type="button" onclick="cerrarModalPermisosAdmin()" class="text-slate-400 hover:text-slate-700 text-lg leading-none" aria-label="Cerrar">✕</button>
+            </div>
+            <label class="block text-[10px] font-bold text-slate-500 uppercase mb-1" for="perm-perfil">Perfil</label>
+            <select id="perm-perfil" onchange="alCambiarPerfilPermisosAdmin()" class="w-full px-3 py-2 rounded-lg border border-slate-200 text-xs font-bold bg-white mb-1"></select>
+            <p id="perm-desc-perfil" class="text-[11px] text-slate-400 mb-3"></p>
+            <div id="perm-lista-modulos" class="space-y-1.5 mb-4"></div>
+            <div class="flex justify-end gap-2">
+                <button type="button" onclick="cerrarModalPermisosAdmin()" class="px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-100">Cancelar</button>
+                <button type="button" onclick="guardarPermisosDesdeModalAdmin()" class="px-4 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow">Guardar permisos</button>
+            </div>
+        </div>
+    </div>
+
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script>if (typeof window.supabase === 'undefined') { document.write('<script src="https://unpkg.com/@supabase/supabase-js@2"><\/script>'); }</script>
     <script src="api.js"></script>
     <script>
-        let usuarioAdminActivo = (localStorage.getItem('tt_usuario') || 'SUPERVISOR').trim().toUpperCase();
+        let usuarioAdminActivo = (localStorage.getItem('tt_usuario') || '').trim().toUpperCase();
         let rolActivo = localStorage.getItem('tt_rol');
-        if (rolActivo !== 'admin') window.location.href = 'index.html';
+        if (!usuarioAdminActivo || rolActivo !== 'admin' || !localStorage.getItem('tt_token')) {
+            localStorage.clear();
+            window.location.replace('index.html');
+        }
 
         let todosAgentesRaw = [];
         let agentesData = [];
@@ -553,6 +588,10 @@
         let filtroEquipoActual = 'ACTIVOS';
 
         window.onload = async () => {
+            if (typeof verificarSesionActivaZ8 === 'function') {
+                const ok = await verificarSesionActivaZ8('admin');
+                if (!ok) return;
+            }
             const today = new Date();
             const yyyy = today.getFullYear();
             const mm = String(today.getMonth() + 1).padStart(2, '0');
@@ -1269,12 +1308,19 @@
                             </div>
                         </div>
                     </td>
-                    <td>${badgeRol}</td>
+                    <td>
+                        ${badgeRol}
+                        ${(!u.enBaja && String(u.rol).toLowerCase() !== 'admin') ? `<div class="mt-1 text-[10px] font-semibold text-slate-500" title="Perfil de acceso a módulos">🔐 Perfil: ${escaparHTMLZ8((window.PERFILES_PERMISOS_Z8 && window.PERFILES_PERMISOS_Z8[u.permisosPerfil] ? window.PERFILES_PERMISOS_Z8[u.permisosPerfil].nombre : 'Completo'))}${Object.keys(u.permisosExcepciones || {}).length ? ` (+${Object.keys(u.permisosExcepciones).length} excep.)` : ''}</div>` : ''}
+                    </td>
                     <td class="font-mono text-xs font-bold text-slate-700">${u.horas_objetivo || 8}h / día</td>
                     <td><span class="px-2 py-0.5 rounded text-xs font-bold bg-slate-100 text-slate-700">${escaparHTMLZ8(u.servicio || '—')}</span></td>
-                    <td class="font-mono text-xs text-slate-500">${escaparHTMLZ8(u.clave || '••••')}</td>
+                    <td class="font-mono text-xs text-slate-500">
+                        <span id="pwd-mask-${escaparHTMLZ8(u.nombre)}" data-visible="0" data-raw="${escaparHTMLZ8(u.clave || '')}">••••••</span>
+                        <button type="button" onclick="toggleVerClaveEquipoAdmin('${escaparHTMLZ8(u.nombre)}')" class="ml-1 text-[11px] text-slate-400 hover:text-blue-600" title="Mostrar / ocultar contraseña">👁️</button>
+                    </td>
                     <td class="text-right">
                         <div class="flex items-center justify-end gap-1.5">
+                            ${(!u.enBaja && String(u.rol).toLowerCase() !== 'admin') ? `<button onclick="abrirModalPermisosAdmin('${escaparHTMLZ8(u.nombre)}')" class="px-2.5 py-1 rounded-lg text-xs font-bold bg-violet-50 hover:bg-violet-600 text-violet-700 hover:text-white border border-violet-200 transition" title="Elegir qué módulos puede usar este agente">🔐 Permisos</button>` : ''}
                             <button onclick="cargarUsuarioEnFormularioEquipo('${escaparHTMLZ8(u.nombre)}')" class="px-2.5 py-1 rounded-lg text-xs font-bold bg-blue-50 hover:bg-blue-600 text-blue-700 hover:text-white border border-blue-200 transition">✏️ Editar</button>
                             ${btnBajaReactivar}
                             <button onclick="cambiarEstadoBajaUsuarioAdmin('${escaparHTMLZ8(u.nombre)}', 'ELIMINAR')" class="px-2 py-1 rounded-lg text-xs font-bold text-slate-400 hover:text-red-600" title="Eliminar definitivamente de la base de datos">🗑️</button>
@@ -1283,6 +1329,85 @@
                 </tr>`;
             });
             tbody.innerHTML = html;
+        }
+
+        function toggleVerClaveEquipoAdmin(nombre) {
+            const el = document.getElementById(`pwd-mask-${nombre}`);
+            if (!el) return;
+            const vis = el.getAttribute('data-visible') === '1';
+            if (vis) {
+                el.textContent = '••••••';
+                el.setAttribute('data-visible', '0');
+            } else {
+                el.textContent = el.getAttribute('data-raw') || '—';
+                el.setAttribute('data-visible', '1');
+            }
+        }
+
+        // --- PERMISOS DE MÓDULOS POR AGENTE ---
+        let permisosAgenteEditando = null;
+
+        function abrirModalPermisosAdmin(nombre) {
+            const u = equipoAdminData.find(item => item.nombre === nombre);
+            if (!u) return;
+            permisosAgenteEditando = nombre;
+            document.getElementById('perm-nombre-agente').textContent = nombre;
+            const sel = document.getElementById('perm-perfil');
+            const perfiles = window.PERFILES_PERMISOS_Z8 || {};
+            sel.innerHTML = Object.keys(perfiles).map(k => `<option value="${k}">${perfiles[k].nombre}</option>`).join('');
+            sel.value = perfiles[u.permisosPerfil] ? u.permisosPerfil : 'completo';
+            renderModulosPermisosAdmin(u.permisosModulos || perfiles[sel.value].modulos);
+            actualizarDescPerfilPermisosAdmin();
+            document.getElementById('modal-permisos-admin').classList.remove('hidden');
+        }
+
+        function renderModulosPermisosAdmin(estado) {
+            const cont = document.getElementById('perm-lista-modulos');
+            cont.innerHTML = (window.MODULOS_PERMISOS_Z8 || []).map(m => `
+                <label class="flex items-center gap-2.5 px-3 py-2 rounded-lg border border-slate-200 bg-white cursor-pointer hover:bg-slate-50 text-xs font-semibold text-slate-700">
+                    <input type="checkbox" data-modulo="${m.k}" ${estado[m.k] !== false ? 'checked' : ''} class="w-4 h-4 rounded text-blue-600">
+                    <span>${m.label}</span>
+                </label>`).join('');
+        }
+
+        function actualizarDescPerfilPermisosAdmin() {
+            const k = document.getElementById('perm-perfil').value;
+            const p = (window.PERFILES_PERMISOS_Z8 || {})[k];
+            document.getElementById('perm-desc-perfil').textContent = p ? p.desc : '';
+        }
+
+        function alCambiarPerfilPermisosAdmin() {
+            const k = document.getElementById('perm-perfil').value;
+            const p = (window.PERFILES_PERMISOS_Z8 || {})[k];
+            if (p) renderModulosPermisosAdmin(p.modulos);
+            actualizarDescPerfilPermisosAdmin();
+        }
+
+        function cerrarModalPermisosAdmin() {
+            document.getElementById('modal-permisos-admin').classList.add('hidden');
+            permisosAgenteEditando = null;
+        }
+
+        async function guardarPermisosDesdeModalAdmin() {
+            if (!permisosAgenteEditando) return;
+            const excepciones = {};
+            document.querySelectorAll('#perm-lista-modulos input[data-modulo]').forEach(chk => {
+                excepciones[chk.dataset.modulo] = chk.checked;
+            });
+            try {
+                await fetchGoogleAPI("guardarPermisosAgente", {
+                    usuario: permisosAgenteEditando,
+                    perfil: document.getElementById('perm-perfil').value,
+                    excepciones,
+                    usuarioAdmin: usuarioAdminActivo
+                });
+                const nombre = permisosAgenteEditando;
+                cerrarModalPermisosAdmin();
+                await cargarEquipoAdmin();
+                alert('✅ Permisos de ' + nombre + ' actualizados. Se aplican en su panel al instante.');
+            } catch (e) {
+                alert('Error al guardar los permisos: ' + (e.message || e));
+            }
         }
 
         function cargarUsuarioEnFormularioEquipo(nombre) {
@@ -1572,8 +1697,56 @@
         }
 
         // --- LÓGICA DE SOLICITUDES DE CORRECCIÓN (SUPERVISIÓN) ---
+        let codigoAutorizacionActualAdmin = '----';
+
+        async function cargarCodigoAutorizacionAdmin() {
+            try {
+                const r = await fetchGoogleAPI("getCodigoAutorizacionAdmin", { forzarRefresco: true });
+                if (r && r.codigo) {
+                    codigoAutorizacionActualAdmin = r.codigo;
+                    const el = document.getElementById('txt-codigo-aut-correccion');
+                    if (el) el.textContent = r.codigo;
+                }
+            } catch (e) {}
+        }
+
+        async function copiarCodigoAutorizacionAdmin() {
+            if (!codigoAutorizacionActualAdmin || codigoAutorizacionActualAdmin === '----') {
+                await cargarCodigoAutorizacionAdmin();
+            }
+            try {
+                await navigator.clipboard.writeText(codigoAutorizacionActualAdmin);
+                alert(`🔑 Código ${codigoAutorizacionActualAdmin} copiado al portapapeles.\n\nEnvíalo al agente para que pueda registrar 1 solicitud adicional este mes (el código es de un solo uso y cambiará automáticamente tras usarse).`);
+            } catch (e) {
+                prompt("Copia este código de autorización para el agente:", codigoAutorizacionActualAdmin);
+            }
+        }
+
+        async function regenerarCodigoAutorizacionAdmin() {
+            const manual = prompt("🔑 Introduce un nuevo código de autorización (mín. 4 caracteres) o déjalo vacío para generar uno aleatorio de 4 dígitos:", "");
+            if (manual === null) return;
+            try {
+                const r = await fetchGoogleAPI("cambiarCodigoAutorizacionAdmin", {
+                    codigo: manual.trim(),
+                    usuarioAdmin: usuarioAdminActivo
+                });
+                if (r && r.codigo) {
+                    codigoAutorizacionActualAdmin = r.codigo;
+                    const el = document.getElementById('txt-codigo-aut-correccion');
+                    if (el) el.textContent = r.codigo;
+                }
+            } catch (e) {
+                alert("Error al cambiar el código de autorización.");
+            }
+        }
+
+        window.onPermisosActualizadosZ8 = () => {
+            cargarCodigoAutorizacionAdmin();
+        };
+
         async function cargarSolicitudesAdmin() {
             try {
+                cargarCodigoAutorizacionAdmin();
                 const lista = await fetchGoogleAPI("getSolicitudesAdmin", {});
                 solicitudesAdminData = lista || [];
 
@@ -1663,8 +1836,12 @@
                     `;
                 }
 
+                const tagCodigoExtra = s.autorizadoConCodigo
+                    ? `<span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-extrabold bg-amber-100 text-amber-800 border border-amber-300 ml-1" title="Solicitud enviada por encima del límite de 2/mes usando código de Supervisión">🔑 Extra #${s.numSolicitudMes || '3+'}</span>`
+                    : (s.numSolicitudMes ? `<span class="text-[10px] font-semibold text-slate-400 ml-1">(${s.numSolicitudMes}/2 mes)</span>` : '');
+
                 html += `<tr>
-                    <td class="font-bold text-slate-800">${s.usuario}</td>
+                    <td class="font-bold text-slate-800">${s.usuario}${tagCodigoExtra}</td>
                     <td class="font-mono font-bold text-slate-700">${fechaBonita}</td>
                     <td>
                         <span class="px-2.5 py-1 rounded-md border font-mono text-xs font-bold ${colorDelta}">${deltaStr}</span>
@@ -1673,7 +1850,7 @@
                     <td class="font-mono text-xs text-slate-600">
                         ${antesStr} <span class="text-slate-400">→</span> <b class="text-blue-700">${despuesStr}</b>
                     </td>
-                    <td class="text-xs text-slate-700 max-w-xs whitespace-normal">${s.motivo || '—'}</td>
+                    <td class="text-xs text-slate-700 max-w-xs whitespace-normal">${escaparHTMLZ8(s.motivo || '—')}</td>
                     <td>${notaHtml}</td>
                     <td>${accionesHtml}</td>
                 </tr>`;
