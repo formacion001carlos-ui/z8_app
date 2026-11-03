@@ -7,36 +7,36 @@
     <link rel="icon" href="https://cdn-icons-png.flaticon.com/512/2088/2088617.png" type="image/png">
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
-        body { background-color: #f8fafc; font-family: 'Inter', sans-serif; color: #334155; }
-        
-        .bento-panel { background: white; border: 1px solid #e2e8f0; border-radius: 16px; padding: 24px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.02); }
-        
-        .state-btn { background: white; border: 2px solid #e2e8f0; border-radius: 12px; padding: 16px 8px; display: flex; flex-direction: column; align-items: center; cursor: pointer; transition: all 0.2s; }
-        .state-btn:hover { transform: translateY(-2px); box-shadow: 0 10px 15px -3px rgba(0,0,0,0.05); }
-        .state-icon { width: 48px; height: 48px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; margin-bottom: 12px; }
-        .state-btn span { font-weight: 700; font-size: 13px; text-transform: uppercase; letter-spacing: 0.05em; color: #475569; }
-        
-        .active-work { border-color: #16a34a; background: #f0fdf4; }
-        .active-work .state-icon { background: #16a34a; }
-        .active-break { border-color: #2563eb; background: #eff6ff; }
-        .active-break .state-icon { background: #2563eb; }
-        .active-pause { border-color: #d97706; background: #fffbeb; }
-        .active-pause .state-icon { background: #d97706; }
-        .active-off { border-color: #94a3b8; background: #f8fafc; }
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+        body { background-color: var(--z8-bg, #f8fafc); font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif; color: var(--z8-text, #334155); line-height: 1.5; -webkit-font-smoothing: antialiased; }
+
+        .bento-panel { background: var(--z8-surface, #ffffff); border: 1px solid var(--z8-border, #e2e8f0); border-radius: var(--z8-radius-lg, 16px); padding: var(--z8-space-6, 24px); box-shadow: var(--z8-shadow-sm, 0 1px 2px rgba(15,23,42,0.05)); }
+
+        .state-btn { background: var(--z8-surface, #ffffff); border: 2px solid var(--z8-border, #e2e8f0); border-radius: var(--z8-radius-md, 12px); padding: var(--z8-space-4, 16px) var(--z8-space-2, 8px); display: flex; flex-direction: column; align-items: center; cursor: pointer; }
+        .state-btn:hover { transform: translateY(-2px); box-shadow: var(--z8-shadow-md, 0 10px 25px -5px rgba(15,23,42,0.08)); }
+        .state-icon { width: 48px; height: 48px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; margin-bottom: var(--z8-space-3, 12px); }
+        .state-btn span { font-weight: 700; font-size: 13px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--z8-text-muted, #475569); }
+
+        .active-work { border-color: var(--z8-success, #16a34a); background: #f0fdf4; }
+        .active-work .state-icon { background: var(--z8-success, #16a34a); }
+        .active-break { border-color: var(--z8-primary, #2563eb); background: var(--z8-primary-soft, #eff6ff); }
+        .active-break .state-icon { background: var(--z8-primary, #2563eb); }
+        .active-pause { border-color: var(--z8-warning, #d97706); background: #fffbeb; }
+        .active-pause .state-icon { background: var(--z8-warning, #d97706); }
+        .active-off { border-color: #94a3b8; background: var(--z8-surface-2, #f8fafc); }
         .active-off .state-icon { background: #94a3b8; }
 
-        .btn-generic { background-color: #2563eb; color: white; padding: 10px 20px; border-radius: 8px; font-weight: 600; font-size: 14px; transition: all 0.2s; display: inline-flex; justify-content: center; align-items: center;}
-        .btn-generic:hover { background-color: #1d4ed8; transform: translateY(-1px); box-shadow: 0 4px 12px rgba(37,99,235,0.2); }
-        .btn-secondary { background-color: white; color: #475569; border: 1px solid #cbd5e1; }
-        .btn-secondary:hover { background-color: #f1f5f9; color: #0f172a; }
+        .btn-generic { background-color: var(--z8-primary, #2563eb); color: white; padding: 10px 20px; border-radius: var(--z8-radius-sm, 8px); font-weight: 600; font-size: 14px; display: inline-flex; justify-content: center; align-items: center; }
+        .btn-generic:hover { background-color: #1d4ed8; transform: translateY(-1px); box-shadow: 0 4px 12px rgba(37,99,235,0.25); }
+        .btn-secondary { background-color: var(--z8-surface, #ffffff); color: var(--z8-text-muted, #475569); border: 1px solid #cbd5e1; }
+        .btn-secondary:hover { background-color: var(--z8-surface-hover, #f1f5f9); color: #0f172a; box-shadow: none; }
 
-        .progress-track { background: #e2e8f0; border-radius: 99px; height: 10px; overflow: hidden; width: 100%; position: relative; }
-        .progress-fill { background: #2563eb; height: 100%; border-radius: 99px; transition: width 0.5s ease; width: 0%; }
-        .progress-overtime { background: #d97706 !important; box-shadow: 0 0 10px rgba(217, 119, 6, 0.5); }
+        .progress-track { background: var(--z8-border, #e2e8f0); border-radius: 99px; height: 10px; overflow: hidden; width: 100%; position: relative; }
+        .progress-fill { background: var(--z8-primary, #2563eb); height: 100%; border-radius: 99px; transition: width 0.5s ease; width: 0%; }
+        .progress-overtime { background: var(--z8-warning, #d97706) !important; box-shadow: 0 0 10px rgba(217, 119, 6, 0.5); }
 
         #toast-container { position: fixed; bottom: 20px; right: 20px; z-index: 50; display: flex; flex-direction: column; gap: 10px; }
-        .toast { background: white; color: #1e293b; padding: 12px 20px; border-radius: 8px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); border-left: 4px solid #2563eb; font-size: 13px; font-weight: 600; animation: slideIn 0.3s forwards; }
+        .toast { background: var(--z8-surface, #ffffff); color: var(--z8-text, #1e293b); padding: var(--z8-space-3, 12px) 20px; border-radius: var(--z8-radius-sm, 8px); box-shadow: var(--z8-shadow-md, 0 10px 25px -5px rgba(15,23,42,0.08)); border-left: 4px solid var(--z8-primary, #2563eb); font-size: 13px; font-weight: 600; animation: slideIn 0.3s forwards; }
         @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
     </style>
 </head>
@@ -234,9 +234,10 @@
             <div id="seccion-correccion" class="bento-panel md:col-span-2 !p-0 overflow-hidden border border-slate-200">
                 <!-- Cabecera Colapsable -->
                 <button type="button" onclick="toggleModuloCorreccion()" class="w-full px-6 py-4 flex items-center justify-between bg-white hover:bg-slate-50/80 transition text-left">
-                    <div class="flex items-center gap-2.5">
+                    <div class="flex items-center gap-2.5 flex-wrap">
                         <svg class="w-4 h-4 text-amber-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
                         <span class="text-xs font-bold text-slate-700 uppercase tracking-wider">Solicitar Corrección de Horas</span>
+                        <span id="badge-cupo-correccion-mes" class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-600">0/2 este mes</span>
                         <span id="contador-mis-solicitudes" class="hidden px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800"></span>
                     </div>
                     <div class="flex items-center gap-1.5 text-xs font-semibold text-blue-600">
@@ -277,6 +278,20 @@
 
                         <div class="md:col-span-12 mt-1">
                             <input type="text" id="corr-motivo" class="w-full px-3 py-1.5 rounded-lg border border-slate-200 text-xs outline-none focus:border-blue-500 bg-white" placeholder="Motivo breve (obligatorio): ej. olvidé fichar al volver del descanso...">
+                        </div>
+
+                        <!-- Bloqueo al llegar a 2 solicitudes en el mes: pide Código de Autorización de Supervisión -->
+                        <div id="box-codigo-sup-correccion" class="hidden md:col-span-12 mt-1 p-3 rounded-xl bg-amber-50 border border-amber-300">
+                            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                                <div class="text-[11px] text-amber-900">
+                                    <span class="font-extrabold">🔒 Límite mensual alcanzado (2/2 solicitudes):</span>
+                                    Pide a Supervisión un código de autorización de un solo uso para enviar otra solicitud en este mes.
+                                </div>
+                                <div class="flex items-center gap-1.5 shrink-0">
+                                    <span class="text-xs">🔑</span>
+                                    <input type="text" id="corr-codigo-sup" maxlength="10" autocomplete="off" class="w-40 px-2.5 py-1.5 rounded-lg border border-amber-400 text-xs font-mono font-bold uppercase tracking-wider bg-white text-slate-800 outline-none focus:border-amber-600" placeholder="Código (ej. 4829)">
+                                </div>
+                            </div>
                         </div>
                     </div>
 
@@ -408,8 +423,11 @@
         let catalogoTareasRapidasAgente = [];
         let etiquetasSeleccionadasAgente = new Set();
 
-        // Barrera de seguridad
-        if (!usuarioActivo || rolActivo !== 'agente') window.location.href = 'index.html';
+        // Barrera de seguridad estricta (requiere sesión autenticada con contraseña)
+        if (!usuarioActivo || rolActivo !== 'agente' || !localStorage.getItem('tt_token')) {
+            localStorage.clear();
+            window.location.replace('index.html');
+        }
         document.getElementById('lbl-nombre').textContent = usuarioActivo;
 
         // Método blindado para obtener la hora de Madrid sin crashear navegadores
@@ -439,6 +457,10 @@
         }
 
         window.onload = async () => {
+            if (typeof verificarSesionActivaZ8 === 'function') {
+                const ok = await verificarSesionActivaZ8('agente');
+                if (!ok) return;
+            }
             const ahora = getHoraActualMadridAsLocal();
             const yyyy = ahora.getFullYear();
             const mm = String(ahora.getMonth() + 1).padStart(2, '0');
@@ -460,6 +482,17 @@
         };
 
         window.recargarNotasReunionUI = cargarNotasReunionAgente;
+        window.onPermisosActualizadosZ8 = aplicarPermisosAgente;
+        function aplicarPermisosAgente() {
+            const puede = (k) => (typeof tienePermisoZ8 === 'function') ? tienePermisoZ8(k) : true;
+            const mostrar = (el, ok) => { if (el) el.classList.toggle('hidden', !ok); };
+            mostrar(document.getElementById('seccion-correccion'), puede('correcciones'));
+            mostrar(document.getElementById('seccion-incidencia-agente'), puede('incidencias'));
+            mostrar(document.getElementById('seccion-notas-reunion'), puede('notas'));
+            mostrar(document.getElementById('seccion-mensual'), puede('mensual'));
+            const chips = document.getElementById('contenedor-chips-tareas-agente');
+            if (chips && chips.parentElement) mostrar(chips.parentElement, puede('tareas'));
+        }
         window.onTareasRapidasActualizadasZ8 = function(nuevasTareas) {
             catalogoTareasRapidasAgente = Array.isArray(nuevasTareas) ? nuevasTareas : TAREAS_RAPIDAS_DEFAULT_Z8;
             renderChipsTareasRapidasAgente();
@@ -952,12 +985,42 @@
             return 0;
         }
 
+        function contarSolicitudesEnMesAgente(fechaStr) {
+            const maxMes = window.MAX_SOLICITUDES_CORRECCION_MES_Z8 || 2;
+            const ref = (fechaStr || document.getElementById('corr-fecha').value || '').substring(0, 7);
+            if (!ref) return { usadas: 0, max: maxMes, bloqueado: false };
+            const usadas = (solicitudesAgente || []).filter(s => String(s.fecha || '').startsWith(ref)).length;
+            return { usadas, max: maxMes, bloqueado: usadas >= maxMes };
+        }
+
+        function actualizarEstadoCupoCorreccionUI() {
+            const fecha = document.getElementById('corr-fecha').value;
+            const info = contarSolicitudesEnMesAgente(fecha);
+            const badge = document.getElementById('badge-cupo-correccion-mes');
+            const boxCodigo = document.getElementById('box-codigo-sup-correccion');
+            if (badge) {
+                if (info.bloqueado) {
+                    badge.className = "px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-red-100 text-red-700 border border-red-200";
+                    badge.textContent = `🔒 ${info.usadas}/${info.max} este mes (Requiere código)`;
+                } else {
+                    badge.className = "px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800";
+                    badge.textContent = `${info.usadas}/${info.max} este mes`;
+                }
+            }
+            if (boxCodigo) {
+                boxCodigo.classList.toggle('hidden', !info.bloqueado);
+            }
+            return info;
+        }
+
         function actualizarPreviewCorreccion() {
             const fecha = document.getElementById('corr-fecha').value;
             const tipo = document.getElementById('corr-tipo').value;
             const h = Math.max(0, parseInt(document.getElementById('corr-horas').value || 0, 10));
             const m = Math.max(0, Math.min(59, parseInt(document.getElementById('corr-minutos').value || 0, 10)));
             const segsInput = (h * 3600) + (m * 60);
+
+            actualizarEstadoCupoCorreccionUI();
 
             const lbl = document.getElementById('lbl-corr-tiempo');
             if (tipo === 'sumar') lbl.textContent = "Sumar (HH : MM)";
@@ -996,6 +1059,8 @@
             const m = Math.max(0, Math.min(59, parseInt(document.getElementById('corr-minutos').value || 0, 10)));
             const segundos = (h * 3600) + (m * 60);
             const motivo = document.getElementById('corr-motivo').value.trim();
+            const inpCodigo = document.getElementById('corr-codigo-sup');
+            const codigoAutorizacion = inpCodigo ? inpCodigo.value.trim() : '';
 
             if (!fecha) {
                 showToast("Selecciona el día que deseas corregir.");
@@ -1011,6 +1076,14 @@
                 return;
             }
 
+            const cupo = contarSolicitudesEnMesAgente(fecha);
+            if (cupo.bloqueado && !codigoAutorizacion) {
+                actualizarEstadoCupoCorreccionUI();
+                showToast("🔒 Límite de 2 solicitudes este mes alcanzado. Introduce el código de autorización de Supervisión.", true);
+                if (inpCodigo) inpCodigo.focus();
+                return;
+            }
+
             document.getElementById('loading-overlay').classList.remove('hidden');
             try {
                 await fetchGoogleAPI("crearSolicitudCorreccion", {
@@ -1018,13 +1091,15 @@
                     fecha: fecha,
                     tipo: tipo,
                     segundos: segundos,
-                    motivo: motivo
+                    motivo: motivo,
+                    codigoAutorizacion: codigoAutorizacion
                 });
-                showToast("Solicitud enviada al supervisor.");
+                showToast("✅ Solicitud enviada al supervisor.");
                 document.getElementById('corr-motivo').value = "";
+                if (inpCodigo) inpCodigo.value = "";
                 await cargarDatosMensualesAgente();
             } catch (e) {
-                showToast("Error al enviar la solicitud de corrección.");
+                showToast((e && e.message) ? e.message : "Error al enviar la solicitud de corrección.", true);
                 console.error(e);
             } finally {
                 document.getElementById('loading-overlay').classList.add('hidden');
@@ -1043,6 +1118,7 @@
         }
 
         function renderMisSolicitudes() {
+            actualizarEstadoCupoCorreccionUI();
             const wrapper = document.getElementById('contenedor-mis-solicitudes');
             const cont = document.getElementById('lista-mis-solicitudes');
             const badgeCount = document.getElementById('contador-mis-solicitudes');
