@@ -156,11 +156,90 @@ const supabaseClient = (typeof supabase !== 'undefined' && supabase && typeof su
 window._cachePerfilesZ8 = {};
 window._cachePerfilesTimestampZ8 = 0;
 window._tareasRapidasZ8 = ['ENTREVISTAS', 'COORDINACION', 'DEV', 'RRHH', 'SOPORTE', 'FINDE', 'GER', 'UK'];
+const MAX_SOLICITUDES_CORRECCION_MES_Z8 = 2;
+window.MAX_SOLICITUDES_CORRECCION_MES_Z8 = MAX_SOLICITUDES_CORRECCION_MES_Z8;
+
+// Firma determinista de sesión (compatible con https:// y file:// local sin exponer la clave)
+function generarTokenSesionZ8(usuario, rol, clave) {
+    const usr = String(usuario || '').trim().toUpperCase();
+    const r = String(rol || '').trim().toLowerCase();
+    const k = String(clave || '').trim();
+    if (!usr || !r || !k) return '';
+    const raw = `Z8_AUTH_V2::${usr}::${r}::${k}::TIMETRACK_SEC_2026`;
+    let h1 = 0x811c9dc5, h2 = 0x9e3779b9, h3 = 0x85ebca6b, h4 = 0xc2b2ae35;
+    for (let i = 0; i < raw.length; i++) {
+        const c = raw.charCodeAt(i);
+        h1 = Math.imul(h1 ^ c, 0x01000193);
+        h2 = Math.imul(h2 ^ (c + i), 0x85ebca6b);
+        h3 = Math.imul(h3 ^ (c << 3), 0xc2b2ae35);
+        h4 = Math.imul(h4 ^ (c * 31), 0x27d4eb2f);
+    }
+    const hex = (n) => (n >>> 0).toString(16).padStart(8, '0');
+    return `z8s_${hex(h1)}${hex(h2)}${hex(h3)}${hex(h4)}`;
+}
+window.generarTokenSesionZ8 = generarTokenSesionZ8;
+
+let _sesionVerificadaCacheZ8 = { ts: 0, token: '', usuario: '', rol: '' };
+
+async function verificarSesionActivaZ8(rolEsperado) {
+    if (typeof window === 'undefined' || !window.localStorage) return true;
+    const usr = (localStorage.getItem('tt_usuario') || '').trim().toUpperCase();
+    const rolLocal = (localStorage.getItem('tt_rol') || '').trim().toLowerCase();
+    const tokenLocal = (localStorage.getItem('tt_token') || '').trim();
+    const reqRol = rolEsperado ? String(rolEsperado).trim().toLowerCase() : rolLocal;
+
+    const expulsar = () => {
+        try { localStorage.clear(); } catch (e) {}
+        if (typeof window !== 'undefined' && window.location && !/index\.html$/i.test(window.location.pathname)) {
+            window.location.replace('index.html');
+        }
+        return false;
+    };
+
+    if (!usr || !rolLocal || !tokenLocal || (reqRol && rolLocal !== reqRol)) {
+        return expulsar();
+    }
+
+    if (
+        _sesionVerificadaCacheZ8.token === tokenLocal &&
+        _sesionVerificadaCacheZ8.usuario === usr &&
+        _sesionVerificadaCacheZ8.rol === rolLocal &&
+        (Date.now() - _sesionVerificadaCacheZ8.ts) < 60000
+    ) {
+        return true;
+    }
+
+    try {
+        const { data, error } = await supabaseClient
+            .from('usuarios')
+            .select('rol, clave')
+            .eq('nombre', usr)
+            .maybeSingle();
+
+        if (error) return true; // Si hay microcorte de red puntual, no expulsar hasta confirmar
+        if (!data || !data.rol) return expulsar();
+        const rolReal = String(data.rol).trim();
+        if (rolReal.toUpperCase() === 'BAJA' || rolReal.toUpperCase() === 'NO ROL') return expulsar();
+        if (reqRol && rolReal.toLowerCase() !== reqRol) return expulsar();
+
+        const tokenEsperado = generarTokenSesionZ8(usr, rolReal, data.clave || '');
+        if (!tokenEsperado || tokenEsperado !== tokenLocal) {
+            return expulsar();
+        }
+
+        _sesionVerificadaCacheZ8 = { ts: Date.now(), token: tokenLocal, usuario: usr, rol: rolReal.toLowerCase() };
+        return true;
+    } catch (e) {
+        return true;
+    }
+}
+window.verificarSesionActivaZ8 = verificarSesionActivaZ8;
 
 async function fetchGoogleAPI(action, payload = {}) {
     if (action === "login") {
         const usr = (payload.usuario || "").trim().toUpperCase();
         const pwd = (payload.password || "").trim();
+        if (!usr || !pwd) return { valido: false };
 
         try {
             const { data, error } = await supabaseClient
@@ -172,7 +251,8 @@ async function fetchGoogleAPI(action, payload = {}) {
 
             if (!error && data) {
                 if (data.rol === 'BAJA' || data.rol === 'NO ROL') return { valido: false, motivo: 'BAJA' };
-                return { valido: true, rol: data.rol };
+                const token = generarTokenSesionZ8(usr, data.rol, pwd);
+                return { valido: true, rol: data.rol, token };
             }
         } catch (e) {}
 
@@ -188,7 +268,14 @@ async function fetchGoogleAPI(action, payload = {}) {
         const rows = await resp.json();
         if (!rows || rows.length === 0) return { valido: false };
         if (rows[0].rol === 'BAJA' || rows[0].rol === 'NO ROL') return { valido: false, motivo: 'BAJA' };
-        return { valido: true, rol: rows[0].rol };
+        const token = generarTokenSesionZ8(usr, rows[0].rol, pwd);
+        return { valido: true, rol: rows[0].rol, token };
+    }
+
+    // Barrera de protección: en el navegador exige sesión autenticada con contraseña válida
+    if (typeof window !== 'undefined' && window.localStorage && window.location && !window._z8TestNode) {
+        const sesionOk = await verificarSesionActivaZ8();
+        if (!sesionOk) throw new Error("Sesión no autorizada. Inicia sesión con tu contraseña.");
     }
     
     if (action === "forceDisconnect") {
@@ -617,8 +704,30 @@ async function fetchGoogleAPI(action, payload = {}) {
         const tiempoSolicitadoSegs = Math.max(0, parseInt(payload.segundos || 0, 10));
         const motivo = (payload.motivo || "").trim();
 
+        await asegurarPermisoZ8(usr, 'correcciones', 'Tu perfil no puede solicitar correcciones de horas.');
         if (!usr || !fecha || !motivo) {
             throw new Error("Datos incompletos para la solicitud.");
+        }
+
+        // Verificar límite mensual de solicitudes (máximo 2 al mes salvo código de autorización de Supervisión)
+        const mesClave = String(fecha).substring(0, 7); // YYYY-MM
+        const { data: rowsMes } = await supabaseClient
+            .from('maestro')
+            .select('*')
+            .eq('usuario', usr)
+            .in('estado', ['SOLICITUD_PENDIENTE', 'SOLICITUD_APROBADA', 'SOLICITUD_RECHAZADA']);
+
+        const solicitudesDelMes = (rowsMes || []).map(formatearFilaSolicitud).filter(s => String(s.fecha || '').startsWith(mesClave));
+        const usadasEsteMes = solicitudesDelMes.length;
+        let autorizadoConCodigo = false;
+
+        if (usadasEsteMes >= MAX_SOLICITUDES_CORRECCION_MES_Z8) {
+            const codigoIngresado = String(payload.codigoAutorizacion || '').trim().toUpperCase().replace(/^Z8-/, '');
+            const codigoVigente = await obtenerCodigoAutorizacionCorreccionZ8(true);
+            if (!codigoIngresado || codigoIngresado !== codigoVigente) {
+                throw new Error(`🔒 Límite mensual alcanzado (${usadasEsteMes}/${MAX_SOLICITUDES_CORRECCION_MES_Z8} solicitudes en este mes). Pide a Supervisión el código de autorización para enviar otra solicitud.`);
+            }
+            autorizadoConCodigo = true;
         }
 
         const inicioDia = `${fecha}T00:00:00.000Z`;
@@ -648,6 +757,8 @@ async function fetchGoogleAPI(action, payload = {}) {
             horasActualesDiaSegs: horasActualesDiaSegs,
             ajusteSegs: ajusteSegs,
             motivo: motivo,
+            autorizadoConCodigo: autorizadoConCodigo,
+            numSolicitudMes: usadasEsteMes + 1,
             creadoEn: new Date().toISOString(),
             resueltoEn: null,
             comentarioAdmin: ""
@@ -666,7 +777,25 @@ async function fetchGoogleAPI(action, payload = {}) {
             .select();
 
         if (error) throw error;
+
+        // Si se desbloqueó con el código de Supervisión, rotar automáticamente el código para que sea de 1 solo uso
+        if (autorizadoConCodigo) {
+            await cambiarCodigoAutorizacionCorreccionZ8(generarPinAleatorioZ8(), usr);
+        }
+
         return { success: true, solicitud: inserted ? formatearFilaSolicitud(inserted[0]) : null };
+    }
+
+    if (action === "getCodigoAutorizacionAdmin") {
+        const codigo = await obtenerCodigoAutorizacionCorreccionZ8(Boolean(payload.forzarRefresco));
+        return { codigo, maxSolicitudesMes: MAX_SOLICITUDES_CORRECCION_MES_Z8 };
+    }
+
+    if (action === "cambiarCodigoAutorizacionAdmin") {
+        const limpio = String(payload.codigo || '').trim().toUpperCase().replace(/^Z8-/, '');
+        const nuevoPin = limpio.length >= 4 ? limpio : generarPinAleatorioZ8();
+        const guardado = await cambiarCodigoAutorizacionCorreccionZ8(nuevoPin, payload.usuarioAdmin || 'SUPERVISOR');
+        return { success: true, codigo: guardado, maxSolicitudesMes: MAX_SOLICITUDES_CORRECCION_MES_Z8 };
     }
 
     if (action === "cancelarSolicitudCorreccion") {
@@ -941,6 +1070,15 @@ async function fetchGoogleAPI(action, payload = {}) {
         }
         if (Object.keys(updateUsuarioTabla).length > 0) {
             await supabaseClient.from('usuarios').update(updateUsuarioTabla).eq('nombre', usr);
+            if (updateUsuarioTabla.clave && typeof window !== 'undefined' && window.localStorage) {
+                const usrActual = (localStorage.getItem('tt_usuario') || '').trim().toUpperCase();
+                const rolActual = (localStorage.getItem('tt_rol') || '').trim();
+                if (usrActual === usr && rolActual) {
+                    const nuevoTok = generarTokenSesionZ8(usr, rolActual, updateUsuarioTabla.clave);
+                    localStorage.setItem('tt_token', nuevoTok);
+                    _sesionVerificadaCacheZ8 = { ts: Date.now(), token: nuevoTok, usuario: usr, rol: rolActual.toLowerCase() };
+                }
+            }
         }
 
         window._cachePerfilesTimestampZ8 = 0;
@@ -1066,6 +1204,7 @@ async function fetchGoogleAPI(action, payload = {}) {
         const gifUrl = (payload.gifUrl || "").trim();
 
         if (!emisor || (!texto && !gifUrl)) throw new Error("Mensaje vacío.");
+        await asegurarPermisoZ8(emisor, 'chat', 'Tu perfil no tiene acceso al chat.');
 
         const meta = {
             emisor,
@@ -1221,6 +1360,7 @@ async function fetchGoogleAPI(action, payload = {}) {
         const creadoPor = (payload.creadoPor || usr).trim().toUpperCase();
 
         if (!usr || !fechaIni) throw new Error("Selecciona el agente y la fecha de la incidencia/permiso.");
+        if (creadoPor === usr) await asegurarPermisoZ8(usr, 'incidencias', 'Tu perfil no puede registrar permisos o incidencias. Avisa a Supervisión.');
 
         const d1 = new Date(`${fechaIni}T12:00:00.000Z`);
         const d2 = new Date(`${fechaFin}T12:00:00.000Z`);
@@ -1295,6 +1435,50 @@ async function fetchGoogleAPI(action, payload = {}) {
         return { success: true };
     }
 
+    if (action === "getPermisosAgentes") {
+        const cfg = await cargarConfigPermisosZ8(Boolean(payload.forzarRefresco));
+        const res = { usuarios: cfg.usuarios, perfiles: PERFILES_PERMISOS_Z8, modulos: MODULOS_PERMISOS_Z8 };
+        if (payload.usuario) {
+            const usrP = String(payload.usuario).trim().toUpperCase();
+            res.mios = calcularModulosPermisosZ8(cfg.usuarios[usrP]);
+        }
+        return res;
+    }
+
+    if (action === "guardarPermisosAgente") {
+        const usr = (payload.usuario || "").trim().toUpperCase();
+        const perfil = PERFILES_PERMISOS_Z8[payload.perfil] ? payload.perfil : 'completo';
+        if (!usr) throw new Error("Usuario requerido.");
+
+        const cfg = await cargarConfigPermisosZ8(true);
+        const base = PERFILES_PERMISOS_Z8[perfil].modulos;
+        const excepciones = {};
+        const enviadas = payload.excepciones || {};
+        for (const m of MODULOS_PERMISOS_Z8) {
+            if (typeof enviadas[m.k] === 'boolean' && enviadas[m.k] !== base[m.k]) excepciones[m.k] = enviadas[m.k];
+        }
+        if (perfil === 'completo' && Object.keys(excepciones).length === 0) {
+            delete cfg.usuarios[usr];
+        } else {
+            cfg.usuarios[usr] = { perfil, excepciones };
+        }
+
+        await supabaseClient.from('maestro').delete().eq('estado', 'CONFIG_PERMISOS_Z8');
+        const usuarioFK = await resolverUsuarioFKMaestro(payload.usuarioAdmin || 'SUPERVISOR');
+        const { error } = await supabaseClient.from('maestro').insert({
+            usuario: usuarioFK,
+            estado: 'CONFIG_PERMISOS_Z8',
+            actividad: JSON.stringify({ usuarios: cfg.usuarios, codigoAuthEnc: cfg.codigoAuthEnc || codificarPinZ8('4829'), actualizadoEn: new Date().toISOString() }),
+            inicio: '2000-01-07T00:00:00.000Z',
+            fin: null,
+            duracion_segundos: 0
+        });
+        if (error) throw error;
+        window._cfgPermisosZ8 = { ts: Date.now(), usuarios: cfg.usuarios, codigoAuthEnc: cfg.codigoAuthEnc || codificarPinZ8('4829') };
+        await emitirEventoOperativoZ8('cambio_permisos', { usuario: usr });
+        return { success: true, ...calcularModulosPermisosZ8(cfg.usuarios[usr]) };
+    }
+
     if (action === "getUsuariosEquipoAdmin") {
         const [{ data: usuariosRows, error }, { data: perfilesRows }, { data: vivosRows }] = await Promise.all([
             supabaseClient.from('usuarios').select('nombre, clave, rol, horas_objetivo, mattermost, UTC').order('nombre', { ascending: true }),
@@ -1315,9 +1499,11 @@ async function fetchGoogleAPI(action, payload = {}) {
             for (const v of vivosRows) vivoMap[(v.usuario || '').trim().toUpperCase()] = v.estado || 'Desconectado';
         }
 
+        const cfgPerm = await cargarConfigPermisosZ8(true);
         return (usuariosRows || []).map(u => {
             const nombre = (u.nombre || '').trim().toUpperCase();
             const pf = perfMap[nombre] || {};
+            const permCalc = calcularModulosPermisosZ8(cfgPerm.usuarios[nombre]);
             const rolStr = (u.rol || 'agente').trim();
             const enBaja = rolStr.toUpperCase() === 'BAJA' || rolStr.toUpperCase() === 'NO ROL';
             return {
@@ -1325,6 +1511,9 @@ async function fetchGoogleAPI(action, payload = {}) {
                 clave: u.clave || '',
                 rol: rolStr,
                 enBaja,
+                permisosPerfil: permCalc.perfil,
+                permisosModulos: permCalc.modulos,
+                permisosExcepciones: (cfgPerm.usuarios[nombre] && cfgPerm.usuarios[nombre].excepciones) || {},
                 horasObjetivo: u.horas_objetivo || 8,
                 horas_objetivo: u.horas_objetivo || 8,
                 mattermost: u.mattermost || pf.mattermost || '',
@@ -1364,6 +1553,14 @@ async function fetchGoogleAPI(action, payload = {}) {
             if (clave) updateObj.clave = clave;
             const { error: errUpd } = await supabaseClient.from('usuarios').update(updateObj).eq('nombre', nombre);
             if (errUpd) throw errUpd;
+            if (clave && typeof window !== 'undefined' && window.localStorage) {
+                const usrActual = (localStorage.getItem('tt_usuario') || '').trim().toUpperCase();
+                if (usrActual === nombre) {
+                    const nuevoTok = generarTokenSesionZ8(nombre, rol, clave);
+                    localStorage.setItem('tt_token', nuevoTok);
+                    _sesionVerificadaCacheZ8 = { ts: Date.now(), token: nuevoTok, usuario: nombre, rol: rol.toLowerCase() };
+                }
+            }
         } else {
             if (!clave) throw new Error("Debes asignar una contraseña para el nuevo usuario.");
             const { error: errIns } = await supabaseClient.from('usuarios').insert({
@@ -1463,6 +1660,7 @@ async function fetchGoogleAPI(action, payload = {}) {
         const categoria = (payload.categoria || "Operativa").trim();
         const tema = (payload.tema || "").trim();
         if (!autor || !tema) throw new Error("Escribe un tema para la reunión.");
+        await asegurarPermisoZ8(autor, 'notas', 'Tu perfil no puede proponer temas de reunión.');
 
         const meta = {
             autor,
@@ -1546,6 +1744,158 @@ async function resolverUsuarioFKMaestro(candidato) {
     return (firstRows && firstRows[0] && firstRows[0].nombre) ? firstRows[0].nombre : 'SUPERVISOR';
 }
 
+// ============================================================================
+// PERMISOS POR MÓDULO (PERFILES + EXCEPCIONES INDIVIDUALES)
+// ============================================================================
+const MODULOS_PERMISOS_Z8 = [
+    { k: 'chat', label: '💬 Chat y canales de equipo' },
+    { k: 'correcciones', label: '⏱️ Solicitar corrección de horas' },
+    { k: 'notas', label: '📋 Notas y temas para reunión' },
+    { k: 'incidencias', label: '📅 Avisar permisos / incidencias' },
+    { k: 'tareas', label: '🏷️ Botones rápidos de tarea' },
+    { k: 'mensual', label: '📊 Resumen mensual de horas' }
+];
+const PERFILES_PERMISOS_Z8 = {
+    completo: { nombre: 'Completo', desc: 'Acceso a todo', modulos: { chat: true, correcciones: true, notas: true, incidencias: true, tareas: true, mensual: true } },
+    intermedio: { nombre: 'Intermedio', desc: 'Chat, notas, tareas y resumen', modulos: { chat: true, correcciones: false, notas: true, incidencias: false, tareas: true, mensual: true } },
+    basico: { nombre: 'Básico', desc: 'Solo fichar, tareas y su resumen', modulos: { chat: false, correcciones: false, notas: false, incidencias: false, tareas: true, mensual: true } }
+};
+window.MODULOS_PERMISOS_Z8 = MODULOS_PERMISOS_Z8;
+window.PERFILES_PERMISOS_Z8 = PERFILES_PERMISOS_Z8;
+
+function calcularModulosPermisosZ8(entrada) {
+    const perfil = (entrada && PERFILES_PERMISOS_Z8[entrada.perfil]) ? entrada.perfil : 'completo';
+    const modulos = { ...PERFILES_PERMISOS_Z8[perfil].modulos };
+    const ex = (entrada && entrada.excepciones) || {};
+    for (const m of MODULOS_PERMISOS_Z8) {
+        if (typeof ex[m.k] === 'boolean') modulos[m.k] = ex[m.k];
+    }
+    return { perfil, modulos };
+}
+
+function generarPinAleatorioZ8() {
+    return String(Math.floor(1000 + Math.random() * 9000));
+}
+
+function codificarPinZ8(pin) {
+    const p = String(pin || '4829').trim().toUpperCase();
+    const k = 'Z8KEY26';
+    let out = '';
+    for (let i = 0; i < p.length; i++) {
+        out += (p.charCodeAt(i) ^ k.charCodeAt(i % k.length)).toString(16).padStart(2, '0');
+    }
+    return out;
+}
+
+function decodificarPinZ8(enc) {
+    if (!enc || typeof enc !== 'string') return '4829';
+    const k = 'Z8KEY26';
+    let out = '';
+    for (let i = 0; i < enc.length; i += 2) {
+        const byte = parseInt(enc.substring(i, i + 2), 16);
+        if (isNaN(byte)) return '4829';
+        out += String.fromCharCode(byte ^ k.charCodeAt((i / 2) % k.length));
+    }
+    return out || '4829';
+}
+
+async function cargarConfigPermisosZ8(forzar) {
+    const c = window._cfgPermisosZ8;
+    if (!forzar && c && (Date.now() - c.ts) < 20000) return c;
+    let usuarios = {};
+    let codigoAuthEnc = codificarPinZ8('4829');
+    try {
+        const { data: rows } = await supabaseClient
+            .from('maestro')
+            .select('actividad')
+            .eq('estado', 'CONFIG_PERMISOS_Z8')
+            .order('id', { ascending: false })
+            .limit(1);
+        if (rows && rows[0]) {
+            const meta = JSON.parse(rows[0].actividad || '{}');
+            if (meta && meta.usuarios && typeof meta.usuarios === 'object') usuarios = meta.usuarios;
+            if (meta && meta.codigoAuthEnc) codigoAuthEnc = meta.codigoAuthEnc;
+        }
+    } catch (e) {
+        if (c) return c;
+    }
+    window._cfgPermisosZ8 = { ts: Date.now(), usuarios, codigoAuthEnc };
+    return window._cfgPermisosZ8;
+}
+
+async function obtenerCodigoAutorizacionCorreccionZ8(forzar) {
+    const cfg = await cargarConfigPermisosZ8(forzar);
+    return decodificarPinZ8(cfg.codigoAuthEnc);
+}
+
+async function cambiarCodigoAutorizacionCorreccionZ8(nuevoPin, autor) {
+    const cfg = await cargarConfigPermisosZ8(true);
+    const enc = codificarPinZ8(nuevoPin);
+    await supabaseClient.from('maestro').delete().eq('estado', 'CONFIG_PERMISOS_Z8');
+    const usuarioFK = await resolverUsuarioFKMaestro(autor || 'SUPERVISOR');
+    await supabaseClient.from('maestro').insert({
+        usuario: usuarioFK,
+        estado: 'CONFIG_PERMISOS_Z8',
+        actividad: JSON.stringify({ usuarios: cfg.usuarios || {}, codigoAuthEnc: enc, actualizadoEn: new Date().toISOString() }),
+        inicio: '2000-01-07T00:00:00.000Z',
+        fin: null,
+        duracion_segundos: 0
+    });
+    window._cfgPermisosZ8 = { ts: Date.now(), usuarios: cfg.usuarios || {}, codigoAuthEnc: enc };
+    await emitirEventoOperativoZ8('cambio_permisos', { codigoRotado: true });
+    return decodificarPinZ8(enc);
+}
+
+async function asegurarPermisoZ8(usuario, modulo, mensaje) {
+    const usr = (usuario || '').trim().toUpperCase();
+    if (!usr) return;
+    const cfg = await cargarConfigPermisosZ8(false);
+    const { modulos } = calcularModulosPermisosZ8(cfg.usuarios[usr]);
+    if (modulos[modulo] === false) throw new Error(mensaje || 'Tu perfil no tiene acceso a esta función.');
+}
+
+function tienePermisoZ8(modulo) {
+    const m = window._misPermisosZ8;
+    return !m || m[modulo] !== false;
+}
+window.tienePermisoZ8 = tienePermisoZ8;
+
+function aplicarPermisoChatZ8(puede) {
+    const mount = document.getElementById('chat-embedded-mount-z8');
+    const wrapper = document.getElementById('chat-module-wrapper-z8');
+    const flotante = document.getElementById('chat-widget-container-z8');
+    window._chatBloqueadoZ8 = !puede;
+    const izquierdo = mount ? mount.previousElementSibling : null;
+    if (!puede) {
+        if (wrapper) wrapper.classList.add('hidden');
+        if (mount) mount.classList.add('hidden');
+        if (flotante) flotante.style.display = 'none';
+        if (izquierdo) { izquierdo.classList.remove('xl:col-span-7'); izquierdo.classList.add('xl:col-span-12'); }
+    } else {
+        if (wrapper) wrapper.classList.remove('hidden');
+        if (flotante) flotante.style.display = '';
+        if (!_chatPanelMinimizadoZ8) {
+            if (mount) mount.classList.remove('hidden');
+            if (izquierdo) { izquierdo.classList.remove('xl:col-span-12'); izquierdo.classList.add('xl:col-span-7'); }
+        }
+    }
+}
+
+async function refrescarPermisosPropiosZ8() {
+    const ctx = _contextoUsuarioZ8 || {};
+    if (!ctx.usuario) return;
+    if (ctx.rol === 'admin') {
+        window._misPermisosZ8 = null;
+    } else {
+        try {
+            const r = await fetchGoogleAPI("getPermisosAgentes", { usuario: ctx.usuario, forzarRefresco: true });
+            window._misPermisosZ8 = r && r.mios ? r.mios.modulos : null;
+        } catch (e) { /* conserva los permisos previos */ }
+    }
+    aplicarPermisoChatZ8(tienePermisoZ8('chat'));
+    if (typeof window.onPermisosActualizadosZ8 === 'function') window.onPermisosActualizadosZ8(window._misPermisosZ8);
+}
+
 function esSolicitudNoAprobada(estado) {
     return estado === 'SOLICITUD_PENDIENTE' || estado === 'SOLICITUD_RECHAZADA';
 }
@@ -1561,6 +1911,7 @@ function esFilaSistemaNoComputable(estado) {
         estado === 'NOTA_REUNION' ||
         estado === 'INCIDENCIA_AUSENCIA' ||
         estado === 'CONFIG_TAREAS_RAPIDAS' ||
+        estado === 'CONFIG_PERMISOS_Z8' ||
         estado === 'PIN_CHAT_Z8'
     );
 }
@@ -1760,6 +2111,8 @@ function formatearFilaSolicitud(row) {
         horasActualesDiaSegs: Number(meta.horasActualesDiaSegs || 0),
         ajusteSegs: ajusteSegs,
         motivo: meta.motivo || '',
+        autorizadoConCodigo: Boolean(meta.autorizadoConCodigo),
+        numSolicitudMes: Number(meta.numSolicitudMes || 0),
         creadoEn: meta.creadoEn || row.inicio,
         resueltoEn: meta.resueltoEn || null,
         comentarioAdmin: meta.comentarioAdmin || ''
@@ -1928,6 +2281,74 @@ function inyectarEstilosGlobalesZ8() {
     const st = document.createElement('style');
     st.id = 'estilos-globales-z8';
     st.textContent = `
+
+        /* ===== TOKENS DE DISEÑO (única fuente de verdad de colores, radios, sombras y espaciados) ===== */
+        :root {
+            --z8-bg: #f8fafc;
+            --z8-surface: #ffffff;
+            --z8-surface-2: #f8fafc;
+            --z8-surface-hover: #f1f5f9;
+            --z8-surface-active: #e2e8f0;
+            --z8-border: #e2e8f0;
+            --z8-border-soft: #f1f5f9;
+            --z8-text: #1e293b;
+            --z8-text-muted: #475569;
+            --z8-primary: #2563eb;
+            --z8-primary-soft: #eff6ff;
+            --z8-primary-border: #bfdbfe;
+            --z8-primary-text: #1e3a8a;
+            --z8-danger: #dc2626;
+            --z8-warning: #d97706;
+            --z8-success: #16a34a;
+            --z8-radius-sm: 8px;
+            --z8-radius-md: 12px;
+            --z8-radius-lg: 16px;
+            --z8-shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.05);
+            --z8-shadow-md: 0 10px 25px -5px rgba(15, 23, 42, 0.08);
+            --z8-space-1: 4px;
+            --z8-space-2: 8px;
+            --z8-space-3: 12px;
+            --z8-space-4: 16px;
+            --z8-space-6: 24px;
+            --z8-transition: 0.2s ease-in-out;
+            --z8-ring: 0 0 0 3px rgba(37, 99, 235, 0.35);
+        }
+        html.dark-mode {
+            --z8-bg: #0f172a;
+            --z8-surface: #141416;
+            --z8-surface-2: #141416;
+            --z8-surface-hover: #1f1f23;
+            --z8-surface-active: #27272c;
+            --z8-border: #27272a;
+            --z8-border-soft: #1f1f23;
+            --z8-text: #f4f4f5;
+            --z8-text-muted: #a1a1aa;
+            --z8-primary: #3b82f6;
+            --z8-primary-soft: #222227;
+            --z8-primary-border: #32323a;
+            --z8-primary-text: #f4f4f5;
+            --z8-shadow-md: 0 20px 30px -10px rgba(0, 0, 0, 0.6);
+            --z8-ring: 0 0 0 3px rgba(96, 165, 250, 0.5);
+        }
+
+        /* ===== ACCESIBILIDAD Y MICRO-INTERACCIONES GLOBALES ===== */
+        :where(button, a, input, select, textarea, [role="button"], [tabindex]):focus-visible {
+            outline: 2px solid var(--z8-primary);
+            outline-offset: 2px;
+            box-shadow: var(--z8-ring);
+        }
+        :where(button, [role="button"], .tab-btn, .btn-calc, .btn-generic, .btn-secondary, .state-btn) {
+            transition: background-color var(--z8-transition), color var(--z8-transition), border-color var(--z8-transition), box-shadow var(--z8-transition), transform 0.12s ease-in-out, opacity var(--z8-transition);
+        }
+        :where(button, [role="button"]):active:not(:disabled) { transform: translateY(1px) scale(0.99); }
+        :where(button):disabled { cursor: not-allowed; opacity: 0.6; }
+        /* Contraste mínimo WCAG AA en textos secundarios pequeños (modo claro) */
+        html:not(.dark-mode) .text-slate-400 { color: #64748b; }
+        html:not(.dark-mode) .text-slate-300 { color: #94a3b8; }
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; scroll-behavior: auto !important; }
+        }
+
         html.dark-mode body { background-color: #0f172a !important; color: #e2e8f0 !important; }
         html.dark-mode .bento-panel,
         html.dark-mode .bento-box { background-color: #1e293b !important; border-color: #334155 !important; color: #f1f5f9 !important; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.4) !important; }
@@ -1968,23 +2389,23 @@ function inyectarEstilosGlobalesZ8() {
 
         /* Módulo de Chat de Dos Columnas (Estilo Mensajería Profesional) */
         .z8-chat-shell {
-            background-color: #ffffff;
-            border: 1px solid #e2e8f0;
-            border-radius: 16px;
+            background-color: var(--z8-surface);
+            border: 1px solid var(--z8-border);
+            border-radius: var(--z8-radius-lg);
             overflow: hidden;
             display: flex;
             height: calc(100vh - 115px);
             min-height: 550px;
             max-height: 780px;
-            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05);
-            transition: all 0.2s ease;
+            box-shadow: var(--z8-shadow-md);
+            transition: background-color var(--z8-transition), border-color var(--z8-transition), width var(--z8-transition);
         }
         .z8-chat-sidebar {
             width: 215px;
-            border-right: 1px solid #e2e8f0;
+            border-right: 1px solid var(--z8-border);
             display: flex;
             flex-direction: column;
-            background-color: #f8fafc;
+            background-color: var(--z8-surface-2);
             flex-shrink: 0;
             transition: width 0.2s ease;
         }
@@ -2001,9 +2422,9 @@ function inyectarEstilosGlobalesZ8() {
             width: calc(100% - 12px);
         }
         .z8-chat-search {
-            background-color: #ffffff;
-            border: 1px solid #e2e8f0;
-            border-radius: 10px;
+            background-color: var(--z8-surface);
+            border: 1px solid var(--z8-border);
+            border-radius: var(--z8-radius-sm);
         }
         .z8-chat-search input {
             background-color: transparent !important;
@@ -2016,52 +2437,52 @@ function inyectarEstilosGlobalesZ8() {
             gap: 11px;
             padding: 10px 12px;
             margin: 2px 8px;
-            border-radius: 10px;
+            border-radius: var(--z8-radius-sm);
             cursor: pointer;
             transition: background-color 0.15s;
             text-align: left;
             width: calc(100% - 16px);
         }
-        .z8-chat-item:hover { background-color: #f1f5f9; }
-        .z8-chat-item.active { background-color: #e2e8f0; }
+        .z8-chat-item:hover { background-color: var(--z8-surface-hover); }
+        .z8-chat-item.active { background-color: var(--z8-surface-active); }
         .z8-chat-main {
             flex: 1;
             display: flex;
             flex-direction: column;
             min-width: 0;
-            background-color: #ffffff;
+            background-color: var(--z8-surface);
         }
         .z8-chat-canvas {
             flex: 1;
             margin: 0 14px;
-            border-radius: 12px;
-            background-color: #f8fafc;
-            border: 1px solid #f1f5f9;
+            border-radius: var(--z8-radius-md);
+            background-color: var(--z8-surface-2);
+            border: 1px solid var(--z8-border-soft);
             padding: 16px;
             overflow-y: auto;
         }
         .z8-bubble-in {
-            background-color: #ffffff;
-            border: 1px solid #e2e8f0;
-            color: #1e293b;
-            border-radius: 12px;
+            background-color: var(--z8-surface);
+            border: 1px solid var(--z8-border);
+            color: var(--z8-text);
+            border-radius: var(--z8-radius-md);
             padding: 10px 14px;
             max-width: 72%;
             box-shadow: 0 1px 2px rgba(0,0,0,0.03);
         }
         .z8-bubble-out {
-            background-color: #eff6ff;
-            border: 1px solid #bfdbfe;
-            color: #1e3a8a;
-            border-radius: 12px;
+            background-color: var(--z8-primary-soft);
+            border: 1px solid var(--z8-primary-border);
+            color: var(--z8-primary-text);
+            border-radius: var(--z8-radius-md);
             padding: 10px 14px;
             max-width: 72%;
         }
         .z8-chat-input-box {
             margin: 12px 14px 14px 14px;
-            border: 1px solid #e2e8f0;
-            background-color: #f8fafc;
-            border-radius: 12px;
+            border: 1px solid var(--z8-border);
+            background-color: var(--z8-surface-2);
+            border-radius: var(--z8-radius-md);
             padding: 6px 8px 6px 14px;
             display: flex;
             align-items: center;
@@ -2376,6 +2797,7 @@ async function iniciarSuiteInteractivaZ8(opciones = {}) {
     // 2. Construir Modales de Alarma/Notificación, Perfil y Módulo de Chat
     inyectarComponentesInteractivosDOMZ8();
     actualizarCabeceraPerfilAgenteUI();
+    await refrescarPermisosPropiosZ8();
 
     // 3. Suscribirse al canal en tiempo real de Supabase
     if (typeof supabaseClient !== 'undefined') {
@@ -2419,6 +2841,9 @@ async function iniciarSuiteInteractivaZ8(opciones = {}) {
                 if (typeof window.onIncidenciasActualizadasZ8 === 'function') {
                     window.onIncidenciasActualizadasZ8();
                 }
+            })
+            .on('broadcast', { event: 'cambio_permisos' }, async () => {
+                await refrescarPermisosPropiosZ8();
             })
             .on('broadcast', { event: 'cambio_notas_reunion' }, () => {
                 if (typeof window.recargarNotasReunionUI === 'function') {
@@ -2788,6 +3213,7 @@ function toggleSidebarCanalesChatZ8(forzar) {
 }
 
 function toggleMinimizarModuloChatZ8(forzarMinimizado) {
+    if (window._chatBloqueadoZ8) return;
     const mount = document.getElementById('chat-embedded-mount-z8');
     const floatBtnWrap = document.getElementById('chat-widget-container-z8');
     if (!mount) return;
@@ -2832,6 +3258,7 @@ function montarChatEnContenedorPaginaZ8() {
 }
 
 function irAlModuloChatZ8() {
+    if (window._chatBloqueadoZ8) return;
     montarChatEnContenedorPaginaZ8();
     if (_chatPanelMinimizadoZ8) {
         toggleMinimizarModuloChatZ8(false);
@@ -3158,6 +3585,7 @@ function esMensajeVisibleEnConversacionZ8(m, conversacion, miUsuario) {
 }
 
 function recibirMensajeChatRealtimeZ8(msg) {
+    if (window._chatBloqueadoZ8) return;
     if (!msg || !msg.id) return;
     if (_mensajesChatZ8.some(x => x.id === msg.id)) return;
 
@@ -3492,7 +3920,7 @@ function filtrarCatalogoGifsZ8() {
 
     const renderItems = (items) => {
         if (!items || items.length === 0) {
-            grid.innerHTML = `<div class="col-span-4 text-center py-4 text-[11px] text-slate-400">Buscando GIFs...</div>`;
+            grid.innerHTML = `<div class="col-span-4 text-center py-4 text-[11px] text-slate-400">Sin coincidencias en el catálogo. Usa "+ URL" para pegar cualquier GIF.</div>`;
             return;
         }
         grid.innerHTML = items.map(g => `
@@ -3504,24 +3932,6 @@ function filtrarCatalogoGifsZ8() {
     };
 
     renderItems(locales);
-
-    if (_giphySearchTimerZ8) clearTimeout(_giphySearchTimerZ8);
-    if (q.length >= 2) {
-        _giphySearchTimerZ8 = setTimeout(async () => {
-            try {
-                const resp = await fetch(`https://api.giphy.com/v1/gifs/search?api_key=GlVGYHkr3WSBnllca54iNt0yFbjz7L65&q=${encodeURIComponent(q)}&limit=16&rating=g&lang=es`);
-                if (!resp.ok) return;
-                const json = await resp.json();
-                const remotos = (json.data || []).map(d => ({
-                    title: d.title || q,
-                    url: (d.images && d.images.fixed_height_small && d.images.fixed_height_small.url) || (d.images && d.images.downsized && d.images.downsized.url) || ''
-                })).filter(x => x.url);
-                if (remotos.length > 0) {
-                    renderItems([...locales, ...remotos]);
-                }
-            } catch (e) {}
-        }, 280);
-    }
 }
 
 async function enviarGifPorUrlManualZ8() {
