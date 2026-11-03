@@ -8,8 +8,9 @@
     <link rel="icon" href="https://cdn-icons-png.flaticon.com/512/2088/2088617.png" type="image/png">
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        body { background-color: #f0f4f8; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; transition: background-color 0.2s, color 0.2s; }
-        .bento-box { background: white; border-radius: 16px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05); border: 1px solid #e2e8f0; }
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+        body { background-color: var(--z8-bg, #f0f4f8); font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif; transition: background-color 0.2s, color 0.2s; -webkit-font-smoothing: antialiased; }
+        .bento-box { background: var(--z8-surface, #ffffff); border-radius: var(--z8-radius-lg, 16px); box-shadow: var(--z8-shadow-md, 0 10px 25px -5px rgba(15,23,42,0.08)); border: 1px solid var(--z8-border, #e2e8f0); }
     </style>
 </head>
 <body class="min-h-screen flex items-center justify-center relative px-4">
@@ -47,18 +48,6 @@
     <script>if (typeof window.supabase === 'undefined') { document.write('<script src="https://unpkg.com/@supabase/supabase-js@2"><\/script>'); }</script>
     <script src="api.js"></script>
     <script>
-        async function loginDirectoRestFallback(usr, pass) {
-            const url = `https://owjddgjnqhwvyoafhakm.supabase.co/rest/v1/usuarios?select=rol&nombre=eq.${encodeURIComponent(usr)}&clave=eq.${encodeURIComponent(pass.trim())}&limit=1`;
-            const key = "sb_publishable_1o-mFgTMNbTvQiXuQ8JIJg_9O7u8inj";
-            const resp = await fetch(url, {
-                headers: { 'apikey': key, 'Authorization': `Bearer ${key}` }
-            });
-            if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-            const rows = await resp.json();
-            if (!rows || rows.length === 0) return { valido: false };
-            return { valido: true, rol: rows[0].rol };
-        }
-
         async function iniciarSesion(e) {
             e.preventDefault();
             const usr = document.getElementById('usuario').value.trim().toUpperCase();
@@ -71,20 +60,12 @@
             errorMsg.classList.add('hidden');
 
             try {
-                let data;
-                if (typeof fetchGoogleAPI === 'function') {
-                    try {
-                        data = await fetchGoogleAPI("login", { usuario: usr, password: pass });
-                    } catch (e1) {
-                        data = await loginDirectoRestFallback(usr, pass);
-                    }
-                } else {
-                    data = await loginDirectoRestFallback(usr, pass);
-                }
+                const data = await fetchGoogleAPI("login", { usuario: usr, password: pass });
                 
-                if (data && data.valido) {
+                if (data && data.valido && data.token) {
                     localStorage.setItem('tt_usuario', usr);
                     localStorage.setItem('tt_rol', data.rol);
+                    localStorage.setItem('tt_token', data.token);
                     
                     if (data.rol === 'admin') {
                         window.location.href = 'admin.html';
@@ -92,7 +73,9 @@
                         window.location.href = 'agente.html';
                     }
                 } else {
-                    errorMsg.textContent = "Credenciales incorrectas.";
+                    errorMsg.textContent = (data && data.motivo === 'BAJA')
+                        ? "Esta cuenta se encuentra dada de baja."
+                        : "Credenciales incorrectas.";
                     errorMsg.classList.remove('hidden');
                     btn.innerHTML = 'Acceder al Sistema';
                     btn.disabled = false;
