@@ -1,6 +1,6 @@
 // api.js
 
-const SUPABASE_URL = "https://owjddgjnqhwvyoafhakm.supabase.co";
+const SUPABASE_URL = -https://owjddgjnqhwvyoafhakm.supabase.co-;
 const SUPABASE_ANON_KEY = "sb_publishable_1o-mFgTMNbTvQiXuQ8JIJg_9O7u8inj";
 
 // Cliente REST nativo de respaldo por si el CDN de Supabase (jsdelivr) es bloqueado por la operadora/navegador
